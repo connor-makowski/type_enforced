@@ -8,7 +8,7 @@ setup(
   author = 'Connor Makowski',
   author_email = 'connor.m.makowski@gmail.com',
   url = 'https://github.com/connor-makowski/type_enforced',
-  download_url = 'https://github.com/connor-makowski/pamda/dist/type_enforced-0.0.1.tar.gz',
+  download_url = 'https://github.com/connor-makowski/type_enforced/dist/type_enforced-0.0.1.tar.gz',
   keywords = [],
   install_requires=[],
   classifiers=[
