@@ -24,12 +24,15 @@ class Enforcer:
     def __validate_types__(self, *args, **kwargs):
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
-        kwarg_defaults = dict(
-            zip(
-                self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
-                self.__fn__.__defaults__,
+        if self.__fn__.__defaults__ is not None:
+            kwarg_defaults = dict(
+                zip(
+                    self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
+                    self.__fn__.__defaults__,
+                )
             )
-        )
+        else:
+            kwarg_defaults = {}
         # Create a compreshensive dictionary of assigned variables
         assigned_vars = {
             **dict(zip(self.__fn__.__code__.co_varnames[: len(args)], args)),
