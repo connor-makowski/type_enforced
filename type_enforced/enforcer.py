@@ -1,3 +1,6 @@
+import types
+import functools
+
 class Enforcer:
     def __init__(self, __fn__, *__args__, **__kwargs__):
         self.__doc__ = __fn__.__doc__
@@ -6,6 +9,14 @@ class Enforcer:
         self.__fn__ = __fn__
         self.__args__ = __args__
         self.__kwargs__ = __kwargs__
+        self.__check_method_function__()
+
+    def __get__(self, obj, objtype):
+        return functools.partial(self.__call__, obj)
+
+    def __check_method_function__(self):
+        if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
+            raise Excpetion('A non function/method was passed to Enforcer. See the stack trace above for more information.')
 
     def __call__(self, *args, **kwargs):
         return self.__validate_types__(*args, **kwargs)
