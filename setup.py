@@ -2,13 +2,13 @@ from distutils.core import setup
 setup(
   name = 'type_enforced',
   packages = ['type_enforced'],
-  version = '0.0.3',
+  version = '0.0.4',
   license='MIT',
   description = 'A type enforcer for python type annotations',
   author = 'Connor Makowski',
   author_email = 'connor.m.makowski@gmail.com',
   url = 'https://github.com/connor-makowski/type_enforced',
-  download_url = 'https://github.com/connor-makowski/type_enforced/dist/type_enforced-0.0.3.tar.gz',
+  download_url = 'https://github.com/connor-makowski/type_enforced/dist/type_enforced-0.0.4.tar.gz',
   keywords = [],
   install_requires=[],
   classifiers=[

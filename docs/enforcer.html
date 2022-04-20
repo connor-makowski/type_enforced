@@ -26,7 +26,11 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Enforcer:
+<pre><code class="python">import types
+import functools
+import sys
+
+class FunctionMethodEnforcer:
     def __init__(self, __fn__, *__args__, **__kwargs__):
         self.__doc__ = __fn__.__doc__
         self.__name__ = __fn__.__name__ + &#34;_type_enforced&#34;
@@ -34,6 +38,38 @@
         self.__fn__ = __fn__
         self.__args__ = __args__
         self.__kwargs__ = __kwargs__
+        self.__check_method_function__()
+
+    def __exception__(self, message, depth=0):
+        &#34;&#34;&#34;
+        Usage:
+
+        - Creates a class based exception message
+
+        Requires:
+
+        - `message`:
+            - Type: str
+            - What: The message to warn users with
+            - Note: Messages with `{{class_name}}` and `{{method_name}}` in them are formatted appropriately
+
+        Optional:
+
+        - `depth`:
+            - Type: int
+            - What: The depth of the nth call below the top of the method stack
+            - Note: Depth starts at 0 (indicating the current method in the stack)
+            - Default: 0
+
+        &#34;&#34;&#34;
+        raise Exception(f&#34;({self.__fn__.__qualname__}): {message}&#34;)
+
+    def __get__(self, obj, objtype):
+        return functools.partial(self.__call__, obj)
+
+    def __check_method_function__(self):
+        if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
+            raise Exception(f&#39;A non function/method was passed to Enforcer. See the stack trace above for more information.&#39;)
 
     def __call__(self, *args, **kwargs):
         return self.__validate_types__(*args, **kwargs)
@@ -45,19 +81,22 @@
         # Special code to replace None with NoneType
         types = [i if i is not None else type(None) for i in types]
         if type(obj) not in types:
-            raise Exception(
-                f&#34;Type mismatch for typed function ({self.__fn__.__name__}) with `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead.&#34;
+            self.__exception__(
+                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead.&#34;
             )
 
     def __validate_types__(self, *args, **kwargs):
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
-        kwarg_defaults = dict(
-            zip(
-                self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
-                self.__fn__.__defaults__,
+        if self.__fn__.__defaults__ is not None:
+            kwarg_defaults = dict(
+                zip(
+                    self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
+                    self.__fn__.__defaults__,
+                )
             )
-        )
+        else:
+            kwarg_defaults = {}
         # Create a compreshensive dictionary of assigned variables
         assigned_vars = {
             **dict(zip(self.__fn__.__code__.co_varnames[: len(args)], args)),
@@ -78,7 +117,16 @@
         return return_value
 
     def __repr__(self):
-        return f&#34;&lt;type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}&gt;&#34;</code></pre>
+        return f&#34;&lt;type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}&gt;&#34;
+
+def Enforcer(clsFnMethod):
+    if isinstance(clsFnMethod, (types.FunctionType, types.MethodType)):
+        return FunctionMethodEnforcer(clsFnMethod)
+    else:
+        for key, value in clsFnMethod.__dict__.items():
+            if hasattr( value, &#39;__call__&#39; ):
+                setattr(clsFnMethod, key, Enforcer( value ))
+        return clsFnMethod</code></pre>
 </details>
 </section>
 <section>
@@ -86,12 +134,34 @@
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="type_enforced.enforcer.Enforcer"><code class="name flex">
+<span>def <span class="ident">Enforcer</span></span>(<span>clsFnMethod)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def Enforcer(clsFnMethod):
+    if isinstance(clsFnMethod, (types.FunctionType, types.MethodType)):
+        return FunctionMethodEnforcer(clsFnMethod)
+    else:
+        for key, value in clsFnMethod.__dict__.items():
+            if hasattr( value, &#39;__call__&#39; ):
+                setattr(clsFnMethod, key, Enforcer( value ))
+        return clsFnMethod</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="type_enforced.enforcer.Enforcer"><code class="flex name class">
-<span>class <span class="ident">Enforcer</span></span>
+<dt id="type_enforced.enforcer.FunctionMethodEnforcer"><code class="flex name class">
+<span>class <span class="ident">FunctionMethodEnforcer</span></span>
 <span>(</span><span>__fn__, *__args__, **__kwargs__)</span>
 </code></dt>
 <dd>
@@ -100,7 +170,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Enforcer:
+<pre><code class="python">class FunctionMethodEnforcer:
     def __init__(self, __fn__, *__args__, **__kwargs__):
         self.__doc__ = __fn__.__doc__
         self.__name__ = __fn__.__name__ + &#34;_type_enforced&#34;
@@ -108,6 +178,38 @@
         self.__fn__ = __fn__
         self.__args__ = __args__
         self.__kwargs__ = __kwargs__
+        self.__check_method_function__()
+
+    def __exception__(self, message, depth=0):
+        &#34;&#34;&#34;
+        Usage:
+
+        - Creates a class based exception message
+
+        Requires:
+
+        - `message`:
+            - Type: str
+            - What: The message to warn users with
+            - Note: Messages with `{{class_name}}` and `{{method_name}}` in them are formatted appropriately
+
+        Optional:
+
+        - `depth`:
+            - Type: int
+            - What: The depth of the nth call below the top of the method stack
+            - Note: Depth starts at 0 (indicating the current method in the stack)
+            - Default: 0
+
+        &#34;&#34;&#34;
+        raise Exception(f&#34;({self.__fn__.__qualname__}): {message}&#34;)
+
+    def __get__(self, obj, objtype):
+        return functools.partial(self.__call__, obj)
+
+    def __check_method_function__(self):
+        if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
+            raise Exception(f&#39;A non function/method was passed to Enforcer. See the stack trace above for more information.&#39;)
 
     def __call__(self, *args, **kwargs):
         return self.__validate_types__(*args, **kwargs)
@@ -119,19 +221,22 @@
         # Special code to replace None with NoneType
         types = [i if i is not None else type(None) for i in types]
         if type(obj) not in types:
-            raise Exception(
-                f&#34;Type mismatch for typed function ({self.__fn__.__name__}) with `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead.&#34;
+            self.__exception__(
+                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead.&#34;
             )
 
     def __validate_types__(self, *args, **kwargs):
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
-        kwarg_defaults = dict(
-            zip(
-                self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
-                self.__fn__.__defaults__,
+        if self.__fn__.__defaults__ is not None:
+            kwarg_defaults = dict(
+                zip(
+                    self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
+                    self.__fn__.__defaults__,
+                )
             )
-        )
+        else:
+            kwarg_defaults = {}
         # Create a compreshensive dictionary of assigned variables
         assigned_vars = {
             **dict(zip(self.__fn__.__code__.co_varnames[: len(args)], args)),
@@ -169,10 +274,15 @@
 <li><code><a title="type_enforced" href="index.html">type_enforced</a></code></li>
 </ul>
 </li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="type_enforced.enforcer.Enforcer" href="#type_enforced.enforcer.Enforcer">Enforcer</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="type_enforced.enforcer.Enforcer" href="#type_enforced.enforcer.Enforcer">Enforcer</a></code></h4>
+<h4><code><a title="type_enforced.enforcer.FunctionMethodEnforcer" href="#type_enforced.enforcer.FunctionMethodEnforcer">FunctionMethodEnforcer</a></code></h4>
 </li>
 </ul>
 </li>

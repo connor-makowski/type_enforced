@@ -1,7 +1,8 @@
 import types
 import functools
+import sys
 
-class Enforcer:
+class FunctionMethodEnforcer:
     def __init__(self, __fn__, *__args__, **__kwargs__):
         self.__doc__ = __fn__.__doc__
         self.__name__ = __fn__.__name__ + "_type_enforced"
@@ -11,12 +12,36 @@ class Enforcer:
         self.__kwargs__ = __kwargs__
         self.__check_method_function__()
 
+    def __exception__(self, message, depth=0):
+        """
+        Usage:
+
+        - Creates a class based exception message
+
+        Requires:
+
+        - `message`:
+            - Type: str
+            - What: The message to warn users with
+            - Note: Messages with `{{class_name}}` and `{{method_name}}` in them are formatted appropriately
+
+        Optional:
+
+        - `depth`:
+            - Type: int
+            - What: The depth of the nth call below the top of the method stack
+            - Note: Depth starts at 0 (indicating the current method in the stack)
+            - Default: 0
+
+        """
+        raise Exception(f"({self.__fn__.__qualname__}): {message}")
+
     def __get__(self, obj, objtype):
         return functools.partial(self.__call__, obj)
 
     def __check_method_function__(self):
         if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
-            raise Excpetion('A non function/method was passed to Enforcer. See the stack trace above for more information.')
+            raise Exception(f'A non function/method was passed to Enforcer. See the stack trace above for more information.')
 
     def __call__(self, *args, **kwargs):
         return self.__validate_types__(*args, **kwargs)
@@ -28,8 +53,8 @@ class Enforcer:
         # Special code to replace None with NoneType
         types = [i if i is not None else type(None) for i in types]
         if type(obj) not in types:
-            raise Exception(
-                f"Type mismatch for typed function ({self.__fn__.__name__}) with `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead."
+            self.__exception__(
+                f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead."
             )
 
     def __validate_types__(self, *args, **kwargs):
@@ -65,3 +90,12 @@ class Enforcer:
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
+
+def Enforcer(clsFnMethod):
+    if isinstance(clsFnMethod, (types.FunctionType, types.MethodType)):
+        return FunctionMethodEnforcer(clsFnMethod)
+    else:
+        for key, value in clsFnMethod.__dict__.items():
+            if hasattr( value, '__call__' ):
+                setattr(clsFnMethod, key, Enforcer( value ))
+        return clsFnMethod
