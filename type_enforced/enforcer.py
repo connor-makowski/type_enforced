@@ -4,9 +4,8 @@ import sys
 
 class FunctionMethodEnforcer:
     def __init__(self, __fn__, *__args__, **__kwargs__):
-        self.__doc__ = __fn__.__doc__
+        functools.update_wrapper(self, __fn__)
         self.__name__ = __fn__.__name__ + "_type_enforced"
-        self.__annotations__ = __fn__.__annotations__
         self.__fn__ = __fn__
         self.__args__ = __args__
         self.__kwargs__ = __kwargs__
@@ -37,7 +36,9 @@ class FunctionMethodEnforcer:
         raise Exception(f"({self.__fn__.__qualname__}): {message}")
 
     def __get__(self, obj, objtype):
-        return functools.partial(self.__call__, obj)
+        new_fn=functools.partial(self.__call__, obj)
+        functools.update_wrapper(new_fn, self)
+        return new_fn
 
     def __check_method_function__(self):
         if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
