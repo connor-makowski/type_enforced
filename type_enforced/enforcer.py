@@ -1,6 +1,6 @@
 import types
 import functools
-import sys
+
 
 class FunctionMethodEnforcer:
     def __init__(self, __fn__, *__args__, **__kwargs__):
@@ -36,13 +36,15 @@ class FunctionMethodEnforcer:
         raise Exception(f"({self.__fn__.__qualname__}): {message}")
 
     def __get__(self, obj, objtype):
-        new_fn=functools.partial(self.__call__, obj)
+        new_fn = functools.partial(self.__call__, obj)
         functools.update_wrapper(new_fn, self)
         return new_fn
 
     def __check_method_function__(self):
         if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
-            raise Exception(f'A non function/method was passed to Enforcer. See the stack trace above for more information.')
+            raise Exception(
+                f"A non function/method was passed to Enforcer. See the stack trace above for more information."
+            )
 
     def __call__(self, *args, **kwargs):
         return self.__validate_types__(*args, **kwargs)
@@ -92,11 +94,12 @@ class FunctionMethodEnforcer:
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
 
+
 def Enforcer(clsFnMethod):
     if isinstance(clsFnMethod, (types.FunctionType, types.MethodType)):
         return FunctionMethodEnforcer(clsFnMethod)
     else:
         for key, value in clsFnMethod.__dict__.items():
-            if hasattr( value, '__call__' ):
-                setattr(clsFnMethod, key, Enforcer( value ))
+            if hasattr(value, "__call__"):
+                setattr(clsFnMethod, key, Enforcer(value))
         return clsFnMethod
