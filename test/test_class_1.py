@@ -10,4 +10,15 @@ class my_class:
 
 
 mc=my_class()
-mc.my_fn('a')
+
+success=False
+try:
+    mc.my_fn('a')
+except Exception as e:
+    if 'Type mismatch' in str(e):
+        success=True
+
+if success:
+    print('test_class_1.py passed')
+else:
+    print('test_class_1.py failed')
