@@ -91,7 +91,7 @@ class my_class:
 Type enforcer can enforce class instances and classes easily. There are a few caveats between the two.
 
 To enforce a class instance, simply pass the class itself as a type hint:
-```
+```py
 import type_enforced
 
 class Foo():
@@ -110,7 +110,7 @@ y=my_class(Foo) # Fails!
 Notice how an initialized class instance `Foo()` must be passed for the enforcer to not raise an exception.
 
 To enforce an uninitialized class object use `typing.Type[classHere]` on the class to enforce inputs to be an uninitialized class:
-```
+```py
 import type_enforced
 import typing
 
