@@ -17,11 +17,11 @@ pip install type_enforced
 
 `type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce most basic python typing hints.
 
-`type_enforcer` currently supports all single level python types and single level class instances. For example, you can force an input to be an `int` or a self defined `MyClass`, but not a vector of the format `list(int)`. In this case, when using `type_enforcer`, you would only pass the format `list` and would not validate that the content of the list was indeed integers.
+`type_enforcer` currently supports all single level python types, single level class instances and classes themselves. For example, you can force an input to be an `int` or an instance of the self defined `MyClass`, but not a vector of the format `list(int)`. In this case, when using `type_enforcer`, you would only pass the format `list` and would not validate that the content of the list was indeed integers.
 
 You can pass multiple types in brackets to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, float]`.
 
-Non specified types for variables are not enforced. 
+Non specified types for variables are not enforced.
 
 Input and return typing are both supported.
 
@@ -84,4 +84,45 @@ class my_class:
 
     def my_other_fn(self, a: int, b: [int, str]):
       pass
+```
+
+## Validate class instances and classes
+
+Type enforcer can enforce class instances and classes easily. There are a few caveats between the two.
+
+To enforce a class instance, simply pass the class itself as a type hint:
+```
+import type_enforced
+
+class Foo():
+    def __init__(self) -> None:
+        pass
+
+@type_enforced.Enforcer
+class my_class():
+    def __init__(self, object: Foo) -> None:
+        self.object = object
+
+x=my_class(Foo()) # Works great!
+y=my_class(Foo) # Fails!
+```
+
+Notice how an initialized class instance `Foo()` must be passed for the enforcer to not raise an exception.
+
+To enforce an uninitialized class object use `typing.Type[classHere]` on the class to enforce inputs to be an uninitialized class:
+```
+import type_enforced
+import typing
+
+class Foo():
+    def __init__(self) -> None:
+        pass
+
+@type_enforced.Enforcer
+class my_class():
+    def __init__(self, object_class: typing.Type[Foo]) -> None:
+        self.object = object_class()
+
+y=my_class(Foo) # Works great!
+x=my_class(Foo()) # Fails
 ```

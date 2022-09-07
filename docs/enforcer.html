@@ -27,6 +27,7 @@
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">import types
+import typing
 import functools
 
 
@@ -83,9 +84,13 @@ class FunctionMethodEnforcer:
             types = [types]
         # Special code to replace None with NoneType
         types = [i if i is not None else type(None) for i in types]
-        if type(obj) not in types:
+        if isinstance(obj, type):
+            passed_type = typing.Type[obj]
+        else:
+            passed_type = type(obj)
+        if passed_type not in types:
             self.__exception__(
-                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead.&#34;
+                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead.&#34;
             )
 
     def __validate_types__(self, *args, **kwargs):
@@ -227,9 +232,13 @@ def Enforcer(clsFnMethod):
             types = [types]
         # Special code to replace None with NoneType
         types = [i if i is not None else type(None) for i in types]
-        if type(obj) not in types:
+        if isinstance(obj, type):
+            passed_type = typing.Type[obj]
+        else:
+            passed_type = type(obj)
+        if passed_type not in types:
             self.__exception__(
-                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead.&#34;
+                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead.&#34;
             )
 
     def __validate_types__(self, *args, **kwargs):

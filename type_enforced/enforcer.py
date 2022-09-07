@@ -1,4 +1,5 @@
 import types
+import typing
 import functools
 
 
@@ -55,9 +56,13 @@ class FunctionMethodEnforcer:
             types = [types]
         # Special code to replace None with NoneType
         types = [i if i is not None else type(None) for i in types]
-        if type(obj) not in types:
+        if isinstance(obj, type):
+            passed_type = typing.Type[obj]
+        else:
+            passed_type = type(obj)
+        if passed_type not in types:
             self.__exception__(
-                f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{type(obj)}` instead."
+                f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead."
             )
 
     def __validate_types__(self, *args, **kwargs):
