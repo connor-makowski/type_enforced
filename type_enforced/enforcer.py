@@ -102,17 +102,13 @@ class FunctionMethodEnforcer:
 
 def Enforcer(clsFnMethod):
     if isinstance(clsFnMethod, staticmethod):
-        return staticmethod(
-            FunctionMethodEnforcer(clsFnMethod.__func__)
-        )
+        return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
     elif isinstance(clsFnMethod, classmethod):
-        return classmethod(
-            FunctionMethodEnforcer(clsFnMethod.__func__)
-        )
+        return classmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
     elif isinstance(clsFnMethod, (types.FunctionType, types.MethodType)):
         return FunctionMethodEnforcer(clsFnMethod)
     else:
         for key, value in clsFnMethod.__dict__.items():
-            if hasattr(value, "__call__") or isinstance(value, (classmethod,staticmethod)):
+            if hasattr(value, "__call__") or isinstance(value, (classmethod, staticmethod)):
                 setattr(clsFnMethod, key, Enforcer(value))
         return clsFnMethod

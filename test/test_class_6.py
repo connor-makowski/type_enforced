@@ -1,5 +1,4 @@
 import type_enforced
-from typing import Type, types
 
 class Foo():
     @type_enforced.Enforcer
