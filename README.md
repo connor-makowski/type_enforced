@@ -86,6 +86,22 @@ class my_class:
       pass
 ```
 
+You can also enforce types on `staticmethod`s and `classmethod`s
+
+```py
+import type_enforced
+
+@type_enforced.Enforcer
+class my_class:
+    @classmethod
+    def my_fn(self, b:int):
+        pass
+
+    @staticmethod
+    def my_other_fn(a: int, b: [int, str]):
+      pass
+```
+
 ## Validate class instances and classes
 
 Type enforcer can enforce class instances and classes easily. There are a few caveats between the two.
