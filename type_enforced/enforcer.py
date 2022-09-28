@@ -103,7 +103,7 @@ class FunctionMethodEnforcer:
 def Enforcer(clsFnMethod):
     if isinstance(clsFnMethod, (staticmethod, classmethod, types.FunctionType, types.MethodType)):
         # Only apply the enforcer if annotations are specified
-        if clsFnMethod.__annotations__=={}:
+        if clsFnMethod.__annotations__ == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
             return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
