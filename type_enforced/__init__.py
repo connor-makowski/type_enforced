@@ -1,3 +1,3 @@
 import sys
 
-from .enforcer import Enforcer
+from .enforcer import Enforcer, FunctionMethodEnforcer
