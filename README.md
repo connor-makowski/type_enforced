@@ -48,15 +48,13 @@ def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
 >>> my_fn(a='a', b=2, c=3)
 Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
-  File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 47, in __call__
-    return self.__validate_types__(*args, **kwargs)
-  File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 83, in __validate_types__
+  File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 85, in __call__
     self.__check_type__(assigned_vars.get(key), value, key)
-  File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 56, in __check_type__
+  File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 107, in __check_type__
     self.__exception__(
-  File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 37, in __exception__
+  File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 34, in __exception__
     raise Exception(f"({self.__fn__.__qualname__}): {message}")
-Exception: (my_fn): Type mismatch for typed function (my_fn) with `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
+Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
 ```
 
 ## Class and Method Use

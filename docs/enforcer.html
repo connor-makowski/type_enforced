@@ -32,15 +32,22 @@ import functools
 
 
 class FunctionMethodEnforcer:
-    def __init__(self, __fn__, *__args__, **__kwargs__):
+    def __init__(self, __fn__):
+        &#34;&#34;&#34;
+        Initialize a FunctionMethodEnforce class object as a wrapper for a passed function `__fn__`.
+
+        Requires:
+
+            - `__fn__`:
+                - What: The function to enforce
+                - Type: function | method | class
+        &#34;&#34;&#34;
         functools.update_wrapper(self, __fn__)
-        self.__name__ = __fn__.__name__ + &#34;_type_enforced&#34;
         self.__fn__ = __fn__
-        self.__args__ = __args__
-        self.__kwargs__ = __kwargs__
+        self.__outer_self__ = None
         self.__check_method_function__()
 
-    def __exception__(self, message, depth=0):
+    def __exception__(self, message):
         &#34;&#34;&#34;
         Usage:
 
@@ -51,49 +58,36 @@ class FunctionMethodEnforcer:
         - `message`:
             - Type: str
             - What: The message to warn users with
-            - Note: Messages with `{{class_name}}` and `{{method_name}}` in them are formatted appropriately
-
-        Optional:
-
-        - `depth`:
-            - Type: int
-            - What: The depth of the nth call below the top of the method stack
-            - Note: Depth starts at 0 (indicating the current method in the stack)
-            - Default: 0
-
         &#34;&#34;&#34;
         raise Exception(f&#34;({self.__fn__.__qualname__}): {message}&#34;)
 
     def __get__(self, obj, objtype):
-        new_fn = functools.partial(self.__call__, obj)
-        functools.update_wrapper(new_fn, self)
-        return new_fn
+        &#34;&#34;&#34;
+        Overwrite standard __get__ method to return __call__ instead for wrapped class methods.
+
+        Also stores the calling (__get__) `obj` to be passed as an initial argument for `__call__` such that methods can pass `self` correctly.
+        &#34;&#34;&#34;
+        self.__outer_self__ = obj
+        return self.__call__
 
     def __check_method_function__(self):
+        &#34;&#34;&#34;
+        Validate that `self.__fn__` is a method or function
+        &#34;&#34;&#34;
         if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
             raise Exception(
                 f&#34;A non function/method was passed to Enforcer. See the stack trace above for more information.&#34;
             )
 
     def __call__(self, *args, **kwargs):
-        return self.__validate_types__(*args, **kwargs)
-
-    def __check_type__(self, obj, types, key):
-        # Force provided types to be a list of items
-        if not isinstance(types, list):
-            types = [types]
-        # Special code to replace None with NoneType
-        types = [i if i is not None else type(None) for i in types]
-        if isinstance(obj, type):
-            passed_type = typing.Type[obj]
-        else:
-            passed_type = type(obj)
-        if passed_type not in types:
-            self.__exception__(
-                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead.&#34;
-            )
-
-    def __validate_types__(self, *args, **kwargs):
+        &#34;&#34;&#34;
+        This method is used to validate the passed inputs and return the output of the wrapped function or method.
+        &#34;&#34;&#34;
+        # Special code to pass self as an initial argument
+        # for validation purposes in methods
+        # See: self.__get__
+        if self.__outer_self__ is not None:
+            args = (self.__outer_self__,) + args
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
         if self.__fn__.__defaults__ is not None:
@@ -124,11 +118,67 @@ class FunctionMethodEnforcer:
             self.__check_type__(return_value, annotations[&#34;return&#34;], &#34;return&#34;)
         return return_value
 
+    def __check_type__(self, obj, types, key):
+        &#34;&#34;&#34;
+        Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `types` for the argument.
+        &#34;&#34;&#34;
+        # Force provided types to be a list of items
+        if not isinstance(types, list):
+            types = [types]
+        # Special code to replace None with NoneType
+        types = [i if i is not None else type(None) for i in types]
+        if isinstance(obj, type):
+            passed_type = typing.Type[obj]
+        else:
+            passed_type = type(obj)
+        if passed_type not in types:
+            self.__exception__(
+                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead.&#34;
+            )
+
     def __repr__(self):
         return f&#34;&lt;type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}&gt;&#34;
 
 
 def Enforcer(clsFnMethod):
+    &#34;&#34;&#34;
+    A wrapper to enforce types within a function or method given argument annotations.
+
+    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If an function or method that is passed does not have any annotations, it is not converted into the `FunctionMethodEnforcer` class as no validation is possible.
+
+    If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
+
+        - Methods with `__call__`
+        - Methods wrapped with `staticmethod`
+        - Methods wrapped with `classmethod`
+
+    Requires:
+
+        - `clsFnMethod`:
+            - What: The class, function or method that should have input types enforced
+            - Type: function | method | class
+
+    Example Use:
+    ```
+    &gt;&gt;&gt; import type_enforced
+    &gt;&gt;&gt; @type_enforced.Enforcer
+    ... def my_fn(a: int , b: [int, str] =2, c: int =3) -&gt; None:
+    ...     pass
+    ...
+    &gt;&gt;&gt; my_fn(a=1, b=2, c=3)
+    &gt;&gt;&gt; my_fn(a=1, b=&#39;2&#39;, c=3)
+    &gt;&gt;&gt; my_fn(a=&#39;a&#39;, b=2, c=3)
+    Traceback (most recent call last):
+      File &#34;&lt;stdin&gt;&#34;, line 1, in &lt;module&gt;
+      File &#34;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&#34;, line 85, in __call__
+        self.__check_type__(assigned_vars.get(key), value, key)
+      File &#34;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&#34;, line 107, in __check_type__
+        self.__exception__(
+      File &#34;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&#34;, line 34, in __exception__
+        raise Exception(f&#34;({self.__fn__.__qualname__}): {message}&#34;)
+    Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[&lt;class &#39;int&#39;&gt;]` but got `&lt;class &#39;str&#39;&gt;` instead.
+    ```
+    &#34;&#34;&#34;
     if isinstance(clsFnMethod, (staticmethod, classmethod, types.FunctionType, types.MethodType)):
         # Only apply the enforcer if annotations are specified
         if clsFnMethod.__annotations__ == {}:
@@ -157,12 +207,83 @@ def Enforcer(clsFnMethod):
 <span>def <span class="ident">Enforcer</span></span>(<span>clsFnMethod)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>A wrapper to enforce types within a function or method given argument annotations.</p>
+<p>Each wrapped item is converted into a special <code><a title="type_enforced.enforcer.FunctionMethodEnforcer" href="#type_enforced.enforcer.FunctionMethodEnforcer">FunctionMethodEnforcer</a></code> class object that validates the passed parameters for the function or method when it is called. If an function or method that is passed does not have any annotations, it is not converted into the <code><a title="type_enforced.enforcer.FunctionMethodEnforcer" href="#type_enforced.enforcer.FunctionMethodEnforcer">FunctionMethodEnforcer</a></code> class as no validation is possible.</p>
+<p>If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:</p>
+<pre><code>- Methods with &lt;code&gt;\_\_call\_\_&lt;/code&gt;
+- Methods wrapped with &lt;code&gt;staticmethod&lt;/code&gt;
+- Methods wrapped with &lt;code&gt;classmethod&lt;/code&gt;
+</code></pre>
+<h2 id="requires">Requires</h2>
+<ul>
+<li><code>clsFnMethod</code>:<ul>
+<li>What: The class, function or method that should have input types enforced</li>
+<li>Type: function | method | class</li>
+</ul>
+</li>
+</ul>
+<p>Example Use:</p>
+<pre><code>&gt;&gt;&gt; import type_enforced
+&gt;&gt;&gt; @type_enforced.Enforcer
+... def my_fn(a: int , b: [int, str] =2, c: int =3) -&gt; None:
+...     pass
+...
+&gt;&gt;&gt; my_fn(a=1, b=2, c=3)
+&gt;&gt;&gt; my_fn(a=1, b='2', c=3)
+&gt;&gt;&gt; my_fn(a='a', b=2, c=3)
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;, line 85, in __call__
+    self.__check_type__(assigned_vars.get(key), value, key)
+  File &quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;, line 107, in __check_type__
+    self.__exception__(
+  File &quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;, line 34, in __exception__
+    raise Exception(f&quot;({self.__fn__.__qualname__}): {message}&quot;)
+Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[&lt;class 'int'&gt;]` but got `&lt;class 'str'&gt;` instead.
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def Enforcer(clsFnMethod):
+    &#34;&#34;&#34;
+    A wrapper to enforce types within a function or method given argument annotations.
+
+    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If an function or method that is passed does not have any annotations, it is not converted into the `FunctionMethodEnforcer` class as no validation is possible.
+
+    If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
+
+        - Methods with `__call__`
+        - Methods wrapped with `staticmethod`
+        - Methods wrapped with `classmethod`
+
+    Requires:
+
+        - `clsFnMethod`:
+            - What: The class, function or method that should have input types enforced
+            - Type: function | method | class
+
+    Example Use:
+    ```
+    &gt;&gt;&gt; import type_enforced
+    &gt;&gt;&gt; @type_enforced.Enforcer
+    ... def my_fn(a: int , b: [int, str] =2, c: int =3) -&gt; None:
+    ...     pass
+    ...
+    &gt;&gt;&gt; my_fn(a=1, b=2, c=3)
+    &gt;&gt;&gt; my_fn(a=1, b=&#39;2&#39;, c=3)
+    &gt;&gt;&gt; my_fn(a=&#39;a&#39;, b=2, c=3)
+    Traceback (most recent call last):
+      File &#34;&lt;stdin&gt;&#34;, line 1, in &lt;module&gt;
+      File &#34;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&#34;, line 85, in __call__
+        self.__check_type__(assigned_vars.get(key), value, key)
+      File &#34;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&#34;, line 107, in __check_type__
+        self.__exception__(
+      File &#34;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&#34;, line 34, in __exception__
+        raise Exception(f&#34;({self.__fn__.__qualname__}): {message}&#34;)
+    Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[&lt;class &#39;int&#39;&gt;]` but got `&lt;class &#39;str&#39;&gt;` instead.
+    ```
+    &#34;&#34;&#34;
     if isinstance(clsFnMethod, (staticmethod, classmethod, types.FunctionType, types.MethodType)):
         # Only apply the enforcer if annotations are specified
         if clsFnMethod.__annotations__ == {}:
@@ -187,24 +308,39 @@ def Enforcer(clsFnMethod):
 <dl>
 <dt id="type_enforced.enforcer.FunctionMethodEnforcer"><code class="flex name class">
 <span>class <span class="ident">FunctionMethodEnforcer</span></span>
-<span>(</span><span>__fn__, *__args__, **__kwargs__)</span>
+<span>(</span><span>__fn__)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Initialize a FunctionMethodEnforce class object as a wrapper for a passed function <code>__fn__</code>.</p>
+<h2 id="requires">Requires</h2>
+<ul>
+<li><code>__fn__</code>:<ul>
+<li>What: The function to enforce</li>
+<li>Type: function | method | class</li>
+</ul>
+</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class FunctionMethodEnforcer:
-    def __init__(self, __fn__, *__args__, **__kwargs__):
+    def __init__(self, __fn__):
+        &#34;&#34;&#34;
+        Initialize a FunctionMethodEnforce class object as a wrapper for a passed function `__fn__`.
+
+        Requires:
+
+            - `__fn__`:
+                - What: The function to enforce
+                - Type: function | method | class
+        &#34;&#34;&#34;
         functools.update_wrapper(self, __fn__)
-        self.__name__ = __fn__.__name__ + &#34;_type_enforced&#34;
         self.__fn__ = __fn__
-        self.__args__ = __args__
-        self.__kwargs__ = __kwargs__
+        self.__outer_self__ = None
         self.__check_method_function__()
 
-    def __exception__(self, message, depth=0):
+    def __exception__(self, message):
         &#34;&#34;&#34;
         Usage:
 
@@ -215,49 +351,36 @@ def Enforcer(clsFnMethod):
         - `message`:
             - Type: str
             - What: The message to warn users with
-            - Note: Messages with `{{class_name}}` and `{{method_name}}` in them are formatted appropriately
-
-        Optional:
-
-        - `depth`:
-            - Type: int
-            - What: The depth of the nth call below the top of the method stack
-            - Note: Depth starts at 0 (indicating the current method in the stack)
-            - Default: 0
-
         &#34;&#34;&#34;
         raise Exception(f&#34;({self.__fn__.__qualname__}): {message}&#34;)
 
     def __get__(self, obj, objtype):
-        new_fn = functools.partial(self.__call__, obj)
-        functools.update_wrapper(new_fn, self)
-        return new_fn
+        &#34;&#34;&#34;
+        Overwrite standard __get__ method to return __call__ instead for wrapped class methods.
+
+        Also stores the calling (__get__) `obj` to be passed as an initial argument for `__call__` such that methods can pass `self` correctly.
+        &#34;&#34;&#34;
+        self.__outer_self__ = obj
+        return self.__call__
 
     def __check_method_function__(self):
+        &#34;&#34;&#34;
+        Validate that `self.__fn__` is a method or function
+        &#34;&#34;&#34;
         if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
             raise Exception(
                 f&#34;A non function/method was passed to Enforcer. See the stack trace above for more information.&#34;
             )
 
     def __call__(self, *args, **kwargs):
-        return self.__validate_types__(*args, **kwargs)
-
-    def __check_type__(self, obj, types, key):
-        # Force provided types to be a list of items
-        if not isinstance(types, list):
-            types = [types]
-        # Special code to replace None with NoneType
-        types = [i if i is not None else type(None) for i in types]
-        if isinstance(obj, type):
-            passed_type = typing.Type[obj]
-        else:
-            passed_type = type(obj)
-        if passed_type not in types:
-            self.__exception__(
-                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead.&#34;
-            )
-
-    def __validate_types__(self, *args, **kwargs):
+        &#34;&#34;&#34;
+        This method is used to validate the passed inputs and return the output of the wrapped function or method.
+        &#34;&#34;&#34;
+        # Special code to pass self as an initial argument
+        # for validation purposes in methods
+        # See: self.__get__
+        if self.__outer_self__ is not None:
+            args = (self.__outer_self__,) + args
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
         if self.__fn__.__defaults__ is not None:
@@ -287,6 +410,24 @@ def Enforcer(clsFnMethod):
         if &#34;return&#34; in annotations:
             self.__check_type__(return_value, annotations[&#34;return&#34;], &#34;return&#34;)
         return return_value
+
+    def __check_type__(self, obj, types, key):
+        &#34;&#34;&#34;
+        Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `types` for the argument.
+        &#34;&#34;&#34;
+        # Force provided types to be a list of items
+        if not isinstance(types, list):
+            types = [types]
+        # Special code to replace None with NoneType
+        types = [i if i is not None else type(None) for i in types]
+        if isinstance(obj, type):
+            passed_type = typing.Type[obj]
+        else:
+            passed_type = type(obj)
+        if passed_type not in types:
+            self.__exception__(
+                f&#34;Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead.&#34;
+            )
 
     def __repr__(self):
         return f&#34;&lt;type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}&gt;&#34;</code></pre>
