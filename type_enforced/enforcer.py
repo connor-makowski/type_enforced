@@ -116,13 +116,13 @@ def Enforcer(clsFnMethod):
     """
     A wrapper to enforce types within a function or method given argument annotations.
 
-    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If an function or method that is passed does not have any annotations, it is not converted into the `FunctionMethodEnforcer` class as no validation is possible.
+    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If a function or method that is passed does not have any annotations, it is not converted into a `FunctionMethodEnforcer` class as no validation is possible.
 
     If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
 
-        - Methods with `__call__`
-        - Methods wrapped with `staticmethod`
-        - Methods wrapped with `classmethod`
+    - Methods with `__call__`
+    - Methods wrapped with `staticmethod`
+    - Methods wrapped with `classmethod`
 
     Requires:
 

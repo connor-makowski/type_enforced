@@ -144,13 +144,13 @@ def Enforcer(clsFnMethod):
     &#34;&#34;&#34;
     A wrapper to enforce types within a function or method given argument annotations.
 
-    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If an function or method that is passed does not have any annotations, it is not converted into the `FunctionMethodEnforcer` class as no validation is possible.
+    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If a function or method that is passed does not have any annotations, it is not converted into a `FunctionMethodEnforcer` class as no validation is possible.
 
     If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
 
-        - Methods with `__call__`
-        - Methods wrapped with `staticmethod`
-        - Methods wrapped with `classmethod`
+    - Methods with `__call__`
+    - Methods wrapped with `staticmethod`
+    - Methods wrapped with `classmethod`
 
     Requires:
 
@@ -208,12 +208,13 @@ def Enforcer(clsFnMethod):
 </code></dt>
 <dd>
 <div class="desc"><p>A wrapper to enforce types within a function or method given argument annotations.</p>
-<p>Each wrapped item is converted into a special <code><a title="type_enforced.enforcer.FunctionMethodEnforcer" href="#type_enforced.enforcer.FunctionMethodEnforcer">FunctionMethodEnforcer</a></code> class object that validates the passed parameters for the function or method when it is called. If an function or method that is passed does not have any annotations, it is not converted into the <code><a title="type_enforced.enforcer.FunctionMethodEnforcer" href="#type_enforced.enforcer.FunctionMethodEnforcer">FunctionMethodEnforcer</a></code> class as no validation is possible.</p>
+<p>Each wrapped item is converted into a special <code><a title="type_enforced.enforcer.FunctionMethodEnforcer" href="#type_enforced.enforcer.FunctionMethodEnforcer">FunctionMethodEnforcer</a></code> class object that validates the passed parameters for the function or method when it is called. If a function or method that is passed does not have any annotations, it is not converted into a <code><a title="type_enforced.enforcer.FunctionMethodEnforcer" href="#type_enforced.enforcer.FunctionMethodEnforcer">FunctionMethodEnforcer</a></code> class as no validation is possible.</p>
 <p>If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:</p>
-<pre><code>- Methods with &lt;code&gt;\_\_call\_\_&lt;/code&gt;
-- Methods wrapped with &lt;code&gt;staticmethod&lt;/code&gt;
-- Methods wrapped with &lt;code&gt;classmethod&lt;/code&gt;
-</code></pre>
+<ul>
+<li>Methods with <code>__call__</code></li>
+<li>Methods wrapped with <code>staticmethod</code></li>
+<li>Methods wrapped with <code>classmethod</code></li>
+</ul>
 <h2 id="requires">Requires</h2>
 <ul>
 <li><code>clsFnMethod</code>:<ul>
@@ -249,13 +250,13 @@ Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the fo
     &#34;&#34;&#34;
     A wrapper to enforce types within a function or method given argument annotations.
 
-    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If an function or method that is passed does not have any annotations, it is not converted into the `FunctionMethodEnforcer` class as no validation is possible.
+    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If a function or method that is passed does not have any annotations, it is not converted into a `FunctionMethodEnforcer` class as no validation is possible.
 
     If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
 
-        - Methods with `__call__`
-        - Methods wrapped with `staticmethod`
-        - Methods wrapped with `classmethod`
+    - Methods with `__call__`
+    - Methods wrapped with `staticmethod`
+    - Methods wrapped with `classmethod`
 
     Requires:
 
