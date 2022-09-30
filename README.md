@@ -15,7 +15,7 @@ pip install type_enforced
 
 # Getting Started
 
-`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce most basic python typing hints.
+`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce most basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/enforcer.html).
 
 `type_enforcer` currently supports all single level python types, single level class instances and classes themselves. For example, you can force an input to be an `int` or an instance of the self defined `MyClass`, but not a vector of the format `list(int)`. In this case, when using `type_enforcer`, you would only pass the format `list` and would not validate that the content of the list was indeed integers.
 
