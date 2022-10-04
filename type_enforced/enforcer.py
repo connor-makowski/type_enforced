@@ -121,8 +121,8 @@ def Enforcer(clsFnMethod):
     If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
 
     - Methods with `__call__`
-    - Methods wrapped with `staticmethod`
-    - Methods wrapped with `classmethod`
+    - Methods wrapped with `staticmethod` (if python >= 3.10)
+    - Methods wrapped with `classmethod` (if python >= 3.10)
 
     Requires:
 
@@ -153,7 +153,7 @@ def Enforcer(clsFnMethod):
     """
     if isinstance(clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)):
         # Only apply the enforcer if annotations are specified
-        if clsFnMethod.__annotations__ == {}:
+        if getattr(clsFnMethod, "__annotations__", {}) == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
             return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))

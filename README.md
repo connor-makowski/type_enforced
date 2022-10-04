@@ -84,7 +84,7 @@ class my_class:
       pass
 ```
 
-You can also enforce types on `staticmethod`s and `classmethod`s
+You can also enforce types on `staticmethod`s and `classmethod`s if you are using `python >= 3.10`. If you are using a python version less than this, `classmethod`s and `staticmethod`s methods will not have their types enforced.
 
 ```py
 import type_enforced
