@@ -1,6 +1,6 @@
-import types
-import typing
-import functools
+from types import FunctionType, MethodType
+from typing import Type as typingType
+from functools import update_wrapper
 
 
 class FunctionMethodEnforcer:
@@ -14,7 +14,7 @@ class FunctionMethodEnforcer:
                 - What: The function to enforce
                 - Type: function | method | class
         """
-        functools.update_wrapper(self, __fn__)
+        update_wrapper(self, __fn__)
         self.__fn__ = __fn__
         self.__outer_self__ = None
         self.__check_method_function__()
@@ -46,7 +46,7 @@ class FunctionMethodEnforcer:
         """
         Validate that `self.__fn__` is a method or function
         """
-        if not isinstance(self.__fn__, (types.MethodType, types.FunctionType)):
+        if not isinstance(self.__fn__, (MethodType, FunctionType)):
             raise Exception(
                 f"A non function/method was passed to Enforcer. See the stack trace above for more information."
             )
@@ -100,7 +100,7 @@ class FunctionMethodEnforcer:
         # Special code to replace None with NoneType
         types = [i if i is not None else type(None) for i in types]
         if isinstance(obj, type):
-            passed_type = typing.Type[obj]
+            passed_type = typingType[obj]
         else:
             passed_type = type(obj)
         if passed_type not in types:
@@ -121,8 +121,8 @@ def Enforcer(clsFnMethod):
     If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
 
     - Methods with `__call__`
-    - Methods wrapped with `staticmethod`
-    - Methods wrapped with `classmethod`
+    - Methods wrapped with `staticmethod` (if python >= 3.10)
+    - Methods wrapped with `classmethod` (if python >= 3.10)
 
     Requires:
 
@@ -151,15 +151,15 @@ def Enforcer(clsFnMethod):
     Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
     ```
     """
-    if isinstance(clsFnMethod, (staticmethod, classmethod, types.FunctionType, types.MethodType)):
+    if isinstance(clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)):
         # Only apply the enforcer if annotations are specified
-        if clsFnMethod.__annotations__ == {}:
+        if getattr(clsFnMethod, "__annotations__", {}) == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
             return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
         elif isinstance(clsFnMethod, classmethod):
             return classmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
-        elif isinstance(clsFnMethod, (types.FunctionType, types.MethodType)):
+        elif isinstance(clsFnMethod, (FunctionType, MethodType)):
             return FunctionMethodEnforcer(clsFnMethod)
     else:
         for key, value in clsFnMethod.__dict__.items():

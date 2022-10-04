@@ -1,4 +1,5 @@
 import type_enforced
+import sys
 
 class Foo():
     @type_enforced.Enforcer
@@ -32,7 +33,8 @@ try:
 except:
     pass
 
-if success:
+# classmethod and staticmethod wrappers do not contain annotations prior to 3.9
+if success or sys.version_info <= (3,10,0):
     print('test_class_6.py passed')
 else:
     print('test_class_6.py failed')
