@@ -53,8 +53,8 @@ Traceback (most recent call last):
   File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 107, in __check_type__
     self.__exception__(
   File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 34, in __exception__
-    raise Exception(f"({self.__fn__.__qualname__}): {message}")
-Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
+    raise TypeError(f"({self.__fn__.__qualname__}): {message}")
+TypeError: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
 ```
 
 ## Class and Method Use
