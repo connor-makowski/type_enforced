@@ -31,7 +31,7 @@ class FunctionMethodEnforcer:
             - Type: str
             - What: The message to warn users with
         """
-        raise Exception(f"({self.__fn__.__qualname__}): {message}")
+        raise TypeError(f"({self.__fn__.__qualname__}): {message}")
 
     def __get__(self, obj, objtype):
         """
