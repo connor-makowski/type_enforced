@@ -1,6 +1,6 @@
 from types import FunctionType, MethodType
 from typing import Type as typingType
-from functools import update_wrapper
+from functools import update_wrapper, wraps
 
 
 class FunctionMethodEnforcer:
@@ -39,10 +39,13 @@ class FunctionMethodEnforcer:
 
         Also stores the calling (__get__) `obj` to be passed as an initial argument for `__call__` such that methods can pass `self` correctly.
         """
-        if obj == None:
-            update_wrapper(obj, self.__fn__)
+
+        @wraps(self.__fn__)
+        def __get_fn__(*args, **kwargs):
+            return self.__call__(*args, **kwargs)
+
         self.__outer_self__ = obj
-        return self.__call__
+        return __get_fn__
 
     def __check_method_function__(self):
         """

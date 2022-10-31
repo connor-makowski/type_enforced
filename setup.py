@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 setup(
   name = 'type_enforced',
   packages = ['type_enforced'],
-  version = '0.0.13',
+  version = '0.0.14',
   license='MIT',
   description = 'A type enforcer for python type annotations',
   long_description=long_description,
@@ -15,7 +15,7 @@ setup(
   author = 'Connor Makowski',
   author_email = 'connor.m.makowski@gmail.com',
   url = 'https://github.com/connor-makowski/type_enforced',
-  download_url = 'https://github.com/connor-makowski/type_enforced/dist/type_enforced-0.0.13.tar.gz',
+  download_url = 'https://github.com/connor-makowski/type_enforced/dist/type_enforced-0.0.14.tar.gz',
   keywords = [],
   install_requires=[],
   classifiers=[
