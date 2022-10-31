@@ -39,6 +39,8 @@ class FunctionMethodEnforcer:
 
         Also stores the calling (__get__) `obj` to be passed as an initial argument for `__call__` such that methods can pass `self` correctly.
         """
+        if obj == None:
+            update_wrapper(obj, self.__fn__)
         self.__outer_self__ = obj
         return self.__call__
 
@@ -59,7 +61,7 @@ class FunctionMethodEnforcer:
         # for validation purposes in methods
         # See: self.__get__
         if self.__outer_self__ is not None:
-            args = (self.__outer_self__,) + args
+            args = (self.__outer_self__, *args)
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
         if self.__fn__.__defaults__ is not None:
