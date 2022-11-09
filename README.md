@@ -85,7 +85,6 @@ class my_class:
 ```
 
 You can also enforce types on `staticmethod`s and `classmethod`s if you are using `python >= 3.10`. If you are using a python version less than this, `classmethod`s and `staticmethod`s methods will not have their types enforced.
-- NOTE: There is a known issue where classmethod docstrings are broken when a classmethod is type enforced.
 
 ```py
 import type_enforced
