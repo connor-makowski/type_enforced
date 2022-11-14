@@ -27,7 +27,7 @@ class Foo():
 
 docstring = pydoc.render_doc(Foo)
 
-docstring_checks = ['Multiply Docs Here', 'Subtract Docs Here']
+docstring_checks = ['Multiply Docs Here', 'Subtract Docs Here', 'Add Docs Here']
 
 if any([i not in docstring for i in docstring_checks]):
     print('test_class_7.py failed')
