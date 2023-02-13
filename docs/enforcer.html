@@ -95,10 +95,15 @@ class FunctionMethodEnforcer:
             args = (self.__outer_self__, *args)
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
-        if self.__fn__.__defaults__ is not None:
+        if self.__fn__.__kwdefaults__ is not None:
+            # __defaults__ are not used if *args are present necessitating this line
+            kwarg_defaults = self.__fn__.__kwdefaults__
+        elif self.__fn__.__defaults__ is not None:
+            # Create a dictionary of default values
+            # Uses the len of passed args and defaults to determine the correct index locations if kwargs are passed
             kwarg_defaults = dict(
                 zip(
-                    self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
+                    self.__fn__.__code__.co_varnames[len(args) : len(args) + len(self.__fn__.__defaults__)],
                     self.__fn__.__defaults__,
                 )
             )
@@ -394,10 +399,15 @@ Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the fo
             args = (self.__outer_self__, *args)
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
-        if self.__fn__.__defaults__ is not None:
+        if self.__fn__.__kwdefaults__ is not None:
+            # __defaults__ are not used if *args are present necessitating this line
+            kwarg_defaults = self.__fn__.__kwdefaults__
+        elif self.__fn__.__defaults__ is not None:
+            # Create a dictionary of default values
+            # Uses the len of passed args and defaults to determine the correct index locations if kwargs are passed
             kwarg_defaults = dict(
                 zip(
-                    self.__fn__.__code__.co_varnames[-len(self.__fn__.__defaults__) :],
+                    self.__fn__.__code__.co_varnames[len(args) : len(args) + len(self.__fn__.__defaults__)],
                     self.__fn__.__defaults__,
                 )
             )
