@@ -1,9 +1,10 @@
-Type Enforced
-==========
+# Type Enforced
+[![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Enforce types in python functions
 
-Setup
-----------
+# Setup
 
 Make sure you have Python 3.6.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
 
