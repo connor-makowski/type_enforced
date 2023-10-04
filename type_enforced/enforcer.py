@@ -71,20 +71,21 @@ class FunctionMethodEnforcer:
             # __defaults__ are not used if *args are present necessitating this line
             kwarg_defaults = self.__fn__.__kwdefaults__
         elif self.__fn__.__defaults__ is not None:
+            # Get the list of variable names (omittiting **kwargs var if present)
+            varnames = list(self.__fn__.__code__.co_varnames)[: self.__fn__.__code__.co_argcount]
             # Create a dictionary of default values
-            # Uses the len of passed args and defaults to determine the correct index locations if kwargs are passed
             kwarg_defaults = dict(
                 zip(
-                    self.__fn__.__code__.co_varnames[len(args) : len(args) + len(self.__fn__.__defaults__)],
+                    varnames[-len(self.__fn__.__defaults__) :],
                     self.__fn__.__defaults__,
                 )
             )
         else:
             kwarg_defaults = {}
-        # Create a compreshensive dictionary of assigned variables
+        # Create a compreshensive dictionary of assigned variables (order matters)
         assigned_vars = {
-            **dict(zip(self.__fn__.__code__.co_varnames[: len(args)], args)),
             **kwarg_defaults,
+            **dict(zip(self.__fn__.__code__.co_varnames[: len(args)], args)),
             **kwargs,
         }
         # Create a shallow copy dictionary to preserve annotations at object root
