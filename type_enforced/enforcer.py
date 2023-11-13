@@ -1,4 +1,4 @@
-from types import FunctionType, MethodType
+from types import FunctionType, MethodType, GenericAlias
 from typing import Type as typingType
 from functools import update_wrapper, wraps
 
@@ -17,7 +17,62 @@ class FunctionMethodEnforcer:
         update_wrapper(self, __fn__)
         self.__fn__ = __fn__
         self.__outer_self__ = None
+        # Validate that the passed function or method is a method or function
         self.__check_method_function__()
+        # Get input defaults for the function or method
+        self.__get_defaults__()
+        # Get a dictionary of all annotations as checkable types
+        self.__checkable_types__ = {
+            key: self.__get_checkable_type__(value)
+            for key, value in self.__annotations__.items()
+        }
+        # print(self.__checkable_types__)
+        self.__return_type__ = self.__checkable_types__.pop("return", None)
+
+    def __get_defaults__(self):
+        """
+        Get the default values of the passed function or method and store them in `self.__fn_defaults__`.
+        """
+        # Determine assigned variables as they were passed in
+        # See https://stackoverflow.com/a/71884467/12014156
+        if self.__fn__.__kwdefaults__ is not None:
+            # __defaults__ are not used if *args are present necessitating this line
+            self.__fn_defaults__ = self.__fn__.__kwdefaults__
+        elif self.__fn__.__defaults__ is not None:
+            # Get the list of variable names (omittiting **kwargs var if present)
+            varnames = list(self.__fn__.__code__.co_varnames)[
+                : self.__fn__.__code__.co_argcount
+            ]
+            # Create a dictionary of default values
+            self.__fn_defaults__ = dict(
+                zip(
+                    varnames[-len(self.__fn__.__defaults__) :],
+                    self.__fn__.__defaults__,
+                )
+            )
+        else:
+            self.__fn_defaults__ = {}
+
+    def __get_checkable_type__(self, item_annotation):
+        """
+        Gets the checkable type as a nested dict for a passed annotation.
+        """
+        valid_types = {}
+        if not isinstance(item_annotation, (list, tuple)):
+            item_annotation = [item_annotation]
+        for valid_type in item_annotation:
+            # Special code to replace None with NoneType
+            if valid_type is None:
+                valid_types[type(None)] = None
+                continue
+            elif isinstance(valid_type, GenericAlias):
+                if valid_type.__origin__ in [list, tuple, dict, set]:
+                    valid_types[valid_type.__origin__] = self.__get_checkable_type__(valid_type.__args__)
+                else:
+                    valid_types[valid_type.__origin__] = None
+            else:
+                valid_types[valid_type] = None
+        return valid_types
 
     def __exception__(self, message):
         """
@@ -65,61 +120,43 @@ class FunctionMethodEnforcer:
         # See: self.__get__
         if self.__outer_self__ is not None:
             args = (self.__outer_self__, *args)
-        # Determine assigned variables as they were passed in
-        # See https://stackoverflow.com/a/71884467/12014156
-        if self.__fn__.__kwdefaults__ is not None:
-            # __defaults__ are not used if *args are present necessitating this line
-            kwarg_defaults = self.__fn__.__kwdefaults__
-        elif self.__fn__.__defaults__ is not None:
-            # Get the list of variable names (omittiting **kwargs var if present)
-            varnames = list(self.__fn__.__code__.co_varnames)[
-                : self.__fn__.__code__.co_argcount
-            ]
-            # Create a dictionary of default values
-            kwarg_defaults = dict(
-                zip(
-                    varnames[-len(self.__fn__.__defaults__) :],
-                    self.__fn__.__defaults__,
-                )
-            )
-        else:
-            kwarg_defaults = {}
         # Create a compreshensive dictionary of assigned variables (order matters)
         assigned_vars = {
-            **kwarg_defaults,
+            **self.__fn_defaults__,
             **dict(zip(self.__fn__.__code__.co_varnames[: len(args)], args)),
             **kwargs,
         }
-        # Create a shallow copy dictionary to preserve annotations at object root
-        annotations = dict(self.__annotations__)
         # Validate all listed annotations vs the assigned_vars dictionary
-        for key, value in annotations.items():
-            if key in assigned_vars:
-                self.__check_type__(assigned_vars.get(key), value, key)
+        for key, value in self.__checkable_types__.items():
+            self.__check_type__(assigned_vars.get(key), value, key)
         # Execute the function callable
         return_value = self.__fn__(*args, **kwargs)
         # If a return type was passed, validate the returned object
-        if "return" in annotations:
-            self.__check_type__(return_value, annotations["return"], "return")
+        if self.__return_type__ is not None:
+            self.__check_type__(return_value, self.__return_type__, "return")
         return return_value
 
-    def __check_type__(self, obj, types, key):
+    def __check_type__(self, obj, acceptable_types, key):
         """
-        Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `types` for the argument.
-        """
-        # Force provided types to be a list of items
-        if not isinstance(types, list):
-            types = [types]
-        # Special code to replace None with NoneType
-        types = [i if i is not None else type(None) for i in types]
+        Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `acceptable_types` for the argument.
+        """        
         if isinstance(obj, type):
             passed_type = typingType[obj]
         else:
             passed_type = type(obj)
-        if passed_type not in types:
+        if passed_type not in acceptable_types:
             self.__exception__(
-                f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(types)}` but got `{passed_type}` instead."
+                f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(list(acceptable_types.keys()))}` but got `{passed_type}` instead."
             )
+        sub_type = acceptable_types.get(passed_type)
+        if sub_type is not None:
+            if passed_type == dict:
+                for sub_key, value in obj.items():
+                    self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
+            else:
+                for sub_key, value in enumerate(obj):
+                    self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
+            
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
