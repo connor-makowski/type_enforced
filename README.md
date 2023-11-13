@@ -2,11 +2,11 @@
 [![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Enforce types in python functions
+A pure python type enforcer for type annotations. Enforce types in python functions and methods.
 
 # Setup
 
-Make sure you have Python 3.6.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
+Make sure you have Python 3.7.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
 
 ### Installation
 
@@ -16,7 +16,7 @@ pip install type_enforced
 
 # Getting Started
 
-`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce most basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/enforcer.html).
+`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce most basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html).
 
 `type_enforcer` currently supports all single level python types, single level class instances and classes themselves. For example, you can force an input to be an `int` or an instance of the self defined `MyClass`, but not a vector of the format `list(int)`. In this case, when using `type_enforcer`, you would only pass the format `list` and would not validate that the content of the list was indeed integers.
 

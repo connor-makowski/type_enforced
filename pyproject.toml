@@ -1,4 +1,32 @@
 [tool.black]
-line-length = 100
+line-length = 80
 target-version = ['py39']
-exclude = '/.*(migrations|__pycache__).*/'
+exclude = '/.*(__pycache__).*/'
+
+[tool.setuptools]
+py-modules = ["type_enforced"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "type_enforced"
+version = "1.0.0"
+description = "A pure python type enforcer for python type annotations"
+authors = [
+    {name="Connor Makowski", email="conmak@mit.edu"}
+]
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    'License :: OSI Approved :: MIT License',
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/connor-makowski/type_enforced"
+"Bug Tracker" = "https://github.com/connor-makowski/type_enforced/issues"
+"Documentation" = "https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html"

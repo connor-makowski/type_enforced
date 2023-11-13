@@ -72,7 +72,9 @@ class FunctionMethodEnforcer:
             kwarg_defaults = self.__fn__.__kwdefaults__
         elif self.__fn__.__defaults__ is not None:
             # Get the list of variable names (omittiting **kwargs var if present)
-            varnames = list(self.__fn__.__code__.co_varnames)[: self.__fn__.__code__.co_argcount]
+            varnames = list(self.__fn__.__code__.co_varnames)[
+                : self.__fn__.__code__.co_argcount
+            ]
             # Create a dictionary of default values
             kwarg_defaults = dict(
                 zip(
@@ -162,7 +164,9 @@ def Enforcer(clsFnMethod):
     Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
     ```
     """
-    if isinstance(clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)):
+    if isinstance(
+        clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
+    ):
         # Only apply the enforcer if annotations are specified
         if getattr(clsFnMethod, "__annotations__", {}) == {}:
             return clsFnMethod
@@ -174,6 +178,8 @@ def Enforcer(clsFnMethod):
             return FunctionMethodEnforcer(clsFnMethod)
     else:
         for key, value in clsFnMethod.__dict__.items():
-            if hasattr(value, "__call__") or isinstance(value, (classmethod, staticmethod)):
+            if hasattr(value, "__call__") or isinstance(
+                value, (classmethod, staticmethod)
+            ):
                 setattr(clsFnMethod, key, Enforcer(value))
         return clsFnMethod
