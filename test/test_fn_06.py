@@ -54,6 +54,6 @@ success = run_tests(fn3, success)
 success = run_tests(fn4, success)
 
 if success:
-    print('test_fn_6.py passed')
+    print('test_fn_06.py passed')
 else:
-    print('test_fn_6.py failed')
+    print('test_fn_06.py failed')

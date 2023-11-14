@@ -25,6 +25,6 @@ except Exception as e:
         success_3=True
 
 if success_1 and success_2 and success_3:
-    print('test_fn_7.py passed')
+    print('test_fn_07.py passed')
 else:
-    print('test_fn_7.py failed')
+    print('test_fn_07.py failed')

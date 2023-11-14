@@ -1,5 +1,5 @@
-from types import FunctionType, MethodType, GenericAlias
-from typing import Type as typingType
+from types import FunctionType, MethodType, GenericAlias, UnionType
+from typing import Type, Union
 from functools import update_wrapper, wraps
 
 
@@ -26,7 +26,6 @@ class FunctionMethodEnforcer:
             key: self.__get_checkable_type__(value)
             for key, value in self.__annotations__.items()
         }
-        # print(self.__checkable_types__)
         self.__return_type__ = self.__checkable_types__.pop("return", None)
 
     def __get_defaults__(self):
@@ -60,16 +59,35 @@ class FunctionMethodEnforcer:
         valid_types = {}
         if not isinstance(item_annotation, (list, tuple)):
             item_annotation = [item_annotation]
+
         for valid_type in item_annotation:
+            # TODO: Add support for Optional types
             # Special code to replace None with NoneType
             if valid_type is None:
                 valid_types[type(None)] = None
                 continue
-            elif isinstance(valid_type, GenericAlias):
+            elif hasattr(valid_type, "__origin__"):
+                # Special code for iterable types (e.g. list, tuple, dict, set) including typing iterables
                 if valid_type.__origin__ in [list, tuple, dict, set]:
-                    valid_types[valid_type.__origin__] = self.__get_checkable_type__(valid_type.__args__)
-                else:
+                    valid_types[
+                        valid_type.__origin__
+                    ] = self.__get_checkable_type__(valid_type.__args__)
+                # Handle any generic aliases (e.g. typing.Union or typing.List)
+                elif isinstance(valid_type, GenericAlias):
                     valid_types[valid_type.__origin__] = None
+                # Handle Union Types
+                elif valid_type.__origin__ == Union:
+                    valid_types.update(
+                        self.__get_checkable_type__(valid_type.__args__)
+                    )
+                # Handle uninitialized class type objects (e.g. MyCustomClass)
+                else:
+                    valid_types[valid_type] = None
+            # Handle special '|' syntax for Union Types
+            elif isinstance(valid_type, UnionType):
+                valid_types.update(
+                    self.__get_checkable_type__(valid_type.__args__)
+                )
             else:
                 valid_types[valid_type] = None
         return valid_types
@@ -139,9 +157,9 @@ class FunctionMethodEnforcer:
     def __check_type__(self, obj, acceptable_types, key):
         """
         Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `acceptable_types` for the argument.
-        """        
+        """
         if isinstance(obj, type):
-            passed_type = typingType[obj]
+            passed_type = Type[obj]
         else:
             passed_type = type(obj)
         if passed_type not in acceptable_types:
@@ -156,7 +174,6 @@ class FunctionMethodEnforcer:
             else:
                 for sub_key, value in enumerate(obj):
                     self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
-            
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"

@@ -15,10 +15,10 @@ success_2=False
 try:
     my_fn(a='a', b=2, c=3) # Error (a can only accept int)
 except Exception as e:
-    if type(e) == TypeError:
+    if 'Type mismatch' in str(e):
         success_2=True
 
 if success_1 and success_2:
-    print('test_fn_4.py passed')
+    print('test_fn_01.py passed')
 else:
-    print('test_fn_4.py failed')
+    print('test_fn_01.py failed')

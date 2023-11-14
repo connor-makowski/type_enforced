@@ -16,6 +16,6 @@ success=(
 )
 
 if success:
-    print('test_fn_3.py passed')
+    print('test_fn_03.py passed')
 else:
-    print('test_fn_3.py failed')
+    print('test_fn_03.py failed')

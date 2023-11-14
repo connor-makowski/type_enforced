@@ -57,6 +57,6 @@ except Exception as e:
 
 
 if success and success_type_error:
-    print('test_fn_5.py passed')
+    print('test_fn_05.py passed')
 else:
-    print('test_fn_5.py failed')
+    print('test_fn_05.py failed')

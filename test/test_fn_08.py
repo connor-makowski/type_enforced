@@ -24,7 +24,7 @@ except Exception as e:
     if 'Type mismatch' in str(e):
         success_3=True
 
-if success_1 and success_2:
-    print('test_fn_7.py passed')
+if success_1 and success_2 and success_3:
+    print('test_fn_08.py passed')
 else:
-    print('test_fn_7.py failed')
+    print('test_fn_08.py failed')

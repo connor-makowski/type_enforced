@@ -13,6 +13,6 @@ except Exception as e:
         success=True
 
 if success:
-    print('test_fn_2.py passed')
+    print('test_fn_02.py passed')
 else:
-    print('test_fn_2.py failed')
+    print('test_fn_02.py failed')
