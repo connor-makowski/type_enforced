@@ -1,5 +1,5 @@
 from types import FunctionType, MethodType, GenericAlias, UnionType
-from typing import Type, Union
+from typing import Type, Union, Sized
 from functools import update_wrapper, wraps
 
 
@@ -78,6 +78,21 @@ class FunctionMethodEnforcer:
                     valid_types.update(
                         self.__get_checkable_type__(valid_type.__args__)
                     )
+                # Handle Sized objects
+                elif valid_type == Sized:
+                    valid_types = {
+                        list: None,
+                        tuple: None,
+                        dict: None,
+                        set: None,
+                        str: None,
+                        bytes: None,
+                        bytearray: None,
+                        memoryview: None,
+                        range: None,
+                        # Allow nested types to be passed as well
+                        **valid_types,
+                    }
                 # Handle uninitialized class type objects (e.g. MyCustomClass)
                 else:
                     valid_types[valid_type] = None
