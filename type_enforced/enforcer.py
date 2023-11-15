@@ -59,9 +59,7 @@ class FunctionMethodEnforcer:
         valid_types = {}
         if not isinstance(item_annotation, (list, tuple)):
             item_annotation = [item_annotation]
-
         for valid_type in item_annotation:
-            # TODO: Add support for Optional types
             # Special code to replace None with NoneType
             if valid_type is None:
                 valid_types[type(None)] = None
@@ -72,10 +70,10 @@ class FunctionMethodEnforcer:
                     valid_types[
                         valid_type.__origin__
                     ] = self.__get_checkable_type__(valid_type.__args__)
-                # Handle any generic aliases (e.g. typing.Union or typing.List)
+                # Handle any generic aliases
                 elif isinstance(valid_type, GenericAlias):
                     valid_types[valid_type.__origin__] = None
-                # Handle Union Types
+                # Handle Union Types (e.g. Union, Optional, ...)
                 elif valid_type.__origin__ == Union:
                     valid_types.update(
                         self.__get_checkable_type__(valid_type.__args__)
