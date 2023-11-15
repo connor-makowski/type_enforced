@@ -1,24 +1,25 @@
 import type_enforced
 
+
 class my_class:
     def __init__(self):
-        self.a=10
+        self.a = 10
 
     @type_enforced.Enforcer
-    def my_fn(self, b:int):
+    def my_fn(self, b: int):
         print(self.a, b)
 
 
-mc=my_class()
+mc = my_class()
 
-success=False
+success = False
 try:
-    mc.my_fn('a')
+    mc.my_fn("a")
 except Exception as e:
-    if 'Type mismatch' in str(e):
-        success=True
+    if "Type mismatch" in str(e):
+        success = True
 
 if success:
-    print('test_class_1.py passed')
+    print("test_class_1.py passed")
 else:
-    print('test_class_1.py failed')
+    print("test_class_1.py failed")
