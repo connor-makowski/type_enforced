@@ -2,11 +2,14 @@
 [![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A pure python type enforcer for type annotations. Enforce types in python functions and methods.
+A pure python (no special compiler required) type enforcer for type annotations. Enforce types in python functions and methods.
 
 # Setup
 
 Make sure you have Python 3.7.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
+
+- Note: Certain features are only available on newer python versions
+    - EG: Staticmethod typechecking requires `python>=3.10`
 
 ### Installation
 
@@ -16,15 +19,39 @@ pip install type_enforced
 
 # Getting Started
 
-`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce most basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html).
+`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce many basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html).
 
-`type_enforcer` currently supports all single level python types, single level class instances and classes themselves. For example, you can force an input to be an `int` or an instance of the self defined `MyClass`, but not a vector of the format `list(int)`. In this case, when using `type_enforcer`, you would only pass the format `list` and would not validate that the content of the list was indeed integers.
+`type_enforcer` currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an `int`, a number `[int, float]`, an instance of the self defined `MyClass`, or a even a vector with `list[int]`. Items like `typing.List`, `typing.Dict`, `typing.Union` and `typing.Optional` are supported.
 
-You can pass multiple types in brackets to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, float]`.
+You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, str]`, `[int | float]` or even `typing.Union[int,str]`.
 
-Non specified types for variables are not enforced.
+Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For examle, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
 
-Input and return typing are both supported.
+Variables without an annotation for type are not enforced.
+
+## Supported Type Checking Features:
+
+- Function/Method Input Typing
+- Function/Method Return Typing
+- All standard python types (`str`, `list`, `int`, `dict`, ...)
+- Union types
+    - typing.Union
+    - `,` separated list (e.g. `[int, float]`)
+    - `|` separated list (e.g. `[int | float]`)
+- Nested types (e.g. `dict[str]` or `list[int,float]`)
+    - Note: Each parent level must be an iterable
+        - Specifically a variant of `list`, `set`, `tuple` or `dict`
+    - Note: `dict` keys are not validated, only values
+    - Deeply nested types are supported too:
+        - `dict[dict[int]]`
+        - `list[set[]]`
+- Many of the `typing` (package) functions including:
+    - Standard generics:
+        - `List`, `Set`, `Dict`, `Tuple`
+    - `Union`
+    - `Optional`
+    - Note: Other functions might have support, but there are not currently tests to validate them
+        - Feel free to create an issue (or better yet a PR) if you want to add tests/support
 
 ## Basic Usage
 ```py
@@ -56,6 +83,24 @@ Traceback (most recent call last):
   File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 34, in __exception__
     raise TypeError(f"({self.__fn__.__qualname__}): {message}")
 TypeError: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
+```
+
+## Nested Examples
+```py
+import type_enforced
+import typing
+
+@type_enforced.Enforcer
+def my_fn(
+    a: dict[dict[int, float]], # Note: dict keys are not validated, only values
+    b: list[typing.Set[str]] # Could also just use set
+) -> None:
+    return None
+
+my_fn(a={'i':{'j':1}}, b=[{'x'}]) # Success
+
+my_fn(a={'i':{'j':'k'}}, b=[{'x'}]) # Error:
+# TypeError: (my_fn): Type mismatch for typed variable `a[i][j]`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead. 
 ```
 
 ## Class and Method Use
@@ -103,7 +148,7 @@ class my_class:
 
 ## Validate class instances and classes
 
-Type enforcer can enforce class instances and classes easily. There are a few caveats between the two.
+Type enforcer can enforce class instances and classes. There are a few caveats between the two.
 
 To enforce a class instance, simply pass the class itself as a type hint:
 ```py
