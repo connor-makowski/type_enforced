@@ -50,6 +50,11 @@ Variables without an annotation for type are not enforced.
         - `List`, `Set`, `Dict`, `Tuple`
     - `Union`
     - `Optional`
+    - `Sized`
+        - Essentially creates a union of: 
+            - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
+        - Note: Can not have a nested type
+            - Because this does not always meet the criteria for `Nested types` above
     - Note: Other functions might have support, but there are not currently tests to validate them
         - Feel free to create an issue (or better yet a PR) if you want to add tests/support
 
