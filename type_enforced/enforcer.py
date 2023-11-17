@@ -1,6 +1,15 @@
-from types import FunctionType, MethodType, GenericAlias, UnionType
+from types import FunctionType, MethodType, GenericAlias
 from typing import Type, Union, Sized
 from functools import update_wrapper, wraps
+
+# Python 3.10+ has a UnionType object that is used to represent Union types
+try:
+    from types import UnionType
+except ImportError:
+    # Python < 3.10 does not have UnionType
+    # Since UnionType is validated after NoneType, we can use NoneType
+    # as a stand in for UnionType to ignore it in older versions of python
+    UnionType = type(None)
 
 
 class FunctionMethodEnforcer:

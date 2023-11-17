@@ -6,10 +6,11 @@ A pure python (no special compiler required) type enforcer for type annotations.
 
 # Setup
 
-Make sure you have Python 3.7.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
+Make sure you have Python 3.9.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/). For older python versions (3.7 | 3.8), you should use type_enforced==0.0.16.
 
-- Note: Certain features are only available on newer python versions
+- Note: Certain features are only available on newer python versions:
     - EG: Staticmethod typechecking requires `python>=3.10`
+    - EG: Union types with `|` require `python>=3.10`
 
 ### Installation
 
