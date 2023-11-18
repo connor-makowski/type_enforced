@@ -46,16 +46,21 @@ Variables without an annotation for type are not enforced.
     - Deeply nested types are supported too:
         - `dict[dict[int]]`
         - `list[set[]]`
-- Many of the `typing` (package) functions including:
-    - Standard generics:
+- Many of the `typing` (package) functions and methods including:
+    - Standard typing functions:
         - `List`, `Set`, `Dict`, `Tuple`
     - `Union`
-    - `Optional`
+    - `Optional` 
     - `Sized`
         - Essentially creates a union of: 
             - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
         - Note: Can not have a nested type
             - Because this does not always meet the criteria for `Nested types` above
+    - `Literal`
+        - Only allow certain values to be passed. Operates slightly differently than other checks.
+        - e.g. `Literal['a', 'b']` will require any passed values that are equal (`==`) to `'a'` or `'b'`.
+            - This compares the value of the passed input and not the type of the passed input.
+        - Note: Multiple types can be passed in the same `Literal`.
     - Note: Other functions might have support, but there are not currently tests to validate them
         - Feel free to create an issue (or better yet a PR) if you want to add tests/support
 

@@ -1,5 +1,5 @@
 from types import FunctionType, MethodType, GenericAlias
-from typing import Type, Union, Sized
+from typing import Type, Union, Sized, Literal
 from functools import update_wrapper, wraps
 
 # Python 3.10+ has a UnionType object that is used to represent Union types
@@ -87,6 +87,14 @@ class FunctionMethodEnforcer:
                     valid_types.update(
                         self.__get_checkable_type__(valid_type.__args__)
                     )
+                # Handle Literals
+                # Note: These will be handled separately in the self.__check_type__
+                # as the object is validated and not its type.
+                elif valid_type.__origin__ == Literal:
+                    valid_types = {
+                        Literal: {i: None for i in valid_type.__args__}
+                    }
+
                 # Handle Sized objects
                 elif valid_type == Sized:
                     valid_types = {
@@ -185,8 +193,20 @@ class FunctionMethodEnforcer:
         else:
             passed_type = type(obj)
         if passed_type not in acceptable_types:
+            # Add special string to store any string to add before acceptable types
+            # in any exception message
+            pre_acceptable_types_str = ""
+            # Special check for Literals
+            if Literal in acceptable_types:
+                if obj in acceptable_types[Literal]:
+                    return
+                else:
+                    pre_acceptable_types_str = "Literal"
+                    acceptable_types = acceptable_types[Literal]
+                    passed_type = obj
+            # Raise the exception
             self.__exception__(
-                f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(list(acceptable_types.keys()))}` but got `{passed_type}` instead."
+                f"Type mismatch for typed variable `{key}`. Expected one of the following `{pre_acceptable_types_str}{str(list(acceptable_types.keys()))}` but got `{passed_type}` instead."
             )
         sub_type = acceptable_types.get(passed_type)
         if sub_type is not None:
