@@ -18,13 +18,22 @@ Make sure you have Python 3.9.x (or higher) installed on your system. You can do
 pip install type_enforced
 ```
 
+## Basic Usage
+```py
+import type_enforced
+
+@type_enforced.Enforcer
+def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
+    pass
+```
+
 # Getting Started
 
 `type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce many basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html).
 
 `type_enforcer` currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an `int`, a number `[int, float]`, an instance of the self defined `MyClass`, or a even a vector with `list[int]`. Items like `typing.List`, `typing.Dict`, `typing.Union` and `typing.Optional` are supported.
 
-You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, str]`, `[int | float]` or even `typing.Union[int,str]`.
+You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, float]`, `[int | float]` or even `typing.Union[int, float]`.
 
 Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For examle, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
 
@@ -45,7 +54,7 @@ Variables without an annotation for type are not enforced.
     - Note: `dict` keys are not validated, only values
     - Deeply nested types are supported too:
         - `dict[dict[int]]`
-        - `list[set[]]`
+        - `list[set[str]]`
 - Many of the `typing` (package) functions and methods including:
     - Standard typing functions:
         - `List`, `Set`, `Dict`, `Tuple`
@@ -63,16 +72,6 @@ Variables without an annotation for type are not enforced.
         - Note: Multiple types can be passed in the same `Literal`.
     - Note: Other functions might have support, but there are not currently tests to validate them
         - Feel free to create an issue (or better yet a PR) if you want to add tests/support
-
-## Basic Usage
-```py
-import type_enforced
-
-@type_enforced.Enforcer
-def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
-    pass
-
-```
 
 ## Interactive Example
 
