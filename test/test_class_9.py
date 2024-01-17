@@ -1,5 +1,5 @@
 import type_enforced
-from type_enforced import WithSubclasses
+from type_enforced.utils import WithSubclasses
 
 
 class Foo:
