@@ -196,3 +196,28 @@ class my_class():
 y=my_class(Foo) # Works great!
 x=my_class(Foo()) # Fails
 ```
+
+## Validate classes with inheritance
+
+```py
+import type_enforced
+from type_enforced.utils import WithSubclasses
+
+class Foo:
+    pass
+
+class Bar(Foo):
+    pass
+
+class Baz:
+    pass
+
+@type_enforced.Enforcer
+def my_fn(custom_class: WithSubclasses(Foo)):
+    pass
+
+print(WithSubclasses(Foo)) # Prints: [<class '__main__.Foo'>, <class '__main__.Bar'>]
+my_fn(Foo()) # Passes as expected
+my_fn(Bar()) # Passes as expected
+my_fn(Baz()) # Raises TypeError as expected
+```
