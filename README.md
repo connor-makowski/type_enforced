@@ -70,6 +70,9 @@ Variables without an annotation for type are not enforced.
         - e.g. `Literal['a', 'b']` will require any passed values that are equal (`==`) to `'a'` or `'b'`.
             - This compares the value of the passed input and not the type of the passed input.
         - Note: Multiple types can be passed in the same `Literal`.
+    - `Callable`
+        - Essentially creates a union of:
+            - `staticmethod`, `classmethod`, `types.FunctionType`, `types.BuiltinFunctionType`, `types.MethodType`, `types.BuiltinMethodType`, `types.GeneratorType`
     - Note: Other functions might have support, but there are not currently tests to validate them
         - Feel free to create an issue (or better yet a PR) if you want to add tests/support
 
@@ -154,6 +157,19 @@ class my_class:
     @staticmethod
     def my_other_fn(a: int, b: [int, str]):
       pass
+```
+
+You can ignore a specific class method if you wrap it in `type_enforced.EnforcerIgnore`
+```py
+import type_enforced
+@type_enforced.Enforcer
+class my_class:
+    def my_fn(self, a: int) -> None:
+        pass
+        
+    @type_enforced.EnforcerIgnore
+    def my_other_fn(self, a: int) -> None:
+        pass
 ```
 
 ## Validate class instances and classes

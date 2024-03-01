@@ -1,5 +1,5 @@
-from types import FunctionType, MethodType, GenericAlias
-from typing import Type, Union, Sized, Literal
+from types import FunctionType, MethodType, GenericAlias, GeneratorType, BuiltinFunctionType, BuiltinMethodType
+from typing import Type, Union, Sized, Literal, Callable
 from functools import update_wrapper, wraps
 
 # Python 3.10+ has a UnionType object that is used to represent Union types
@@ -111,6 +111,17 @@ class FunctionMethodEnforcer:
                         **valid_types,
                     }
                 # Handle uninitialized class type objects (e.g. MyCustomClass)
+                elif valid_type == Callable:
+                    valid_types = {
+                        staticmethod:None, 
+                        classmethod:None,
+                        FunctionType: None, 
+                        BuiltinFunctionType: None,
+                        MethodType: None,
+                        BuiltinMethodType: None,
+                        GeneratorType: None,
+                        **valid_types,
+                    }
                 else:
                     valid_types[valid_type] = None
             # Handle special '|' syntax for Union Types
