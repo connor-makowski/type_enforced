@@ -1,6 +1,14 @@
-from types import FunctionType, MethodType, GenericAlias
-from typing import Type, Union, Sized, Literal
+from types import (
+    FunctionType,
+    MethodType,
+    GenericAlias,
+    GeneratorType,
+    BuiltinFunctionType,
+    BuiltinMethodType,
+)
+from typing import Type, Union, Sized, Literal, Callable
 from functools import update_wrapper, wraps
+from type_enforced.utils import Partial
 
 # Python 3.10+ has a UnionType object that is used to represent Union types
 try:
@@ -76,9 +84,9 @@ class FunctionMethodEnforcer:
             elif hasattr(valid_type, "__origin__"):
                 # Special code for iterable types (e.g. list, tuple, dict, set) including typing iterables
                 if valid_type.__origin__ in [list, tuple, dict, set]:
-                    valid_types[
-                        valid_type.__origin__
-                    ] = self.__get_checkable_type__(valid_type.__args__)
+                    valid_types[valid_type.__origin__] = (
+                        self.__get_checkable_type__(valid_type.__args__)
+                    )
                 # Handle any generic aliases
                 elif isinstance(valid_type, GenericAlias):
                     valid_types[valid_type.__origin__] = None
@@ -111,6 +119,17 @@ class FunctionMethodEnforcer:
                         **valid_types,
                     }
                 # Handle uninitialized class type objects (e.g. MyCustomClass)
+                elif valid_type == Callable:
+                    valid_types = {
+                        staticmethod: None,
+                        classmethod: None,
+                        FunctionType: None,
+                        BuiltinFunctionType: None,
+                        MethodType: None,
+                        BuiltinMethodType: None,
+                        GeneratorType: None,
+                        **valid_types,
+                    }
                 else:
                     valid_types[valid_type] = None
             # Handle special '|' syntax for Union Types
@@ -221,7 +240,7 @@ class FunctionMethodEnforcer:
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
 
 
-def Enforcer(clsFnMethod):
+def Enforcer(clsFnMethod, enabled):
     """
     A wrapper to enforce types within a function or method given argument annotations.
 
@@ -260,6 +279,10 @@ def Enforcer(clsFnMethod):
     Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
     ```
     """
+    if not hasattr(clsFnMethod, "__enforcer_enabled__"):
+        clsFnMethod.__enforcer_enabled__ = enabled
+    if clsFnMethod.__enforcer_enabled__ == False:
+        return clsFnMethod
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
@@ -272,10 +295,17 @@ def Enforcer(clsFnMethod):
             return classmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
         elif isinstance(clsFnMethod, (FunctionType, MethodType)):
             return FunctionMethodEnforcer(clsFnMethod)
-    else:
+    elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)
             ):
-                setattr(clsFnMethod, key, Enforcer(value))
+                setattr(clsFnMethod, key, Enforcer(value, enabled=enabled))
         return clsFnMethod
+    else:
+        raise Exception(
+            "Enforcer can only be used on class methods, functions, or classes."
+        )
+
+
+Enforcer = Partial(Enforcer, enabled=True)

@@ -7,7 +7,7 @@ class my_class:
 
     @type_enforced.Enforcer
     def my_fn(self, b: int):
-        print(self.a, b)
+        pass
 
 
 mc = my_class()
@@ -20,6 +20,6 @@ except Exception as e:
         success = True
 
 if success:
-    print("test_class_1.py passed")
+    print("test_class_01.py passed")
 else:
-    print("test_class_1.py failed")
+    print("test_class_01.py failed")

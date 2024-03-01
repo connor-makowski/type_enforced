@@ -7,7 +7,7 @@ class my_class:
         self.a = 10
 
     def my_fn(self, b: int):
-        print(self.a, b)
+        pass
 
 
 mc = my_class()
@@ -20,6 +20,6 @@ except Exception as e:
         success = True
 
 if success:
-    print("test_class_2.py passed")
+    print("test_class_02.py passed")
 else:
-    print("test_class_2.py failed")
+    print("test_class_02.py failed")

@@ -22,10 +22,11 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer
+@type_enforced.Enforcer(enabled=True)
 def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
     pass
 ```
+- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 
 # Getting Started
 
@@ -70,6 +71,9 @@ Variables without an annotation for type are not enforced.
         - e.g. `Literal['a', 'b']` will require any passed values that are equal (`==`) to `'a'` or `'b'`.
             - This compares the value of the passed input and not the type of the passed input.
         - Note: Multiple types can be passed in the same `Literal`.
+    - `Callable`
+        - Essentially creates a union of:
+            - `staticmethod`, `classmethod`, `types.FunctionType`, `types.BuiltinFunctionType`, `types.MethodType`, `types.BuiltinMethodType`, `types.GeneratorType`
     - Note: Other functions might have support, but there are not currently tests to validate them
         - Feel free to create an issue (or better yet a PR) if you want to add tests/support
 
@@ -154,6 +158,23 @@ class my_class:
     @staticmethod
     def my_other_fn(a: int, b: [int, str]):
       pass
+```
+
+You can skip enforcement if you add the argument `enabled=False` in the `Enforcer` call.
+- This is useful for a production vs debugging environment.
+- This is also useful for undecorating a single method in a larger wrapped class.
+- Note: You can set `enabled=False` for an entire class or simply disable a specific method in a larger wrapped class.
+- Note: Method level wrapper `enabled` values take precedence over class level wrappers.
+```py
+import type_enforced
+@type_enforced.Enforcer
+class my_class:
+    def my_fn(self, a: int) -> None:
+        pass
+        
+    @type_enforced.Enforcer(enabled=False)
+    def my_other_fn(self, a: int) -> None:
+        pass
 ```
 
 ## Validate class instances and classes

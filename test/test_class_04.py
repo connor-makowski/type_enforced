@@ -31,6 +31,6 @@ except:
     pass
 
 if success:
-    print("test_class_4.py passed")
+    print("test_class_04.py passed")
 else:
-    print("test_class_4.py failed")
+    print("test_class_04.py failed")
