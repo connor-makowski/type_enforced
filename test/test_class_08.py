@@ -61,6 +61,6 @@ except Exception as e:
 
 
 if success and success_type_error:
-    print("test_class_8.py passed")
+    print("test_class_08.py passed")
 else:
-    print("test_class_8.py failed")
+    print("test_class_08.py failed")

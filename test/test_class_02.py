@@ -1,11 +1,11 @@
 import type_enforced
 
 
+@type_enforced.Enforcer
 class my_class:
     def __init__(self):
         self.a = 10
 
-    @type_enforced.Enforcer
     def my_fn(self, b: int):
         print(self.a, b)
 
@@ -20,6 +20,6 @@ except Exception as e:
         success = True
 
 if success:
-    print("test_class_1.py passed")
+    print("test_class_02.py passed")
 else:
-    print("test_class_1.py failed")
+    print("test_class_02.py failed")

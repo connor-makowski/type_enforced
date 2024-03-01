@@ -37,6 +37,6 @@ except:
 
 # classmethod and staticmethod wrappers do not contain annotations prior to 3.9
 if success or sys.version_info <= (3, 10, 0):
-    print("test_class_6.py passed")
+    print("test_class_06.py passed")
 else:
-    print("test_class_6.py failed")
+    print("test_class_06.py failed")

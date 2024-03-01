@@ -17,7 +17,7 @@ def WithSubclasses(obj):
 
     Notes:
 
-    - From a functional perspective, this recursively get the subclasses for an uninitialised class (type).
+    - From a functional perspective, this recursively gets the subclasses for an uninitialised class (type).
     """
     out = [obj]
     for i in obj.__subclasses__():

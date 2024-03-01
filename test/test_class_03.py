@@ -1,5 +1,4 @@
 import type_enforced
-from type_enforced.utils import WithSubclasses
 
 
 class Foo:
@@ -14,7 +13,7 @@ class Bar(Foo):
 
 @type_enforced.Enforcer
 class Baz:
-    def __init__(self, use_class: WithSubclasses(Foo)) -> None:
+    def __init__(self, use_class: Foo) -> None:
         self.object = use_class
 
 
@@ -26,10 +25,11 @@ except:
 
 try:
     y = Baz(Bar())
-except:
     success = False
+except:
+    pass
 
 if success:
-    print("test_class_9.py passed")
+    print("test_class_03.py passed")
 else:
-    print("test_class_9.py failed")
+    print("test_class_03.py failed")

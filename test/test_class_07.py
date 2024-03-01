@@ -32,6 +32,6 @@ docstring = pydoc.render_doc(Foo)
 docstring_checks = ["Multiply Docs Here", "Subtract Docs Here", "Add Docs Here"]
 
 if any([i not in docstring for i in docstring_checks]):
-    print("test_class_7.py failed")
+    print("test_class_07.py failed")
 else:
-    print("test_class_7.py passed")
+    print("test_class_07.py passed")
