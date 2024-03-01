@@ -1,6 +1,7 @@
 import types
 from functools import update_wrapper
 
+
 def WithSubclasses(obj):
     """
     A special helper function to allow a class type to be passed and also allow all subclasses of that type.
@@ -27,10 +28,12 @@ def WithSubclasses(obj):
         out += WithSubclasses(i)
     return out
 
+
 class Partial:
     """
     A special class wrapper to allow for easy partial function wrappings and calls.
     """
+
     def __init__(
         self,
         __fn__,

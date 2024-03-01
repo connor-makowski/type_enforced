@@ -1,4 +1,11 @@
-from types import FunctionType, MethodType, GenericAlias, GeneratorType, BuiltinFunctionType, BuiltinMethodType
+from types import (
+    FunctionType,
+    MethodType,
+    GenericAlias,
+    GeneratorType,
+    BuiltinFunctionType,
+    BuiltinMethodType,
+)
 from typing import Type, Union, Sized, Literal, Callable
 from functools import update_wrapper, wraps
 from type_enforced.utils import Partial
@@ -77,9 +84,9 @@ class FunctionMethodEnforcer:
             elif hasattr(valid_type, "__origin__"):
                 # Special code for iterable types (e.g. list, tuple, dict, set) including typing iterables
                 if valid_type.__origin__ in [list, tuple, dict, set]:
-                    valid_types[
-                        valid_type.__origin__
-                    ] = self.__get_checkable_type__(valid_type.__args__)
+                    valid_types[valid_type.__origin__] = (
+                        self.__get_checkable_type__(valid_type.__args__)
+                    )
                 # Handle any generic aliases
                 elif isinstance(valid_type, GenericAlias):
                     valid_types[valid_type.__origin__] = None
@@ -114,9 +121,9 @@ class FunctionMethodEnforcer:
                 # Handle uninitialized class type objects (e.g. MyCustomClass)
                 elif valid_type == Callable:
                     valid_types = {
-                        staticmethod:None, 
-                        classmethod:None,
-                        FunctionType: None, 
+                        staticmethod: None,
+                        classmethod: None,
+                        FunctionType: None,
                         BuiltinFunctionType: None,
                         MethodType: None,
                         BuiltinMethodType: None,
@@ -232,6 +239,7 @@ class FunctionMethodEnforcer:
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
 
+
 def Enforcer(clsFnMethod, enabled):
     """
     A wrapper to enforce types within a function or method given argument annotations.
@@ -298,5 +306,6 @@ def Enforcer(clsFnMethod, enabled):
         raise Exception(
             "Enforcer can only be used on class methods, functions, or classes."
         )
+
 
 Enforcer = Partial(Enforcer, enabled=True)
