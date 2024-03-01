@@ -1,6 +1,7 @@
 from types import FunctionType, MethodType, GenericAlias, GeneratorType, BuiltinFunctionType, BuiltinMethodType
 from typing import Type, Union, Sized, Literal, Callable
 from functools import update_wrapper, wraps
+from type_enforced.utils import Partial
 
 # Python 3.10+ has a UnionType object that is used to represent Union types
 try:
@@ -231,8 +232,7 @@ class FunctionMethodEnforcer:
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
 
-
-def Enforcer(clsFnMethod):
+def Enforcer(clsFnMethod, enabled):
     """
     A wrapper to enforce types within a function or method given argument annotations.
 
@@ -271,11 +271,15 @@ def Enforcer(clsFnMethod):
     Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
     ```
     """
+    if not hasattr(clsFnMethod, "__enforcer_enabled__"):
+        clsFnMethod.__enforcer_enabled__ = enabled
+    if clsFnMethod.__enforcer_enabled__ == False:
+        return clsFnMethod
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
         # Only apply the enforcer if annotations are specified
-        if getattr(clsFnMethod, "__annotations__", {}) == {} or getattr(clsFnMethod, "__no_type_check__", False):
+        if getattr(clsFnMethod, "__annotations__", {}) == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
             return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
@@ -288,45 +292,11 @@ def Enforcer(clsFnMethod):
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)
             ):
-                setattr(clsFnMethod, key, Enforcer(value))
+                setattr(clsFnMethod, key, Enforcer(value, enabled=enabled))
         return clsFnMethod
     else:
         raise Exception(
             "Enforcer can only be used on class methods, functions, or classes."
         )
 
-def EnforcerIgnore(fnMethod):
-    """
-    A wrapper to ignore type enforcement for or method in a larger class wrapped by `Enforcer`.
-
-    Requires:
-
-    - `fnMethod`:
-        - What: The method or function that should have input types enforced
-        - Type: method | classmethod | staticmethod | function
-
-    Example Use:
-    ```
-    import type_enforced
-    @type_enforced.Enforcer
-    class Foo:
-        def bar(self, a: int) -> None:
-            pass
-            
-        @type_enforced.EnforcerIgnore
-        def baz(self, a: int) -> None:
-            pass
-            
-    foo = Foo()
-    foo.bar(a=1) #=> No Exception
-    foo.baz(a='a') #=> No Exception
-    ```
-    
-    """
-    if isinstance(
-        fnMethod, (staticmethod, classmethod, FunctionType, MethodType)
-    ):
-        setattr(fnMethod, "__no_type_check__", True)
-    else:
-        raise Exception("EnforcerIgnore can only be used on methods, classmethods, staticmethods, or functions.")
-    return fnMethod
+Enforcer = Partial(Enforcer, enabled=True)

@@ -5,7 +5,6 @@ import type_enforced
 def my_fn(a: int, b: [int, str], c: int) -> None:
     return None
 
-
 success_1 = True
 try:
     my_fn(a=1, b=2, c=3)  # No Error

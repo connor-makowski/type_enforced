@@ -7,7 +7,7 @@ class my_class:
 
     @type_enforced.Enforcer
     def my_fn(self, b: int):
-        print(self.a, b)
+        pass
 
 
 mc = my_class()

@@ -10,13 +10,11 @@ def run_tests(fn, success):
         fn("a", "b")  # No Error
         try:
             fn(a="a", b=2, c="c")  # Error (b can only accept str)
-            print("a")
             success = False
         except:
             pass
         try:
             fn("a", b=2)  # Error (b can only accept str)
-            print("b")
             success = False
         except:
             pass

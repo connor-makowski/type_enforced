@@ -7,7 +7,7 @@ class my_class:
         self.a = 10
 
     def my_fn(self, b: int):
-        print(self.a, b)
+        pass
 
 
 mc = my_class()

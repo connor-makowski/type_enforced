@@ -22,10 +22,11 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer
+@type_enforced.Enforcer(enabled=True)
 def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
     pass
 ```
+- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 
 # Getting Started
 
@@ -159,7 +160,11 @@ class my_class:
       pass
 ```
 
-You can ignore a specific class method if you wrap it in `type_enforced.EnforcerIgnore`
+You can skip enforcement if you add the argument `enabled=False` in the `Enforcer` call.
+- This is useful for a production vs debugging environment.
+- This is also useful for undecorating a single method in a larger wrapped class.
+- Note: You can set `enabled=False` for an entire class or simply disable a specific method in a larger wrapped class.
+- Note: Method level wrapper `enabled` values take precedence over class level wrappers.
 ```py
 import type_enforced
 @type_enforced.Enforcer
@@ -167,7 +172,7 @@ class my_class:
     def my_fn(self, a: int) -> None:
         pass
         
-    @type_enforced.EnforcerIgnore
+    @type_enforced.Enforcer(enabled=False)
     def my_other_fn(self, a: int) -> None:
         pass
 ```
