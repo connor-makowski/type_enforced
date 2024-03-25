@@ -6,7 +6,7 @@ from types import (
     BuiltinFunctionType,
     BuiltinMethodType,
 )
-from typing import Type, Union, Sized, Literal, Callable
+from typing import Type, Union, Sized, Literal, Callable, _AnnotatedAlias
 from functools import update_wrapper, wraps
 from type_enforced.utils import Partial
 
@@ -57,12 +57,12 @@ class FunctionMethodEnforcer:
         elif self.__fn__.__defaults__ is not None:
             # Get the list of variable names (omittiting **kwargs var if present)
             varnames = list(self.__fn__.__code__.co_varnames)[
-                : self.__fn__.__code__.co_argcount
-            ]
+                       : self.__fn__.__code__.co_argcount
+                       ]
             # Create a dictionary of default values
             self.__fn_defaults__ = dict(
                 zip(
-                    varnames[-len(self.__fn__.__defaults__) :],
+                    varnames[-len(self.__fn__.__defaults__):],
                     self.__fn__.__defaults__,
                 )
             )
@@ -130,6 +130,10 @@ class FunctionMethodEnforcer:
                         GeneratorType: None,
                         **valid_types,
                     }
+                elif isinstance(valid_type, _AnnotatedAlias):
+                    origin = valid_type.__origin__
+                    func = valid_type.__metadata__[0]
+                    valid_types[origin] = func
                 else:
                     valid_types[valid_type] = None
             # Handle special '|' syntax for Union Types
@@ -232,6 +236,8 @@ class FunctionMethodEnforcer:
             if passed_type == dict:
                 for sub_key, value in obj.items():
                     self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
+            if callable(sub_type):
+                sub_type(key, obj, passed_type)
             else:
                 for sub_key, value in enumerate(obj):
                     self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
@@ -284,7 +290,7 @@ def Enforcer(clsFnMethod, enabled):
     if clsFnMethod.__enforcer_enabled__ == False:
         return clsFnMethod
     if isinstance(
-        clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
+            clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
         # Only apply the enforcer if annotations are specified
         if getattr(clsFnMethod, "__annotations__", {}) == {}:
@@ -298,7 +304,7 @@ def Enforcer(clsFnMethod, enabled):
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
             if hasattr(value, "__call__") or isinstance(
-                value, (classmethod, staticmethod)
+                    value, (classmethod, staticmethod)
             ):
                 setattr(clsFnMethod, key, Enforcer(value, enabled=enabled))
         return clsFnMethod
