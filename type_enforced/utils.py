@@ -84,6 +84,7 @@ class Partial:
         )
         return self.__fn__.__code__.co_argcount - extra_method_input_count
 
+
 class GenericConstraint:
     def __init__(self, constraints: dict):
         """
@@ -97,7 +98,9 @@ class GenericConstraint:
             - Note: All values in the dictionary must be functions that take a single argument and return a boolean.
             - Note: The dictionary keys will be used to identify the failed constraints in the error messages.
         """
-        assert all(hasattr(v, '__call__') for v in constraints.values()), "All constraints must be functions."
+        assert all(
+            hasattr(v, "__call__") for v in constraints.values()
+        ), "All constraints must be functions."
         self.__constraint_checks__ = constraints
 
     def __validate__(self, varname, value):
@@ -108,6 +111,7 @@ class GenericConstraint:
             except Exception as e:
                 return f"An exception was raised when checking the constraint `{check_name}` with the provided value `{value}`. Error: {e}"
         return True
+
 
 class Constraint(GenericConstraint):
     def __init__(
@@ -165,7 +169,8 @@ class Constraint(GenericConstraint):
             - Default: None
         """
         assert any(
-            v is not None for v in [pattern, gt, lt, ge, le, eq, ne, includes, excludes]
+            v is not None
+            for v in [pattern, gt, lt, ge, le, eq, ne, includes, excludes]
         ), "At least one constraint must be provided."
         assert isinstance(
             includes, (list, tuple, set, type(None))
@@ -199,25 +204,19 @@ class Constraint(GenericConstraint):
             self.__constraint_checks__["be a string"] = lambda x: isinstance(
                 x, str
             )
-            self.__constraint_checks__[
-                "Regex Pattern Match"
-            ] = lambda x: bool(re.findall(pattern, x))
+            self.__constraint_checks__["Regex Pattern Match"] = lambda x: bool(
+                re.findall(pattern, x)
+            )
         if includes is not None:
-            self.__constraint_checks__[
-                f"Includes"
-            ] = lambda x: x in includes
+            self.__constraint_checks__[f"Includes"] = lambda x: x in includes
         if excludes is not None:
-            self.__constraint_checks__[
-                "Excludes"
-            ] = lambda x: x not in excludes
+            self.__constraint_checks__["Excludes"] = lambda x: x not in excludes
         if gt is not None:
             self.__constraint_checks__[f"Greater Than ({gt})"] = (
                 lambda x: x > gt
             )
         if lt is not None:
-            self.__constraint_checks__[f"Less Than ({lt})"] = (
-                lambda x: x < lt
-            )
+            self.__constraint_checks__[f"Less Than ({lt})"] = lambda x: x < lt
         if ge is not None:
             self.__constraint_checks__[f"Greater Than Or Equal To ({ge})"] = (
                 lambda x: x >= ge
@@ -227,9 +226,7 @@ class Constraint(GenericConstraint):
                 lambda x: x <= le
             )
         if eq is not None:
-            self.__constraint_checks__[f"Equal To ({eq})"] = (
-                lambda x: x == eq
-            )
+            self.__constraint_checks__[f"Equal To ({eq})"] = lambda x: x == eq
         if ne is not None:
             self.__constraint_checks__[f"Not Equal To ({ne})"] = (
                 lambda x: x != ne

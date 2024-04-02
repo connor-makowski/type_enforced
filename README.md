@@ -40,6 +40,8 @@ Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`
 
 Variables without an annotation for type are not enforced.
 
+Note: Type Enforced does not support `__future__.annotations`. If you call `from __future__ import annotations` in your file, type enforced will not work as expected.
+
 ## Supported Type Checking Features:
 
 - Function/Method Input Typing

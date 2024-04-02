@@ -3,7 +3,7 @@ from type_enforced.utils import Constraint, GenericConstraint
 
 CustomConstraint = GenericConstraint(
     {
-        'in_rgb': lambda x: x in ['red', 'green', 'blue'],
+        "in_rgb": lambda x: x in ["red", "green", "blue"],
     }
 )
 
