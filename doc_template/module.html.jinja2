@@ -1,0 +1,35 @@
+{% extends "default/module.html.jinja2" %}
+
+{% block nav_footer %}
+<footer>
+<select id="version-selector">
+    <option value="latest">latest</option>
+    {% set version_options = env['version_options'].split(' ') %}
+    {% for version in version_options %}
+        <option value="{{ version }}">{{ version }}</option>
+    {% endfor %}
+</select>
+<script>
+    // Set the currently selected option to be equivalent to that of the url version.
+    var version = window.location.pathname.split('/docs/')[1].split('/')[0];
+    // If version includes the string 'type_enforced', then it is a special version that is not a version number.
+    if (version.includes('type_enforced')) {
+        version = 'latest';
+    }
+    document.getElementById('version-selector').value = version;
+
+    document.getElementById('version-selector').onchange = function() {
+        var version = this.value;
+        if (version == 'latest') {
+            var new_url = '';
+        } else {
+            var new_url = version + '/';
+        }
+        var path = window.location.pathname;
+        var url = path.split('/docs/')[0]+ '/docs/' + new_url + 'index.html';
+        console.log(url);
+        window.location.href = url;
+    }
+</script>
+</footer>
+{% endblock %}
