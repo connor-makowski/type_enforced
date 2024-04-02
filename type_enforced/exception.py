@@ -1,0 +1,2 @@
+class ConstraintError(Exception):
+    pass
