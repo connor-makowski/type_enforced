@@ -18,7 +18,7 @@ success_2 = False
 try:
     my_fn(a="c")
 except Exception as e:
-    if "Type mismatch" in str(e):
+    if "Literal validation error" in str(e):
         success_2 = True
 
 if success_1 and success_2:

@@ -8,7 +8,7 @@ from types import (
 )
 from typing import Type, Union, Sized, Literal, Callable
 from functools import update_wrapper, wraps
-from type_enforced.utils import Partial
+from type_enforced.utils import Partial, GenericConstraint
 
 # Python 3.10+ has a UnionType object that is used to represent Union types
 try:
@@ -73,7 +73,7 @@ class FunctionMethodEnforcer:
         """
         Gets the checkable type as a nested dict for a passed annotation.
         """
-        valid_types = {}
+        valid_types = {"__extra__": {}}
         if not isinstance(item_annotation, (list, tuple)):
             item_annotation = [item_annotation]
         for valid_type in item_annotation:
@@ -99,10 +99,9 @@ class FunctionMethodEnforcer:
                 # Note: These will be handled separately in the self.__check_type__
                 # as the object is validated and not its type.
                 elif valid_type.__origin__ == Literal:
-                    valid_types = {
-                        Literal: {i: None for i in valid_type.__args__}
-                    }
-
+                    valid_types["__extra__"][
+                        "__literal__"
+                    ] = valid_type.__args__
                 # Handle Sized objects
                 elif valid_type == Sized:
                     valid_types = {
@@ -137,6 +136,11 @@ class FunctionMethodEnforcer:
                 valid_types.update(
                     self.__get_checkable_type__(valid_type.__args__)
                 )
+            # Handle Constraints
+            # Note: These will be handled separately in the self.__check_type__
+            # as the object is validated differently than a type.
+            elif isinstance(valid_type, GenericConstraint):
+                valid_types["__extra__"]["__constraint__"] = valid_type
             else:
                 valid_types[valid_type] = None
         return valid_types
@@ -211,22 +215,14 @@ class FunctionMethodEnforcer:
             passed_type = Type[obj]
         else:
             passed_type = type(obj)
-        if passed_type not in acceptable_types:
-            # Add special string to store any string to add before acceptable types
-            # in any exception message
-            pre_acceptable_types_str = ""
-            # Special check for Literals
-            if Literal in acceptable_types:
-                if obj in acceptable_types[Literal]:
-                    return
-                else:
-                    pre_acceptable_types_str = "Literal"
-                    acceptable_types = acceptable_types[Literal]
-                    passed_type = obj
-            # Raise the exception
-            self.__exception__(
-                f"Type mismatch for typed variable `{key}`. Expected one of the following `{pre_acceptable_types_str}{str(list(acceptable_types.keys()))}` but got `{passed_type}` instead."
-            )
+        acceptable_types = dict(acceptable_types)
+        extra_types = acceptable_types.pop("__extra__")
+        if acceptable_types != {}:
+            if passed_type not in acceptable_types:
+                # Raise the exception
+                self.__exception__(
+                    f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(list(acceptable_types.keys()))}` but got `{passed_type}` instead."
+                )
         sub_type = acceptable_types.get(passed_type)
         if sub_type is not None:
             if passed_type == dict:
@@ -235,6 +231,21 @@ class FunctionMethodEnforcer:
             else:
                 for sub_key, value in enumerate(obj):
                     self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
+        # Special check for Literal types
+        literal_options = extra_types.get("__literal__")
+        if literal_options is not None:
+            if obj not in literal_options:
+                self.__exception__(
+                    f"Literal validation error for variable `{key}`. Expected one of the following `{str(list(literal_options))}` but got `{obj}` instead."
+                )
+        # Special check for Constraints
+        constraint = extra_types.get("__constraint__")
+        if constraint is not None:
+            constraint_validation_output = constraint.__validate__(key, obj)
+            if constraint_validation_output is not True:
+                self.__exception__(
+                    f"Constraint validation error for variable `{key}`. {constraint_validation_output}"
+                )
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"

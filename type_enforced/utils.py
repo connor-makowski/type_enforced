@@ -1,4 +1,4 @@
-import types
+import types, re
 from functools import update_wrapper
 
 
@@ -83,3 +83,151 @@ class Partial:
             1 if isinstance(self.__fn__, (types.MethodType)) else 0
         )
         return self.__fn__.__code__.co_argcount - extra_method_input_count
+
+
+class GenericConstraint:
+    def __init__(self, constraints: dict):
+        """
+        Creates a generic constraint object that can be used to validate a value against a set of constraints.
+
+        Required Arguments:
+
+        - `constraints`:
+            - What: A dictionary of constraint names and their associated functions.
+            - Type: dict
+            - Note: All values in the dictionary must be functions that take a single argument and return a boolean.
+            - Note: The dictionary keys will be used to identify the failed constraints in the error messages.
+        """
+        assert all(
+            hasattr(v, "__call__") for v in constraints.values()
+        ), "All constraints must be functions."
+        self.__constraint_checks__ = constraints
+
+    def __validate__(self, varname, value):
+        for check_name, check_func in self.__constraint_checks__.items():
+            try:
+                if not check_func(value):
+                    return f"Constraint `{check_name}` not met with the provided value `{value}`"
+            except Exception as e:
+                return f"An exception was raised when checking the constraint `{check_name}` with the provided value `{value}`. Error: {e}"
+        return True
+
+
+class Constraint(GenericConstraint):
+    def __init__(
+        self,
+        pattern: [str, None] = None,
+        includes: [list, tuple, set, None] = None,
+        excludes: [list, tuple, set, None] = None,
+        gt: [float, int, None] = None,
+        lt: [float, int, None] = None,
+        ge: [float, int, None] = None,
+        le: [float, int, None] = None,
+        eq: [float, int, None] = None,
+        ne: [float, int, None] = None,
+    ):
+        """
+        Creates a constraint object that can be used to validate a value against a set of constraints.
+
+        Optional Arguments:
+
+        - `pattern`:
+            - What: A regex pattern that the value must match.
+            - Type: str or None
+            - Default: None
+        - `includes`:
+            - What: A list of values that the value must be in.
+            - Type: list, tuple, set or None
+            - Default: None
+        - `excludes`:
+            - What: A list of values that the value must not be in.
+            - Type: list, tuple, set or None
+            - Default: None
+        - `gt`:
+            - What: The value must be greater than this value.
+            - Type: float, int or None
+            - Default: None
+        - `lt`:
+            - What: The value must be less than this value.
+            - Type: float, int or None
+            - Default: None
+        - `ge`:
+            - What: The value must be greater than or equal to this value.
+            - Type: float, int or None
+            - Default: None
+        - `le`:
+            - What: The value must be less than or equal to this value.
+            - Type: float, int or None
+            - Default: None
+        - `eq`:
+            - What: The value must be equal to this value.
+            - Type: float, int or None
+            - Default: None
+        - `ne`:
+            - What: The value must not be equal to this value.
+            - Type: float, int or None
+            - Default: None
+        """
+        assert any(
+            v is not None
+            for v in [pattern, gt, lt, ge, le, eq, ne, includes, excludes]
+        ), "At least one constraint must be provided."
+        assert isinstance(
+            includes, (list, tuple, set, type(None))
+        ), "Includes must be a list, tuple, set or None."
+        assert isinstance(
+            excludes, (list, tuple, set, type(None))
+        ), "Excludes must be a list, tuple, set or None."
+        assert isinstance(
+            pattern, (str, type(None))
+        ), "Pattern must be a string or None."
+        assert isinstance(
+            gt, (float, int, type(None))
+        ), "Greater than constraint must be a float, int or None."
+        assert isinstance(
+            lt, (float, int, type(None))
+        ), "Less than constraint must be a float, int or None."
+        assert isinstance(
+            ge, (float, int, type(None))
+        ), "Greater or equal to constraint must be a float, int or None."
+        assert isinstance(
+            le, (float, int, type(None))
+        ), "Less than or equal to constraint must be a float, int or None."
+        assert isinstance(
+            eq, (float, int, type(None))
+        ), "Equal to constraint must be a float, int or None."
+        assert isinstance(
+            ne, (float, int, type(None))
+        ), "Not equal to constraint must be a float, int or None."
+        self.__constraint_checks__ = {}
+        if pattern is not None:
+            self.__constraint_checks__["be a string"] = lambda x: isinstance(
+                x, str
+            )
+            self.__constraint_checks__["Regex Pattern Match"] = lambda x: bool(
+                re.findall(pattern, x)
+            )
+        if includes is not None:
+            self.__constraint_checks__[f"Includes"] = lambda x: x in includes
+        if excludes is not None:
+            self.__constraint_checks__["Excludes"] = lambda x: x not in excludes
+        if gt is not None:
+            self.__constraint_checks__[f"Greater Than ({gt})"] = (
+                lambda x: x > gt
+            )
+        if lt is not None:
+            self.__constraint_checks__[f"Less Than ({lt})"] = lambda x: x < lt
+        if ge is not None:
+            self.__constraint_checks__[f"Greater Than Or Equal To ({ge})"] = (
+                lambda x: x >= ge
+            )
+        if le is not None:
+            self.__constraint_checks__[f"Less Than Or Equal To ({le})"] = (
+                lambda x: x <= le
+            )
+        if eq is not None:
+            self.__constraint_checks__[f"Equal To ({eq})"] = lambda x: x == eq
+        if ne is not None:
+            self.__constraint_checks__[f"Not Equal To ({ne})"] = (
+                lambda x: x != ne
+            )
