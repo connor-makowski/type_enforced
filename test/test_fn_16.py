@@ -1,48 +1,98 @@
-from pathlib import Path
-from type_enforced import Enforcer
-from type_enforced.type import Constraint
-from type_enforced.exception import ConstraintError
-from typing import Annotated
+import type_enforced
+from type_enforced.utils import Constraint, GenericConstraint
 
-filename = Path(__file__).name
-
-PositiveInt = Annotated[int, Constraint(ge=0)]
-PositiveFloat = Annotated[float, Constraint(ge=0)]
-RunningStr = Annotated[str, Constraint(pattern=r".*running.*")]
-
-for i, curr_test in enumerate([
-    (PositiveInt, 0, True),
-    (PositiveInt, -1, ConstraintError),
-    (PositiveInt, "Hello There", TypeError),
-
-    (PositiveFloat, 0.1, True),
-    (PositiveFloat, -0.99, ConstraintError),
-    (PositiveFloat, "Hello There", TypeError),
-
-    (RunningStr, 0, TypeError),
-    (RunningStr, "this is a stopped status", ConstraintError),
-    (RunningStr, "this is running status", True),
-]):
-    hint, value, expected = curr_test
-    failure = False
+CustomConstraint = GenericConstraint(
+    {
+        'in_rgb': lambda x: x in ['red', 'green', 'blue'],
+    }
+)
 
 
-    @Enforcer
-    def func(value: hint):
-        return True
-    try:
-        response = func(value)
-        assert response == expected
-    except AssertionError:
-        failure = True
-    except Exception as err:
-        try:
-            assert isinstance(err, expected)
-        except AssertionError:
-            failure = True
+@type_enforced.Enforcer()
+def positive_int_test(value: [int, Constraint(ge=0)]) -> bool:
+    return True
 
-    msg = f"Test[{i}]"
-    if failure:
-        print(f"{msg}: {filename} failed")
-    else:
-        print(f"{msg}: {filename} passed")
+
+@type_enforced.Enforcer()
+def positive_float_test(value: [int, float, Constraint(ge=0)]) -> bool:
+    return True
+
+
+@type_enforced.Enforcer()
+def running_str_test(value: [str, Constraint(pattern=r".*running.*")]) -> bool:
+    return True
+
+
+@type_enforced.Enforcer()
+def custom_constraint_test(value: [str, CustomConstraint]) -> bool:
+    return True
+
+
+success = True
+try:
+    positive_int_test(0)
+except TypeError as err:
+    success = False
+
+try:
+    positive_int_test(-1)
+    success = False
+except TypeError:
+    pass
+
+try:
+    positive_int_test("Hello There")
+    success = False
+except TypeError:
+    pass
+
+try:
+    positive_float_test(0.1)
+except TypeError:
+    success = False
+
+try:
+    positive_float_test(-0.99)
+    success = False
+except TypeError:
+    pass
+
+try:
+    positive_float_test("Hello There")
+    success = False
+except TypeError:
+    pass
+
+try:
+    running_str_test(0)
+    success = False
+except TypeError:
+    pass
+
+try:
+    running_str_test("this is a stopped status")
+    success = False
+except TypeError:
+    pass
+
+try:
+    running_str_test("this is running status")
+except TypeError:
+    success = False
+
+try:
+    custom_constraint_test("red")
+except TypeError:
+    success = False
+
+try:
+    custom_constraint_test("yellow")
+    success = False
+except TypeError:
+    pass
+
+
+if success:
+    print(f"test_fn_16.py passed")
+else:
+    print(f"test_fn_16.py failed")

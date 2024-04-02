@@ -71,11 +71,19 @@ Variables without an annotation for type are not enforced.
         - e.g. `Literal['a', 'b']` will require any passed values that are equal (`==`) to `'a'` or `'b'`.
             - This compares the value of the passed input and not the type of the passed input.
         - Note: Multiple types can be passed in the same `Literal`.
+        - Note: Literals are evaluated after type checking occurs.
     - `Callable`
         - Essentially creates a union of:
             - `staticmethod`, `classmethod`, `types.FunctionType`, `types.BuiltinFunctionType`, `types.MethodType`, `types.BuiltinMethodType`, `types.GeneratorType`
     - Note: Other functions might have support, but there are not currently tests to validate them
         - Feel free to create an issue (or better yet a PR) if you want to add tests/support
+- `Constraint` validation.
+    - This is a special type of validation that allows passed input to be validated.
+        - Standard and custom constraints are supported.
+    - This is useful for validating that a passed input is within a certain range or meets a certain criteria.
+    - Note: The constraint is checked after type checking occurs.
+    - Note: See the example below or technical [constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) and [generic constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint) docs for more information.
+    ```
 
 ## Interactive Example
 
@@ -176,6 +184,44 @@ class my_class:
     def my_other_fn(self, a: int) -> None:
         pass
 ```
+
+## Validate with Constraints
+Type enforcer can enforce constraints for passed variables. These constraints are vaildated after any type checks are made.
+
+To enforce basic input values are integers greater than or equal to zero, you can use the [Constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) class like so:
+```py
+import type_enforced
+from type_enforced.utils import Constraint
+
+@type_enforced.Enforcer()
+def positive_int_test(value: [int, Constraint(ge=0)]) -> bool:
+    return True
+
+positive_int_test(1) # Passes
+positive_int_test(-1) # Fails
+positive_int_test(1.0) # Fails
+```
+
+To enforce a [GenericConstraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint):
+```py
+import type_enforced
+from type_enforced.utils import GenericConstraint
+
+CustomConstraint = GenericConstraint(
+    {
+        'in_rgb': lambda x: x in ['red', 'green', 'blue'],
+    }
+)
+
+@type_enforced.Enforcer()
+def rgb_test(value: [int, CustomConstraint]) -> bool:
+    return True
+
+rgb_test('red') # Passes
+rgb_test('yellow') # Fails
+```
+
+
 
 ## Validate class instances and classes
 

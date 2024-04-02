@@ -1,2 +1,0 @@
-class ConstraintError(Exception):
-    pass
