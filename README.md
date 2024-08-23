@@ -216,7 +216,7 @@ CustomConstraint = GenericConstraint(
 )
 
 @type_enforced.Enforcer()
-def rgb_test(value: [int, CustomConstraint]) -> bool:
+def rgb_test(value: [str, CustomConstraint]) -> bool:
     return True
 
 rgb_test('red') # Passes
