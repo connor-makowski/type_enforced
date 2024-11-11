@@ -8,7 +8,7 @@ from types import (
 )
 from typing import Type, Union, Sized, Literal, Callable
 from functools import update_wrapper, wraps
-from type_enforced.utils import Partial, GenericConstraint
+from type_enforced.utils import Partial, GenericConstraint, DeepMerge
 
 # Python 3.10+ has a UnionType object that is used to represent Union types
 try:
@@ -84,8 +84,9 @@ class FunctionMethodEnforcer:
             elif hasattr(valid_type, "__origin__"):
                 # Special code for iterable types (e.g. list, tuple, dict, set) including typing iterables
                 if valid_type.__origin__ in [list, tuple, dict, set]:
-                    valid_types[valid_type.__origin__] = (
-                        self.__get_checkable_type__(valid_type.__args__)
+                    valid_types[valid_type.__origin__] = DeepMerge(
+                        original=valid_types.get(valid_type.__origin__, {}),
+                        update=self.__get_checkable_type__(valid_type.__args__),
                     )
                 # Handle any generic aliases
                 elif isinstance(valid_type, GenericAlias):

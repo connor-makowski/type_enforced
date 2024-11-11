@@ -1,2 +1,2 @@
 python -m build
-twine upload dist/*
+python -m twine upload dist/*

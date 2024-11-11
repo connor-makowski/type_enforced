@@ -1,4 +1,4 @@
-import types, re
+import types, re, copy
 from functools import update_wrapper
 
 
@@ -231,3 +231,35 @@ class Constraint(GenericConstraint):
             self.__constraint_checks__[f"Not Equal To ({ne})"] = (
                 lambda x: x != ne
             )
+
+
+def DeepMerge(original: dict, update: dict):
+    """
+    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.
+
+    Required Arguments:
+
+    - `original`:
+        - What: The original dictionary to merge the update into.
+        - Type: dict
+    - `update`:
+        - What: The dictionary to merge into the original dictionary.
+        - Type: dict
+    """
+    original = copy.deepcopy(original)
+    for key, value in update.items():
+        if (
+            key in original
+            and isinstance(original[key], dict)
+            and isinstance(value, dict)
+        ):
+            DeepMerge(original[key], value)
+        elif (
+            key in original
+            and isinstance(original[key], list)
+            and isinstance(value, list)
+        ):
+            original[key].extend(value)
+        else:
+            original[key] = value
+    return original
