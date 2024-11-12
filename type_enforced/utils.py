@@ -2,33 +2,6 @@ import types, re, copy
 from functools import update_wrapper
 
 
-def WithSubclasses(obj):
-    """
-    A special helper function to allow a class type to be passed and also allow all subclasses of that type.
-
-    Requires:
-
-    - `obj`:
-        - What: An uninitialized class that should also be considered type correct if a subclass is passed.
-        - Type: Any Uninitialized class
-
-    Returns:
-
-    - `out`:
-        - What: A list of all of the subclasses (recursively parsed)
-        - Type: list of strs
-
-
-    Notes:
-
-    - From a functional perspective, this recursively gets the subclasses for an uninitialised class (type).
-    """
-    out = [obj]
-    for i in obj.__subclasses__():
-        out += WithSubclasses(i)
-    return out
-
-
 class Partial:
     """
     A special class wrapper to allow for easy partial function wrappings and calls.
@@ -231,6 +204,75 @@ class Constraint(GenericConstraint):
             self.__constraint_checks__[f"Not Equal To ({ne})"] = (
                 lambda x: x != ne
             )
+
+
+class WithSubclasses:
+    def __init__(self, obj, cache=True):
+        """
+        A special helper class to allow a class type to be passed and also allow all subclasses of that type.
+
+        This allows delayed evaluation of the subclasses until initial call time such that delayed inherited classes are considered.
+
+        Note: You can not validate that a passed object is a WithSubclasses object as this is a special case.
+
+        Required Arguments:
+
+        - `obj`:
+            - What: An uninitialized class that should also be considered type correct if a subclass is passed.
+            - Type: Any Uninitialized class
+
+        Optional Arguments:
+
+        - `cache`:
+            - What: Whether to cache the calcuation of the subclasses. If set to False, this will recalculate the subclasses on each call.
+            - Type: bool
+            - Default: True
+        """
+        self.obj = obj
+        self.cache = cache
+
+    @classmethod
+    def __get_subclasses__(cls, obj):
+        """
+        A special helper method to get all of the subclasses of a provided class object.
+
+        Requires:
+
+        - `obj`:
+            - What: An uninitialized class that should also be considered type correct if a subclass is passed.
+            - Type: Any Uninitialized class
+
+        Returns:
+
+        - `out`:
+            - What: A list of all of the subclasses (recursively parsed)
+            - Type: list of strs
+
+
+        Notes:
+
+        - From a functional perspective, this recursively gets the subclasses for an uninitialised class (type).
+        """
+        out = [obj]
+        for i in obj.__subclasses__():
+            out += cls.__get_subclasses__(i)
+        return out
+
+    def get_subclasses(self):
+        """
+        Returns a list of all of the subclasses of the class that was passed to the WithSubclasses object.
+
+        If already calculated, it will return the cached value.
+
+        Returns:
+
+        - `subclasses`:
+            - What: A list of all of the subclasses of the class that was passed to the WithSubclasses object.
+            - Type: list of strs
+        """
+        if not hasattr(self, "subclasses") or self.cache == False:
+            self.subclasses = self.__get_subclasses__(self.obj)
+        return self.subclasses
 
 
 def DeepMerge(original: dict, update: dict):

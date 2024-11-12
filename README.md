@@ -299,7 +299,7 @@ class Baz:
 def my_fn(custom_class: WithSubclasses(Foo)):
     pass
 
-print(WithSubclasses(Foo)) # Prints: [<class '__main__.Foo'>, <class '__main__.Bar'>]
+print(WithSubclasses.get_subclasses(Foo)) # Prints: [<class '__main__.Foo'>, <class '__main__.Bar'>]
 my_fn(Foo()) # Passes as expected
 my_fn(Bar()) # Passes as expected
 my_fn(Baz()) # Raises TypeError as expected

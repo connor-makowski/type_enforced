@@ -8,7 +8,12 @@ from types import (
 )
 from typing import Type, Union, Sized, Literal, Callable
 from functools import update_wrapper, wraps
-from type_enforced.utils import Partial, GenericConstraint, DeepMerge
+from type_enforced.utils import (
+    Partial,
+    GenericConstraint,
+    DeepMerge,
+    WithSubclasses,
+)
 
 # Python 3.10+ has a UnionType object that is used to represent Union types
 try:
@@ -23,7 +28,7 @@ except ImportError:
 class FunctionMethodEnforcer:
     def __init__(self, __fn__):
         """
-        Initialize a FunctionMethodEnforce class object as a wrapper for a passed function `__fn__`.
+        Initialize a FunctionMethodEnforcer class object as a wrapper for a passed function `__fn__`.
 
         Requires:
 
@@ -38,12 +43,6 @@ class FunctionMethodEnforcer:
         self.__check_method_function__()
         # Get input defaults for the function or method
         self.__get_defaults__()
-        # Get a dictionary of all annotations as checkable types
-        self.__checkable_types__ = {
-            key: self.__get_checkable_type__(value)
-            for key, value in self.__annotations__.items()
-        }
-        self.__return_type__ = self.__checkable_types__.pop("return", None)
 
     def __get_defaults__(self):
         """
@@ -68,6 +67,25 @@ class FunctionMethodEnforcer:
             )
         else:
             self.__fn_defaults__ = {}
+
+    def __get_checkable_types__(self):
+        """
+        Creates two class attributes:
+
+        - `self.__checkable_types__`:
+            - What: A dictionary of all annotations as checkable types
+            - Type: dict
+
+        - `self.__return_type__`:
+            - What: The return type of the function or method
+            - Type: dict | None
+        """
+        if not hasattr(self, "__checkable_types__"):
+            self.__checkable_types__ = {
+                key: self.__get_checkable_type__(value)
+                for key, value in self.__annotations__.items()
+            }
+            self.__return_type__ = self.__checkable_types__.pop("return", None)
 
     def __get_checkable_type__(self, item_annotation):
         """
@@ -142,6 +160,9 @@ class FunctionMethodEnforcer:
             # as the object is validated differently than a type.
             elif isinstance(valid_type, GenericConstraint):
                 valid_types["__extra__"]["__constraint__"] = valid_type
+            elif isinstance(valid_type, WithSubclasses):
+                for subclass in valid_type.get_subclasses():
+                    valid_types[subclass] = None
             else:
                 valid_types[valid_type] = None
         return valid_types
@@ -192,6 +213,9 @@ class FunctionMethodEnforcer:
         # See: self.__get__
         if self.__outer_self__ is not None:
             args = (self.__outer_self__, *args)
+        # Get a dictionary of all annotations as checkable types
+        # Note: This is only done once at first call to avoid redundant calculations
+        self.__get_checkable_types__()
         # Create a compreshensive dictionary of assigned variables (order matters)
         assigned_vars = {
             **self.__fn_defaults__,
