@@ -46,6 +46,7 @@ Note: Type Enforced does not support `__future__.annotations`. If you call `from
 
 - Function/Method Input Typing
 - Function/Method Return Typing
+- Dataclass Typing
 - All standard python types (`str`, `list`, `int`, `dict`, ...)
 - Union types
     - typing.Union
@@ -168,6 +169,19 @@ class my_class:
     @staticmethod
     def my_other_fn(a: int, b: [int, str]):
       pass
+```
+
+Dataclasses are suported too.
+
+```py
+import type_enforced
+from dataclasses import dataclass
+
+@type_enforced.Enforcer
+@dataclass
+class my_class:
+    foo: int
+    bar: str
 ```
 
 You can skip enforcement if you add the argument `enabled=False` in the `Enforcer` call.
