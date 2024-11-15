@@ -23,6 +23,13 @@ def my_fn_args_kwargs(
     return None
 
 
+@type_enforced.Enforcer
+def my_fn_args_kwargs_arg_default(
+    a: int = 5, *args, b: [int, str] = 2, c: int = 3
+) -> None:
+    return None
+
+
 success = True
 success_type_error = True
 try:
@@ -30,6 +37,7 @@ try:
     my_fn_args(a=1, b=2, c=3)  # No Error
     my_fn_kwargs(a=1, b=2, c=3)  # No Error
     my_fn_args_kwargs(a=1, b=2, c=3)  # No Error
+    my_fn_args_kwargs_arg_default(b=2, c=3)  # No Error
 except:
     success = False
 

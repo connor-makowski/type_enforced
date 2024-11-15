@@ -1,13 +1,17 @@
-import type_enforced
+import type_enforced, sys
 from typing import Literal
 
 
-@type_enforced.Enforcer
-def my_fn(a: Literal["bar"] | int) -> None:
-    pass
+try:
 
+    @type_enforced.Enforcer
+    def my_fn(a: Literal["bar"] | int) -> None:
+        pass
 
-success = True
+    success = True
+except:
+    success = False
+
 # TODO: In the next major version, add support to enforce combinations of literals as types
 #       and not constraints.
 # try:
@@ -19,5 +23,7 @@ success = True
 
 if success:
     print(f"test_fn_18.py passed")
+elif sys.version_info <= (3, 10, 0):
+    print("test_fn_18.py skipped")
 else:
     print(f"test_fn_18.py failed")

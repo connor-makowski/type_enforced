@@ -50,23 +50,24 @@ class FunctionMethodEnforcer:
         """
         # Determine assigned variables as they were passed in
         # See https://stackoverflow.com/a/71884467/12014156
-        if self.__fn__.__kwdefaults__ is not None:
-            # __defaults__ are not used if *args are present necessitating this line
-            self.__fn_defaults__ = self.__fn__.__kwdefaults__
-        elif self.__fn__.__defaults__ is not None:
+        self.__fn_defaults__ = {}
+        if self.__fn__.__defaults__ is not None:
             # Get the list of variable names (omittiting **kwargs var if present)
             varnames = list(self.__fn__.__code__.co_varnames)[
                 : self.__fn__.__code__.co_argcount
             ]
             # Create a dictionary of default values
-            self.__fn_defaults__ = dict(
-                zip(
-                    varnames[-len(self.__fn__.__defaults__) :],
-                    self.__fn__.__defaults__,
+            self.__fn_defaults__.update(
+                dict(
+                    zip(
+                        varnames[-len(self.__fn__.__defaults__) :],
+                        self.__fn__.__defaults__,
+                    )
                 )
             )
-        else:
-            self.__fn_defaults__ = {}
+        if self.__fn__.__kwdefaults__ is not None:
+            # if *args is present, anything after it is considered a keyword argument
+            self.__fn_defaults__.update(self.__fn__.__kwdefaults__)
 
     def __get_checkable_types__(self):
         """
