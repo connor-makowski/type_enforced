@@ -48,25 +48,18 @@ class FunctionMethodEnforcer:
         """
         Get the default values of the passed function or method and store them in `self.__fn_defaults__`.
         """
-        # Determine assigned variables as they were passed in
-        # See https://stackoverflow.com/a/71884467/12014156
         self.__fn_defaults__ = {}
         if self.__fn__.__defaults__ is not None:
-            # Get the list of variable names (omittiting **kwargs var if present)
-            varnames = list(self.__fn__.__code__.co_varnames)[
+            # Get the names of all provided default values for args
+            default_varnames = list(self.__fn__.__code__.co_varnames)[
                 : self.__fn__.__code__.co_argcount
-            ]
-            # Create a dictionary of default values
+            ][-len(self.__fn__.__defaults__) :]
+            # Update the output dictionary with the default values
             self.__fn_defaults__.update(
-                dict(
-                    zip(
-                        varnames[-len(self.__fn__.__defaults__) :],
-                        self.__fn__.__defaults__,
-                    )
-                )
+                dict(zip(default_varnames, self.__fn__.__defaults__))
             )
         if self.__fn__.__kwdefaults__ is not None:
-            # if *args is present, anything after it is considered a keyword argument
+            # Update the output dictionary with the keyword default values
             self.__fn_defaults__.update(self.__fn__.__kwdefaults__)
 
     def __get_checkable_types__(self):
