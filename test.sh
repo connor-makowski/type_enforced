@@ -1,1 +1,5 @@
-for f in test/*.py; do python "$f"; done
+docker build . --tag "type_enforced" --quiet
+docker run --rm \
+    --volume "$(pwd):/app" \
+    "type_enforced"
+
