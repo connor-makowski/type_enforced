@@ -10,11 +10,17 @@
     {% endfor %}
 </select>
 <script>
+    var split_at = "/docs/";
+    if (window.location.href.includes('github.io')) {
+        split_at = "github.io/type_enforced/";
+    }
     // Set the currently selected option to be equivalent to that of the url version.
-    var version = window.location.pathname.split('/docs/')[1].split('/')[0];
-    // If version includes the string 'type_enforced', then it is a special version that is not a version number.
-    if (version.includes('type_enforced')) {
-        version = 'latest';
+    var version = 'latest';
+    var version_path = window.location.href.split(split_at)[1];
+    if (version_path.includes('/')) {
+        if (version_path.split('/')[0].match(/^\d+\.\d+\.\d+$/)) {
+            version = version_path.split('/')[0];
+        }
     }
     document.getElementById('version-selector').value = version;
 
@@ -25,8 +31,7 @@
         } else {
             var new_url = version + '/';
         }
-        var path = window.location.pathname;
-        var url = path.split('/docs/')[0]+ '/docs/' + new_url + 'index.html';
+        var url = window.location.href.split(split_at)[0] + split_at + new_url + 'index.html';
         console.log(url);
         window.location.href = url;
     }
