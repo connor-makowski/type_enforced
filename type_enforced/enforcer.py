@@ -315,8 +315,11 @@ def Enforcer(clsFnMethod, enabled):
         return clsFnMethod
     # Support eager annotations for python 3.14+
     if hasattr(clsFnMethod, "__annotate__"):
-        if not hasattr(clsFnMethod, "__annotations__") and getattr(clsFnMethod, "__annotate__") is not None:
-            clsFnMethod.__annotations__==clsFnMethod.__annotate__(2)
+        if (
+            not hasattr(clsFnMethod, "__annotations__")
+            and getattr(clsFnMethod, "__annotate__") is not None
+        ):
+            clsFnMethod.__annotations__ == clsFnMethod.__annotate__(2)
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
