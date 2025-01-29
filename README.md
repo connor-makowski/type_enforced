@@ -304,3 +304,16 @@ my_fn(Foo()) # Passes as expected
 my_fn(Bar()) # Passes as expected
 my_fn(Baz()) # Raises TypeError as expected
 ```
+
+# Development
+## Running Tests
+### Debug and Test using Docker
+
+- Creates a docker container and runs all tests in the `test` folder.
+  - Alternately, you can comment out the `ENTRYPOINT` line in the `Dockerfile` and drop into a shell to run tests individually.
+- Runs the tests on the python version specified in the `Dockerfile`.
+    - Modify this as needed to ensure function across all supported python versions (3.9+)
+
+```bash
+./test.sh
+```

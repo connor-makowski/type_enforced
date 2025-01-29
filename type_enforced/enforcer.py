@@ -77,7 +77,7 @@ class FunctionMethodEnforcer:
         if not hasattr(self, "__checkable_types__"):
             self.__checkable_types__ = {
                 key: self.__get_checkable_type__(value)
-                for key, value in self.__annotations__.items()
+                for key, value in self.__fn__.__annotations__.items()
             }
             self.__return_type__ = self.__checkable_types__.pop("return", None)
 
@@ -313,6 +313,13 @@ def Enforcer(clsFnMethod, enabled):
         clsFnMethod.__enforcer_enabled__ = enabled
     if clsFnMethod.__enforcer_enabled__ == False:
         return clsFnMethod
+    # Support eager annotations for python 3.14+
+    if hasattr(clsFnMethod, "__annotate__"):
+        if (
+            not hasattr(clsFnMethod, "__annotations__")
+            and getattr(clsFnMethod, "__annotate__") is not None
+        ):
+            clsFnMethod.__annotations__ == clsFnMethod.__annotate__(2)
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
@@ -327,6 +334,9 @@ def Enforcer(clsFnMethod, enabled):
             return FunctionMethodEnforcer(clsFnMethod)
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
+            # Skip the __annotate__ method if present in __dict__
+            if key == "__annotate__":
+                continue
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)
             ):
