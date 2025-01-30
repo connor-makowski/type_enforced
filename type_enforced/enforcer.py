@@ -6,7 +6,7 @@ from types import (
     BuiltinFunctionType,
     BuiltinMethodType,
 )
-from typing import Type, Union, Sized, Literal, Callable
+from typing import Type, Union, Sized, Literal, Callable, get_type_hints
 from functools import update_wrapper, wraps
 from type_enforced.utils import (
     Partial,
@@ -77,7 +77,7 @@ class FunctionMethodEnforcer:
         if not hasattr(self, "__checkable_types__"):
             self.__checkable_types__ = {
                 key: self.__get_checkable_type__(value)
-                for key, value in self.__fn__.__annotations__.items()
+                for key, value in self.__fn__.__type_enforced_types__.items()
             }
             self.__return_type__ = self.__checkable_types__.pop("return", None)
 
@@ -309,32 +309,30 @@ def Enforcer(clsFnMethod, enabled):
     Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
     ```
     """
-    if not hasattr(clsFnMethod, "__enforcer_enabled__"):
-        clsFnMethod.__enforcer_enabled__ = enabled
-    if clsFnMethod.__enforcer_enabled__ == False:
+    if not hasattr(clsFnMethod, "__type_enforced_enabled__"):
+        clsFnMethod.__type_enforced_enabled__ = enabled
+    if clsFnMethod.__type_enforced_enabled__ == False:
         return clsFnMethod
-    # Support eager annotations for python 3.14+
-    if hasattr(clsFnMethod, "__annotate__"):
-        if (
-            not hasattr(clsFnMethod, "__annotations__")
-            and getattr(clsFnMethod, "__annotate__") is not None
-        ):
-            clsFnMethod.__annotations__ == clsFnMethod.__annotate__(2)
+    # Support eager annotations for python 3.14+ or python 3.10+ with the future import
+    type_hints = get_type_hints(clsFnMethod)
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
         # Only apply the enforcer if annotations are specified
-        if getattr(clsFnMethod, "__annotations__", {}) == {}:
+        if type_hints == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
+            clsFnMethod.__func__.__type_enforced_types__ = type_hints
             return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
         elif isinstance(clsFnMethod, classmethod):
+            clsFnMethod.__func__.__type_enforced_types__ = type_hints
             return classmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
         elif isinstance(clsFnMethod, (FunctionType, MethodType)):
+            clsFnMethod.__type_enforced_types__ = type_hints
             return FunctionMethodEnforcer(clsFnMethod)
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
-            # Skip the __annotate__ method if present in __dict__
+            # Skip the __annotate__ method if present in __dict__ as it deletes itself upon invocation
             if key == "__annotate__":
                 continue
             if hasattr(value, "__call__") or isinstance(

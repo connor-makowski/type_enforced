@@ -6,11 +6,14 @@ A pure python (no special compiler required) type enforcer for type annotations.
 
 # Setup
 
-Make sure you have Python 3.9.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/). For older python versions (3.7 | 3.8), you should use type_enforced==0.0.16.
+Make sure you have Python 3.10.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
 
-- Note: Certain features are only available on newer python versions:
-    - EG: Staticmethod typechecking requires `python>=3.10`
-    - EG: Union types with `|` require `python>=3.10`
+- Unsupported python versions can be used, however newer features will not be available.
+    - For 3.7: use type_enforced==0.0.16 (only very basic type checking is supported)
+    - For 3.8: use type_enforced==0.0.16 (only very basic type checking is supported)
+    - For 3.9: use type_enforced<=1.9.0 (`staticmethod`, union with `|` and `from __future__ import annotations` typechecking are not supported)
+- Other notes:
+    - For python 3.10: `from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods)
 
 ### Installation
 
@@ -39,8 +42,6 @@ You can pass union types to validate one of multiple types. For example, you cou
 Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For examle, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
 
 Variables without an annotation for type are not enforced.
-
-Note: Type Enforced does not support `__future__.annotations`. If you call `from __future__ import annotations` in your file, type enforced will not work as expected.
 
 ## Supported Type Checking Features:
 
@@ -315,5 +316,5 @@ my_fn(Baz()) # Raises TypeError as expected
     - Modify this as needed to ensure function across all supported python versions (3.9+)
 
 ```bash
-./test.sh
+./run_test.sh
 ```

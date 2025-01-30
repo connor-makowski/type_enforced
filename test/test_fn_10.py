@@ -1,11 +1,5 @@
 import type_enforced
 from typing import Union
-import sys
-
-# Test | only if python version >= 3.10
-if sys.version_info < (3, 10):
-    print("test_fn_10.py skipped")
-    exit()
 
 
 @type_enforced.Enforcer

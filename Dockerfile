@@ -1,12 +1,11 @@
 # syntax = docker/dockerfile:1
 
 ## Uncomment the version of python you want to test against
-# FROM python:3.9-alpine
 # FROM python:3.10-alpine
 # FROM python:3.11-alpine
 # FROM python:3.12-alpine
-# FROM python:3.13-alpine
-FROM python:3.14-rc-alpine
+FROM python:3.13-alpine
+# FROM python:3.14-rc-alpine
 
 # Set the working directory to /app
 WORKDIR /app/

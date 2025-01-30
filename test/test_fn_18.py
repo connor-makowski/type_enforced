@@ -1,4 +1,4 @@
-import type_enforced, sys
+import type_enforced
 from typing import Literal
 
 
@@ -23,7 +23,5 @@ except:
 
 if success:
     print(f"test_fn_18.py passed")
-elif sys.version_info <= (3, 10, 0):
-    print("test_fn_18.py skipped")
 else:
     print(f"test_fn_18.py failed")
