@@ -5,6 +5,7 @@ from types import (
     GeneratorType,
     BuiltinFunctionType,
     BuiltinMethodType,
+    UnionType,
 )
 from typing import Type, Union, Sized, Literal, Callable, get_type_hints
 from functools import update_wrapper, wraps
@@ -14,15 +15,6 @@ from type_enforced.utils import (
     DeepMerge,
     WithSubclasses,
 )
-
-# Python 3.10+ has a UnionType object that is used to represent Union types
-try:
-    from types import UnionType
-except ImportError:
-    # Python < 3.10 does not have UnionType
-    # Since UnionType is validated after NoneType, we can use NoneType
-    # as a stand in for UnionType to ignore it in older versions of python
-    UnionType = type(None)
 
 
 class FunctionMethodEnforcer:
@@ -77,7 +69,7 @@ class FunctionMethodEnforcer:
         if not hasattr(self, "__checkable_types__"):
             self.__checkable_types__ = {
                 key: self.__get_checkable_type__(value)
-                for key, value in self.__fn__.__type_enforced_types__.items()
+                for key, value in get_type_hints(self.__fn__).items()
             }
             self.__return_type__ = self.__checkable_types__.pop("return", None)
 
@@ -288,6 +280,13 @@ def Enforcer(clsFnMethod, enabled):
         - What: The class, function or method that should have input types enforced
         - Type: function | method | class
 
+    Optional:
+
+    - `enabled`:
+        - What: A boolean to enable or disable the enforcer
+        - Type: bool
+        - Default: True
+
     Example Use:
     ```
     >>> import type_enforced
@@ -313,27 +312,25 @@ def Enforcer(clsFnMethod, enabled):
         clsFnMethod.__type_enforced_enabled__ = enabled
     if clsFnMethod.__type_enforced_enabled__ == False:
         return clsFnMethod
-    # Support eager annotations for python 3.14+ or python 3.10+ with the future import
-    type_hints = get_type_hints(clsFnMethod)
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
-        # Only apply the enforcer if annotations are specified
-        if type_hints == {}:
+        # Only apply the enforcer if type_hints are present
+        if get_type_hints(clsFnMethod) == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
-            clsFnMethod.__func__.__type_enforced_types__ = type_hints
             return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
         elif isinstance(clsFnMethod, classmethod):
-            clsFnMethod.__func__.__type_enforced_types__ = type_hints
             return classmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
         elif isinstance(clsFnMethod, (FunctionType, MethodType)):
-            clsFnMethod.__type_enforced_types__ = type_hints
             return FunctionMethodEnforcer(clsFnMethod)
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
             # Skip the __annotate__ method if present in __dict__ as it deletes itself upon invocation
-            if key == "__annotate__":
+            # Skip any previously wrapped methods if they are already a FunctionMethodEnforcer
+            if key == "__annotate__" or isinstance(
+                value, FunctionMethodEnforcer
+            ):
                 continue
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)

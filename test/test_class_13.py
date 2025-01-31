@@ -2,6 +2,7 @@ from __future__ import annotations
 import type_enforced
 
 
+@type_enforced.Enforcer
 class my_class:
     def __init__(self):
         self.a = 10
@@ -12,6 +13,8 @@ class my_class:
 
 
 mc = my_class()
+
+mc.my_fn(1)
 
 success = True
 

@@ -19,7 +19,7 @@ echo "from .enforcer import Enforcer, FunctionMethodEnforcer" >> type_enforced/_
 
 
 # Specify versions for documentation purposes
-VERSION="1.10.0"
+VERSION="1.10.1"
 OLD_DOC_VERSIONS="1.9.0 1.8.1 1.7.0 1.6.0 1.5.0 1.4.0 1.3.0 1.2.0 1.1.1 0.0.16"
 export version_options="$VERSION $OLD_DOC_VERSIONS"
 
