@@ -1,6 +1,7 @@
 # Type Enforced
 [![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads)](https://pypi.org/project/type_enforced/)
 
 A pure python (no special compiler required) type enforcer for type annotations. Enforce types in python functions and methods.
 
