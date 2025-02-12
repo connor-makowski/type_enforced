@@ -89,15 +89,15 @@ class GenericConstraint:
 class Constraint(GenericConstraint):
     def __init__(
         self,
-        pattern: [str, None] = None,
-        includes: [list, tuple, set, None] = None,
-        excludes: [list, tuple, set, None] = None,
-        gt: [float, int, None] = None,
-        lt: [float, int, None] = None,
-        ge: [float, int, None] = None,
-        le: [float, int, None] = None,
-        eq: [float, int, None] = None,
-        ne: [float, int, None] = None,
+        pattern: str | None = None,
+        includes: list | tuple | set | None = None,
+        excludes: list | tuple | set | None = None,
+        gt: float | int | None = None,
+        lt: float | int | None = None,
+        ge: float | int | None = None,
+        le: float | int | None = None,
+        eq: float | int | None = None,
+        ne: float | int | None = None,
     ):
         """
         Creates a constraint object that can be used to validate a value against a set of constraints.

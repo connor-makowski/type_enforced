@@ -54,6 +54,7 @@ Variables without an annotation for type are not enforced.
     - typing.Union
     - `,` separated list (e.g. `[int, float]`)
     - `|` separated list (e.g. `[int | float]`)
+    - `|` separated items (e.g. `int | float`)
 - Nested types (e.g. `dict[str]` or `list[int,float]`)
     - Note: Each parent level must be an iterable
         - Specifically a variant of `list`, `set`, `tuple` or `dict`
@@ -153,7 +154,7 @@ class my_class:
     def my_fn(self, b:int):
         pass
 
-    def my_other_fn(self, a: int, b: [int, str]):
+    def my_other_fn(self, a: int, b: int | str):
       pass
 ```
 
@@ -169,7 +170,7 @@ class my_class:
         pass
 
     @staticmethod
-    def my_other_fn(a: int, b: [int, str]):
+    def my_other_fn(a: int, b: int | str):
       pass
 ```
 
