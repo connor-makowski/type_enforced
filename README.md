@@ -40,7 +40,7 @@ def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
 
 You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, float]`, `[int | float]` or even `typing.Union[int, float]`.
 
-Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For examle, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
+Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For example, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
 
 Variables without an annotation for type are not enforced.
 
@@ -55,7 +55,7 @@ Variables without an annotation for type are not enforced.
     - `,` separated list (e.g. `[int, float]`)
     - `|` separated list (e.g. `[int | float]`)
     - `|` separated items (e.g. `int | float`)
-- Nested types (e.g. `dict[str]` or `list[int,float]`)
+- Nested types (e.g. `dict[str]` or `list[int, float]`)
     - Note: Each parent level must be an iterable
         - Specifically a variant of `list`, `set`, `tuple` or `dict`
     - Note: `dict` keys are not validated, only values
@@ -205,7 +205,7 @@ class my_class:
 ```
 
 ## Validate with Constraints
-Type enforcer can enforce constraints for passed variables. These constraints are vaildated after any type checks are made.
+Type enforcer can enforce constraints for passed variables. These constraints are validated after any type checks are made.
 
 To enforce basic input values are integers greater than or equal to zero, you can use the [Constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) class like so:
 ```py
