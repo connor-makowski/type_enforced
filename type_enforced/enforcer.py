@@ -309,7 +309,11 @@ def Enforcer(clsFnMethod, enabled):
     ```
     """
     if not hasattr(clsFnMethod, "__type_enforced_enabled__"):
-        clsFnMethod.__type_enforced_enabled__ = enabled
+        # Special try except clause to handle cases when the object is immutable
+        try:
+            clsFnMethod.__type_enforced_enabled__ = enabled
+        except:
+            return clsFnMethod
     if clsFnMethod.__type_enforced_enabled__ == False:
         return clsFnMethod
     if isinstance(
