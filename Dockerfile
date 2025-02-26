@@ -14,11 +14,8 @@ WORKDIR /app/
 # This includes egg installing the type_enforced package
 COPY type_enforced/__init__.py /app/type_enforced/__init__.py
 COPY pyproject.toml /app/pyproject.toml
-RUN pip install -e .
+COPY requirements.txt /app/requirements.txt
+RUN pip install -r requirements.txt
 
-COPY ./util_test_helper.sh /app/util_test_helper.sh
-COPY ./test/test_fn_01.py /app/test/test_fn_01.py
-
+# Drop into a shell by default
 CMD ["/bin/bash"]
-# Comment out ENTRYPOINT to drop into an interactive shell for debugging when using test.sh
-ENTRYPOINT ["/app/util_test_helper.sh"]
