@@ -1,11 +1,11 @@
 # syntax = docker/dockerfile:1
 
 ## Uncomment the version of python you want to test against
-# FROM python:3.10-alpine
-# FROM python:3.11-alpine
-# FROM python:3.12-alpine
-FROM python:3.13-alpine
-# FROM python:3.14-rc-alpine
+# FROM python:3.10-slim
+# FROM python:3.11-slim
+# FROM python:3.12-slim
+FROM python:3.13-slim
+# FROM python:3.14-rc-slim
 
 # Set the working directory to /app
 WORKDIR /app/
@@ -19,6 +19,6 @@ RUN pip install -e .
 COPY ./util_test_helper.sh /app/util_test_helper.sh
 COPY ./test/test_fn_01.py /app/test/test_fn_01.py
 
-CMD ["/bin/ash"]
+CMD ["/bin/bash"]
 # Comment out ENTRYPOINT to drop into an interactive shell for debugging when using test.sh
 ENTRYPOINT ["/app/util_test_helper.sh"]
