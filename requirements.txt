@@ -1,7 +1,7 @@
-autoflake>=2.2.1
-black>=23.10.1
-build>=1.0.3
-pdoc>=14.1.0
-twine>=4.0.2
-virtualenv>=20.24.6
+autoflake>=2.3.1
+black>=25.1.0
+build>=1.2.2
+pdoc>=15.0.1
+twine>=6.1.0
+virtualenv>=20.29.2
 -e .

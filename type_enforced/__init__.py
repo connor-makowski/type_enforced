@@ -2,6 +2,7 @@
 # Type Enforced
 [![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads)](https://pypi.org/project/type_enforced/)
 
 A pure python (no special compiler required) type enforcer for type annotations. Enforce types in python functions and methods.
 
@@ -40,7 +41,7 @@ def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
 
 You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, float]`, `[int | float]` or even `typing.Union[int, float]`.
 
-Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For examle, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
+Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For example, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
 
 Variables without an annotation for type are not enforced.
 
@@ -54,7 +55,8 @@ Variables without an annotation for type are not enforced.
     - typing.Union
     - `,` separated list (e.g. `[int, float]`)
     - `|` separated list (e.g. `[int | float]`)
-- Nested types (e.g. `dict[str]` or `list[int,float]`)
+    - `|` separated items (e.g. `int | float`)
+- Nested types (e.g. `dict[str]` or `list[int, float]`)
     - Note: Each parent level must be an iterable
         - Specifically a variant of `list`, `set`, `tuple` or `dict`
     - Note: `dict` keys are not validated, only values
@@ -65,9 +67,9 @@ Variables without an annotation for type are not enforced.
     - Standard typing functions:
         - `List`, `Set`, `Dict`, `Tuple`
     - `Union`
-    - `Optional` 
+    - `Optional`
     - `Sized`
-        - Essentially creates a union of: 
+        - Essentially creates a union of:
             - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
         - Note: Can not have a nested type
             - Because this does not always meet the criteria for `Nested types` above
@@ -153,7 +155,7 @@ class my_class:
     def my_fn(self, b:int):
         pass
 
-    def my_other_fn(self, a: int, b: [int, str]):
+    def my_other_fn(self, a: int, b: int | str):
       pass
 ```
 
@@ -169,7 +171,7 @@ class my_class:
         pass
 
     @staticmethod
-    def my_other_fn(a: int, b: [int, str]):
+    def my_other_fn(a: int, b: int | str):
       pass
 ```
 
@@ -197,14 +199,14 @@ import type_enforced
 class my_class:
     def my_fn(self, a: int) -> None:
         pass
-        
+
     @type_enforced.Enforcer(enabled=False)
     def my_other_fn(self, a: int) -> None:
         pass
 ```
 
 ## Validate with Constraints
-Type enforcer can enforce constraints for passed variables. These constraints are vaildated after any type checks are made.
+Type enforcer can enforce constraints for passed variables. These constraints are validated after any type checks are made.
 
 To enforce basic input values are integers greater than or equal to zero, you can use the [Constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) class like so:
 ```py
@@ -308,16 +310,19 @@ my_fn(Baz()) # Raises TypeError as expected
 ```
 
 # Development
-## Running Tests
-### Debug and Test using Docker
+## Running Tests, Prettifying Code, and Updating Docs
 
-- Creates a docker container and runs all tests in the `test` folder.
-  - Alternately, you can comment out the `ENTRYPOINT` line in the `Dockerfile` and drop into a shell to run tests individually.
-- Runs the tests on the python version specified in the `Dockerfile`.
-    - Modify this as needed to ensure function across all supported python versions (3.9+)
+Make sure Docker is installed and running.
 
-```bash
-./run_test.sh
-```
+- Create a docker container and drop into a shell
+    - `./run.sh`
+- Run all tests (see ./utils/test.sh)
+    - `./run.sh test`
+- Prettify the code (see ./utils/prettify.sh)
+    - `./run.sh prettify`
+- Update the docs (see ./utils/docs.sh)
+    - `./run.sh docs`
+
+- Note: You can and should modify the `Dockerfile` to test different python versions.
 """
 from .enforcer import Enforcer, FunctionMethodEnforcer

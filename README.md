@@ -66,9 +66,9 @@ Variables without an annotation for type are not enforced.
     - Standard typing functions:
         - `List`, `Set`, `Dict`, `Tuple`
     - `Union`
-    - `Optional` 
+    - `Optional`
     - `Sized`
-        - Essentially creates a union of: 
+        - Essentially creates a union of:
             - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
         - Note: Can not have a nested type
             - Because this does not always meet the criteria for `Nested types` above
@@ -198,7 +198,7 @@ import type_enforced
 class my_class:
     def my_fn(self, a: int) -> None:
         pass
-        
+
     @type_enforced.Enforcer(enabled=False)
     def my_other_fn(self, a: int) -> None:
         pass
@@ -309,14 +309,17 @@ my_fn(Baz()) # Raises TypeError as expected
 ```
 
 # Development
-## Running Tests
-### Debug and Test using Docker
+## Running Tests, Prettifying Code, and Updating Docs
 
-- Creates a docker container and runs all tests in the `test` folder.
-  - Alternately, you can comment out the `ENTRYPOINT` line in the `Dockerfile` and drop into a shell to run tests individually.
-- Runs the tests on the python version specified in the `Dockerfile`.
-    - Modify this as needed to ensure function across all supported python versions (3.9+)
+Make sure Docker is installed and running.
 
-```bash
-./run_test.sh
-```
+- Create a docker container and drop into a shell
+    - `./run.sh`
+- Run all tests (see ./utils/test.sh)
+    - `./run.sh test`
+- Prettify the code (see ./utils/prettify.sh)
+    - `./run.sh prettify`
+- Update the docs (see ./utils/docs.sh)
+    - `./run.sh docs`
+
+- Note: You can and should modify the `Dockerfile` to test different python versions.
