@@ -2,15 +2,18 @@ import type_enforced, sys
 
 from collections import OrderedDict
 
+
 def my_fn(a: int, b: [int, str], c: int) -> None:
     return None
+
 
 class MyClass:
     def my_fn(self, a: int, b: [int, str], c: int) -> None:
         return None
-    
+
+
 my_ordered_dict = OrderedDict()
-    
+
 success = True
 
 try:
@@ -40,4 +43,3 @@ if success:
     print("test_fn_20.py passed")
 else:
     print("test_fn_20.py failed")
-

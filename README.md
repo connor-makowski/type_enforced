@@ -68,7 +68,7 @@ Variables without an annotation for type are not enforced.
     - `Union`
     - `Optional`
     - `Sized`
-        - Essentially creates a union of: 
+        - Essentially creates a union of:
             - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
         - Note: Can not have a nested type
             - Because this does not always meet the criteria for `Nested types` above
@@ -198,7 +198,7 @@ import type_enforced
 class my_class:
     def my_fn(self, a: int) -> None:
         pass
-        
+
     @type_enforced.Enforcer(enabled=False)
     def my_other_fn(self, a: int) -> None:
         pass
@@ -310,6 +310,8 @@ my_fn(Baz()) # Raises TypeError as expected
 
 # Development
 ## Running Tests, Prettifying Code, and Updating Docs
+
+Make sure Docker is installed and running.
 
 - Create a docker container and drop into a shell
     - `./run.sh`
