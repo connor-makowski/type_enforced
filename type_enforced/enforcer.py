@@ -228,11 +228,14 @@ class FunctionMethodEnforcer:
             passed_type = type(obj)
         acceptable_types = dict(acceptable_types)
         extra_types = acceptable_types.pop("__extra__")
-        if acceptable_types != {}:
-            if passed_type not in acceptable_types:
+        literal_options = extra_types.get("__literal__",())
+        if passed_type not in acceptable_types:
+            if obj not in literal_options:
+                acceptable_types_string = str(list(acceptable_types.keys()) + ([f"Literal({', '.join(map(str, literal_options))})"] if len(literal_options) > 0 else []))
+                passed_value_string = str(passed_type) + (f" with value `{obj}`" if literal_options is not None else "")
                 # Raise the exception
                 self.__exception__(
-                    f"Type mismatch for typed variable `{key}`. Expected one of the following `{str(list(acceptable_types.keys()))}` but got `{passed_type}` instead."
+                    f"Type mismatch for typed variable `{key}`. Expected one of the following `{acceptable_types_string}` but got {passed_value_string} instead."
                 )
         sub_type = acceptable_types.get(passed_type)
         if sub_type is not None:
@@ -242,13 +245,6 @@ class FunctionMethodEnforcer:
             else:
                 for sub_key, value in enumerate(obj):
                     self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
-        # Special check for Literal types
-        literal_options = extra_types.get("__literal__")
-        if literal_options is not None:
-            if obj not in literal_options:
-                self.__exception__(
-                    f"Literal validation error for variable `{key}`. Expected one of the following `{str(list(literal_options))}` but got `{obj}` instead."
-                )
         # Special check for Constraints
         constraint = extra_types.get("__constraint__")
         if constraint is not None:
