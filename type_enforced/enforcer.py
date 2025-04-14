@@ -101,7 +101,7 @@ class FunctionMethodEnforcer:
                         self.__get_checkable_type__(valid_type.__args__)
                     )
                 # Handle Literals
-                # Note: These will be handled separately in the self.__check_type__
+                # Note: These will be handled uniquely in self.__check_type__
                 # as the object is validated and not its type.
                 elif valid_type.__origin__ == Literal:
                     valid_types["__extra__"][

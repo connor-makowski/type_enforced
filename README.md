@@ -76,8 +76,14 @@ Variables without an annotation for type are not enforced.
         - Only allow certain values to be passed. Operates slightly differently than other checks.
         - e.g. `Literal['a', 'b']` will require any passed values that are equal (`==`) to `'a'` or `'b'`.
             - This compares the value of the passed input and not the type of the passed input.
-        - Note: Multiple types can be passed in the same `Literal`.
-        - Note: Literals are evaluated after type checking occurs.
+        - Note: Multiple types can be passed in the same `Literal` as acceptable values.
+            - e.g. Literal['a', 'b', 1, 2] will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.
+        - Note: If type is a `str | Literal['a', 'b']`
+            - The check will validate that the type is a string or the value is equal to `'a'` or `'b'`. 
+            - This means that an input of `'c'` will pass the check since it matches the string type, but an input of `1` will fail.
+        - Note: If type is a `int | Literal['a', 'b']`
+            - The check will validate that the type is an int or the value is equal to `'a'` or `'b'`. 
+            - This means that an input of `'c'` will fail the check, but an input of `1` will pass.
     - `Callable`
         - Essentially creates a union of:
             - `staticmethod`, `classmethod`, `types.FunctionType`, `types.BuiltinFunctionType`, `types.MethodType`, `types.BuiltinMethodType`, `types.GeneratorType`
