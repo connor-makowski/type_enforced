@@ -110,8 +110,18 @@ class FunctionMethodEnforcer:
             return {dict: (key_type, value_type)}
 
         if origin == tuple:
-            if len(args) == 2 and args[1] is Ellipsis:
-                return {tuple: (self.__get_checkable_type__(args[0]), True)}
+            if len(args) > 2 or len(args) == 1:
+                if Ellipsis in args:
+                    raise TypeError(
+                        "Tuple with Ellipsis must have exactly two type arguments and the second must be Ellipsis."
+                    )
+            if len(args)==2:
+                if args[0] is Ellipsis:
+                    raise TypeError(
+                        "Tuple with Ellipsis must have exactly two type arguments and the first must not be Ellipsis."
+                    )
+                if args[1] is Ellipsis:
+                    return {tuple: (self.__get_checkable_type__(args[0]), True)}
             return {tuple: (tuple(self.__get_checkable_type__(arg) for arg in args), False)}
 
         if origin == set:
