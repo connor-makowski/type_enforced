@@ -9,22 +9,22 @@ CustomConstraint = GenericConstraint(
 
 
 @type_enforced.Enforcer()
-def positive_int_test(value: [int, Constraint(ge=0)]) -> bool:
+def positive_int_test(value: int | Constraint(ge=0)) -> bool:
     return True
 
 
 @type_enforced.Enforcer()
-def positive_float_test(value: [int, float, Constraint(ge=0)]) -> bool:
+def positive_float_test(value: int | float | Constraint(ge=0)) -> bool:
     return True
 
 
 @type_enforced.Enforcer()
-def running_str_test(value: [str, Constraint(pattern=r".*running.*")]) -> bool:
+def running_str_test(value: str | Constraint(pattern=r".*running.*")) -> bool:
     return True
 
 
 @type_enforced.Enforcer()
-def custom_constraint_test(value: [str, CustomConstraint]) -> bool:
+def custom_constraint_test(value: str | CustomConstraint) -> bool:
     return True
 
 

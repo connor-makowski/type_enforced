@@ -73,85 +73,95 @@ class FunctionMethodEnforcer:
             }
             self.__return_type__ = self.__checkable_types__.pop("return", None)
 
-    def __get_checkable_type__(self, item_annotation):
+    def __get_checkable_type__(self, annotation):
         """
-        Gets the checkable type as a nested dict for a passed annotation.
+        Parses a type annotation and returns a nested dict structure
+        representing the checkable type(s) for validation.
         """
-        valid_types = {"__extra__": {}}
-        if not isinstance(item_annotation, (list, tuple)):
-            item_annotation = [item_annotation]
-        for valid_type in item_annotation:
-            # Special code to replace None with NoneType
-            if valid_type is None:
-                valid_types[type(None)] = None
-                continue
-            elif hasattr(valid_type, "__origin__"):
-                # Special code for iterable types (e.g. list, tuple, dict, set) including typing iterables
-                if valid_type.__origin__ in [list, tuple, dict, set]:
-                    valid_types[valid_type.__origin__] = DeepMerge(
-                        original=valid_types.get(valid_type.__origin__, {}),
-                        update=self.__get_checkable_type__(valid_type.__args__),
-                    )
-                # Handle any generic aliases
-                elif isinstance(valid_type, GenericAlias):
-                    valid_types[valid_type.__origin__] = None
-                # Handle Union Types (e.g. Union, Optional, ...)
-                elif valid_type.__origin__ == Union:
-                    valid_types.update(
-                        self.__get_checkable_type__(valid_type.__args__)
-                    )
-                # Handle Literals
-                # Note: These will be handled uniquely in self.__check_type__
-                # as the object is validated and not its type.
-                elif valid_type.__origin__ == Literal:
-                    valid_types["__extra__"][
-                        "__literal__"
-                    ] = valid_type.__args__
-                # Handle Sized objects
-                elif valid_type == Sized:
-                    valid_types = {
-                        list: None,
-                        tuple: None,
-                        dict: None,
-                        set: None,
-                        str: None,
-                        bytes: None,
-                        bytearray: None,
-                        memoryview: None,
-                        range: None,
-                        # Allow nested types to be passed as well
-                        **valid_types,
-                    }
-                # Handle uninitialized class type objects (e.g. MyCustomClass)
-                elif valid_type == Callable:
-                    valid_types = {
-                        staticmethod: None,
-                        classmethod: None,
-                        FunctionType: None,
-                        BuiltinFunctionType: None,
-                        MethodType: None,
-                        BuiltinMethodType: None,
-                        GeneratorType: None,
-                        **valid_types,
-                    }
-                else:
-                    valid_types[valid_type] = None
-            # Handle special '|' syntax for Union Types
-            elif isinstance(valid_type, UnionType):
-                valid_types.update(
-                    self.__get_checkable_type__(valid_type.__args__)
-                )
-            # Handle Constraints
-            # Note: These will be handled separately in the self.__check_type__
-            # as the object is validated differently than a type.
-            elif isinstance(valid_type, GenericConstraint):
-                valid_types["__extra__"]["__constraint__"] = valid_type
-            elif isinstance(valid_type, WithSubclasses):
-                for subclass in valid_type.get_subclasses():
-                    valid_types[subclass] = None
-            else:
-                valid_types[valid_type] = None
-        return valid_types
+
+        if annotation is None:
+            return {type(None): None}
+
+        # Handle `int | str` syntax (Python 3.10+) and Unions
+        if isinstance(annotation, UnionType) or getattr(annotation, "__origin__", None) == Union:
+            combined_types = {}
+            for sub_type in annotation.__args__:
+                combined_types = DeepMerge(combined_types, self.__get_checkable_type__(sub_type))
+            return combined_types
+
+        # Handle typing.Literal
+        if getattr(annotation, "__origin__", None) == Literal:
+            return {"__extra__": {"__literal__": annotation.__args__}}
+
+        # Handle generic collections
+        origin = getattr(annotation, "__origin__", None)
+        args = getattr(annotation, "__args__", ())
+
+        if origin == list:
+            if len(args) != 1:
+                raise TypeError(f"List must have a single type argument, got: {args}")
+            return {list: self.__get_checkable_type__(args[0])}
+
+        if origin == dict:
+            if len(args) != 2:
+                raise TypeError(f"Dict must have two type arguments, got: {args}")
+            key_type = self.__get_checkable_type__(args[0])
+            value_type = self.__get_checkable_type__(args[1])
+            return {dict: (key_type, value_type)}
+
+        if origin == tuple:
+            if len(args) == 2 and args[1] is Ellipsis:
+                return {tuple: (self.__get_checkable_type__(args[0]), True)}
+            return {tuple: (tuple(self.__get_checkable_type__(arg) for arg in args), False)}
+
+        if origin == set:
+            if len(args) != 1:
+                raise TypeError(f"Set must have a single type argument, got: {args}")
+            return {set: self.__get_checkable_type__(args[0])}
+
+        # Handle Sized types
+        if annotation == Sized:
+            return {
+                list: None,
+                tuple: None,
+                dict: None,
+                set: None,
+                str: None,
+                bytes: None,
+                bytearray: None,
+                memoryview: None,
+                range: None,
+            }
+
+        # Handle Callable types
+        if annotation == Callable:
+            return {
+                staticmethod: None,
+                classmethod: None,
+                FunctionType: None,
+                BuiltinFunctionType: None,
+                MethodType: None,
+                BuiltinMethodType: None,
+                GeneratorType: None,
+            }
+
+        # Handle WithSubclasses
+        if isinstance(annotation, WithSubclasses):
+            return {subclass: None for subclass in annotation.get_subclasses()}
+
+        # Handle Constraints
+        if isinstance(annotation, GenericConstraint):
+            return {"__extra__": {"__constraint__": annotation}}
+
+        # Handle standard types
+        if isinstance(annotation, type):
+            return {annotation: None}
+        
+        # Hanldle typing.Type (for uninitialized classes)
+        if origin is type and len(args) ==1:
+            return {annotation: None}
+
+        raise TypeError(f"Unsupported type hint: {annotation}")
 
     def __exception__(self, message):
         """
@@ -165,7 +175,7 @@ class FunctionMethodEnforcer:
             - Type: str
             - What: The message to warn users with
         """
-        raise TypeError(f"({self.__fn__.__qualname__}): {message}")
+        raise TypeError(f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}")
 
     def __get__(self, obj, objtype):
         """
@@ -218,41 +228,71 @@ class FunctionMethodEnforcer:
             self.__check_type__(return_value, self.__return_type__, "return")
         return return_value
 
-    def __check_type__(self, obj, acceptable_types, key):
+    def __check_type__(self, obj, expected, key):
         """
         Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `acceptable_types` for the argument.
         """
+        # Special case for None
+        if obj is None and type(None) in expected:
+            return
+        extra = expected.get("__extra__", {})
+        expected = {k: v for k, v in expected.items() if k != "__extra__"}
+
         if isinstance(obj, type):
-            passed_type = Type[obj]
+            obj_type = Type[obj]
         else:
-            passed_type = type(obj)
-        acceptable_types = dict(acceptable_types)
-        extra_types = acceptable_types.pop("__extra__")
-        literal_options = extra_types.get("__literal__",())
-        if passed_type not in acceptable_types:
-            if obj not in literal_options:
-                acceptable_types_string = str(list(acceptable_types.keys()) + ([f"Literal({', '.join(map(str, literal_options))})"] if len(literal_options) > 0 else []))
-                passed_value_string = str(passed_type) + (f" with value `{obj}`" if literal_options is not None else "")
-                # Raise the exception
-                self.__exception__(
-                    f"Type mismatch for typed variable `{key}`. Expected one of the following `{acceptable_types_string}` but got {passed_value_string} instead."
-                )
-        sub_type = acceptable_types.get(passed_type)
-        if sub_type is not None:
-            if passed_type == dict:
-                for sub_key, value in obj.items():
-                    self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
+            obj_type = type(obj)
+
+        if obj_type not in expected:
+            # Allow for literals to be used to bypass type checks if present
+            literal = extra.get("__literal__", ())
+            if literal:
+                if obj not in literal:
+                    self.__exception__(
+                        f"Type mismatch for typed variable `{key}`. Expected one of the following `{list(expected.keys())}` or a literal value in `{literal}` but got type `{obj_type}` with value `{obj}` instead."
+                    )
+            # Raise an exception if the type is not in the expected types
             else:
-                for sub_key, value in enumerate(obj):
-                    self.__check_type__(value, sub_type, f"{key}[{sub_key}]")
-        # Special check for Constraints
-        constraint = extra_types.get("__constraint__")
-        if constraint is not None:
-            constraint_validation_output = constraint.__validate__(key, obj)
+                self.__exception__(
+                    f"Type mismatch for typed variable `{key}`. Expected one of the following `{list(expected.keys())}` but got `{obj_type}` with value `{obj}` instead."
+                )
+        # If the object_type is in the expected types, we can proceed with validation
+        else:
+            subtype = expected[obj_type]
+
+            # Recursive validation
+            if obj_type == list and subtype:
+                for idx, item in enumerate(obj):
+                    self.__check_type__(item, subtype, f"{key}[{idx}]")
+            elif obj_type == dict and subtype:
+                key_type, val_type = subtype
+                for k, v in obj.items():
+                    self.__check_type__(k, key_type, f"{key}.key[{repr(k)}]")
+                    self.__check_type__(v, val_type, f"{key}[{repr(k)}]")
+            elif obj_type == tuple and subtype:
+                expected_args, is_ellipsis = subtype
+                if is_ellipsis:
+                    for idx, item in enumerate(obj):
+                        self.__check_type__(item, expected_args, f"{key}[{idx}]")
+                else:
+                    if len(obj) != len(expected_args):
+                        self.__exception__(
+                            f"Tuple length mismatch for `{key}`. Expected length {len(expected_args)}, got {len(obj)}"
+                        )
+                    for idx, (item, ex) in enumerate(zip(obj, expected_args)):
+                        self.__check_type__(item, ex, f"{key}[{idx}]")
+            elif obj_type == set and subtype:
+                for item in obj:
+                    self.__check_type__(item, subtype, f"{key}[{repr(item)}]")
+
+        constraints = extra.get("__constraint__")
+        if constraints:
+            constraint_validation_output = constraints.__validate__(key, obj)
             if constraint_validation_output is not True:
                 self.__exception__(
-                    f"Constraint validation error for variable `{key}`. {constraint_validation_output}"
+                    f"Constraint validation error for variable `{key}` with value `{obj}`. {constraint_validation_output}"
                 )
+                
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
@@ -310,7 +350,7 @@ def Enforcer(clsFnMethod, enabled):
             clsFnMethod.__type_enforced_enabled__ = enabled
         except:
             return clsFnMethod
-    if clsFnMethod.__type_enforced_enabled__ == False:
+    if not clsFnMethod.__type_enforced_enabled__:
         return clsFnMethod
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
@@ -322,15 +362,13 @@ def Enforcer(clsFnMethod, enabled):
             return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
         elif isinstance(clsFnMethod, classmethod):
             return classmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
-        elif isinstance(clsFnMethod, (FunctionType, MethodType)):
+        else:
             return FunctionMethodEnforcer(clsFnMethod)
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
             # Skip the __annotate__ method if present in __dict__ as it deletes itself upon invocation
             # Skip any previously wrapped methods if they are already a FunctionMethodEnforcer
-            if key == "__annotate__" or isinstance(
-                value, FunctionMethodEnforcer
-            ):
+            if key == "__annotate__" or isinstance(value, FunctionMethodEnforcer):
                 continue
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)
@@ -338,9 +376,7 @@ def Enforcer(clsFnMethod, enabled):
                 setattr(clsFnMethod, key, Enforcer(value, enabled=enabled))
         return clsFnMethod
     else:
-        raise Exception(
-            "Enforcer can only be used on class methods, functions, or classes."
-        )
+        raise Exception("Enforcer can only be used on classes, methods, or functions.")
 
 
 Enforcer = Partial(Enforcer, enabled=True)

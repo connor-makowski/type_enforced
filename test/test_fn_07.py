@@ -3,7 +3,7 @@ import type_enforced
 
 @type_enforced.Enforcer
 def my_fn(
-    a: list[str], b: dict[int], c: tuple[int, float], d: set[str]
+    a: list[str], b: dict[str, int], c: tuple[int, float], d: set[str]
 ) -> None:
     return None
 

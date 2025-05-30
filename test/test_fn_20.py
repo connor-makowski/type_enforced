@@ -3,12 +3,12 @@ import type_enforced, sys
 from collections import OrderedDict
 
 
-def my_fn(a: int, b: [int, str], c: int) -> None:
+def my_fn(a: int, b: int | str, c: int) -> None:
     return None
 
 
 class MyClass:
-    def my_fn(self, a: int, b: [int, str], c: int) -> None:
+    def my_fn(self, a: int, b: int | str, c: int) -> None:
         return None
 
 

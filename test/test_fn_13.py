@@ -9,7 +9,6 @@ def my_fn(a: int | Literal["a", "b"]):
 def my_fn_2(a: int | str | Literal["a", "b"]):
     pass
 
-
 success_1 = True
 try:
     my_fn(a="a")

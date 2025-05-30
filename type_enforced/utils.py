@@ -1,5 +1,6 @@
 import types, re, copy
 from functools import update_wrapper
+from typing import Union
 
 
 class Partial:
@@ -92,6 +93,12 @@ class GenericConstraint:
             except Exception as e:
                 return f"An exception was raised when checking the constraint `{check_name}` with the provided value `{value}`. Error: {e}"
         return True
+
+    def __ror__(self, other):
+        """
+        Allows the use of | operator to combine GenericConstraints via a union.
+        """
+        return Union[other, self]
 
 
 class Constraint(GenericConstraint):
@@ -303,7 +310,7 @@ def DeepMerge(original: dict, update: dict):
             and isinstance(original[key], dict)
             and isinstance(value, dict)
         ):
-            DeepMerge(original[key], value)
+            original[key] = DeepMerge(original[key], value)
         elif (
             key in original
             and isinstance(original[key], list)

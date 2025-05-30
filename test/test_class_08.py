@@ -3,19 +3,19 @@ import type_enforced
 
 @type_enforced.Enforcer
 class my_class:
-    def my_fn(self, a: int, b: [int, str] = 2, c: int = 3) -> None:
+    def my_fn(self, a: int, b: int|str = 2, c: int = 3) -> None:
         return None
 
-    def my_fn_args(self, a: int, *args, b: [int, str] = 2, c: int = 3) -> None:
+    def my_fn_args(self, a: int, *args, b: int|str = 2, c: int = 3) -> None:
         return None
 
     def my_fn_kwargs(
-        sellf, a: int, b: [int, str] = 2, c: int = 3, **kwargs
+        sellf, a: int, b: int|str = 2, c: int = 3, **kwargs
     ) -> None:
         return None
 
     def my_fn_args_kwargs(
-        self, a: int, *args, b: [int, str] = 2, c: int = 3, **kwargs
+        self, a: int, *args, b: int|str = 2, c: int = 3, **kwargs
     ) -> None:
         return None
 
