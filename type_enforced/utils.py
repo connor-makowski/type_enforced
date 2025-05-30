@@ -1,5 +1,6 @@
 import types, re, copy
 from functools import update_wrapper
+from typing import Union
 
 
 class Partial:
@@ -40,6 +41,15 @@ class Partial:
             *new_args,
             **new_kwargs,
         )
+
+    def __get__(self, instance, owner):
+        def bind(*args, **kwargs):
+            if instance is not None and self.__arity__ == self.__fnArity__:
+                return self.__call__(instance, *args, **kwargs)
+            else:
+                return self.__call__(*args, **kwargs)
+
+        return bind
 
     def __repr__(self):
         return f"<Partial {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
@@ -84,6 +94,12 @@ class GenericConstraint:
             except Exception as e:
                 return f"An exception was raised when checking the constraint `{check_name}` with the provided value `{value}`. Error: {e}"
         return True
+
+    def __ror__(self, other):
+        """
+        Allows the use of | operator to combine GenericConstraints via a union.
+        """
+        return Union[other, self]
 
 
 class Constraint(GenericConstraint):
@@ -295,7 +311,7 @@ def DeepMerge(original: dict, update: dict):
             and isinstance(original[key], dict)
             and isinstance(value, dict)
         ):
-            DeepMerge(original[key], value)
+            original[key] = DeepMerge(original[key], value)
         elif (
             key in original
             and isinstance(original[key], list)

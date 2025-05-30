@@ -5,15 +5,15 @@ try:
     success = True
 
     @type_enforced.Enforcer
-    def my_fn(x: [list[str] | list[int] | list[list[int]]]) -> None:
+    def my_fn(x: list[str | int] | list[list[int]]) -> None:
         pass
 
-    def inv_my_fn(x: [list[int] | list[str] | list[list[int]]]) -> None:
+    @type_enforced.Enforcer
+    def inv_my_fn(x: list[int] | list[str] | list[list[int]]) -> None:
         pass
 
 except:
     success = False
-
 
 try:
     my_fn([1, 2, 3])  # Passes

@@ -1,7 +1,6 @@
 # syntax = docker/dockerfile:1
 
 ## Uncomment the version of python you want to test against
-# FROM python:3.10-slim
 # FROM python:3.11-slim
 # FROM python:3.12-slim
 FROM python:3.13-slim

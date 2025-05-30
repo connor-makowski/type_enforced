@@ -3,7 +3,7 @@ from typing import Union
 
 
 @type_enforced.Enforcer
-def my_fn(a: Union[int, str], b: [int | str]) -> None:
+def my_fn(a: Union[int, str], b: int | str) -> None:
     return None
 
 

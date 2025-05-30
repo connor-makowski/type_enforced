@@ -9,39 +9,47 @@ CustomConstraint = GenericConstraint(
 
 
 @type_enforced.Enforcer()
-def positive_int_test(value: [int, Constraint(ge=0)]) -> bool:
+def positive_int_lt5_test(
+    value: int | Constraint(ge=0) | Constraint(le=5),
+) -> bool:
     return True
 
 
 @type_enforced.Enforcer()
-def positive_float_test(value: [int, float, Constraint(ge=0)]) -> bool:
+def positive_float_test(value: int | float | Constraint(ge=0)) -> bool:
     return True
 
 
 @type_enforced.Enforcer()
-def running_str_test(value: [str, Constraint(pattern=r".*running.*")]) -> bool:
+def running_str_test(value: str | Constraint(pattern=r".*running.*")) -> bool:
     return True
 
 
 @type_enforced.Enforcer()
-def custom_constraint_test(value: [str, CustomConstraint]) -> bool:
+def custom_constraint_test(value: str | CustomConstraint) -> bool:
     return True
 
 
 success = True
 try:
-    positive_int_test(0)
+    positive_int_lt5_test(0)
 except TypeError as err:
     success = False
 
 try:
-    positive_int_test(-1)
+    positive_int_lt5_test(-1)
     success = False
 except TypeError:
     pass
 
 try:
-    positive_int_test("Hello There")
+    positive_int_lt5_test(6)
+    success = False
+except TypeError:
+    pass
+
+try:
+    positive_int_lt5_test("Hello There")
     success = False
 except TypeError:
     pass

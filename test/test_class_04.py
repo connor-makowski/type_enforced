@@ -14,7 +14,7 @@ class Bar(Foo):
 
 @type_enforced.Enforcer
 class Baz:
-    def __init__(self, use_class: [Type[Foo]]) -> None:
+    def __init__(self, use_class: Type[Foo]) -> None:
         self.object = use_class
 
 

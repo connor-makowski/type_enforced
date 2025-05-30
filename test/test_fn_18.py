@@ -12,13 +12,11 @@ try:
 except:
     success = False
 
-# TODO: In the next major version, add support to enforce combinations of literals as types
-#       and not constraints.
-# try:
-#     my_fn("bar")  # Passes
-#     my_fn(1)  # Passes
-# except:
-#     success = False
+try:
+    my_fn("bar")  # Passes
+    my_fn(1)  # Passes
+except:
+    success = False
 
 
 if success:
