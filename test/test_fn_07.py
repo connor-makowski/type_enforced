@@ -3,7 +3,7 @@ import type_enforced
 
 @type_enforced.Enforcer
 def my_fn(
-    a: list[str], b: dict[str, int], c: tuple[int, float], d: set[str]
+    a: list[str], b: dict[str, int], c: tuple[int, float], d: set[str], e: tuple[int, ...] = (1, 2, 3)
 ) -> None:
     return None
 
@@ -41,7 +41,16 @@ except Exception as e:
     if "Type mismatch" in str(e):
         success_4 = True
 
-if success_1 and success_2 and success_3 and success_4:
+success_5 = False
+try:
+    my_fn(
+        a=["a"], b={"a": 1}, c=(1, 1.5), d={"a", "b"}, e=("a", "b", "c")
+    ) # Error (e can only accept int)
+except Exception as e:
+    if "Type mismatch" in str(e):
+        success_5 = True
+
+if success_1 and success_2 and success_3 and success_4 and success_5:
     print("test_fn_07.py passed")
 else:
     print("test_fn_07.py failed")
