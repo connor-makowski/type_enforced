@@ -91,7 +91,7 @@ class FunctionMethodEnforcer:
 
         # Handle typing.Literal
         if getattr(annotation, "__origin__", None) == Literal:
-            return {"__extra__": {"__literal__": annotation.__args__}}
+            return {"__extra__": {"__literal__": list(annotation.__args__)}}
 
         # Handle generic collections
         origin = getattr(annotation, "__origin__", None)
@@ -151,7 +151,7 @@ class FunctionMethodEnforcer:
 
         # Handle Constraints
         if isinstance(annotation, GenericConstraint):
-            return {"__extra__": {"__constraint__": annotation}}
+            return {"__extra__": {"__constraints__": [annotation]}}
 
         # Handle standard types
         if isinstance(annotation, type):
@@ -285,9 +285,9 @@ class FunctionMethodEnforcer:
                 for item in obj:
                     self.__check_type__(item, subtype, f"{key}[{repr(item)}]")
 
-        constraints = extra.get("__constraint__")
-        if constraints:
-            constraint_validation_output = constraints.__validate__(key, obj)
+        constraints = extra.get("__constraints__",[])
+        for constraint in constraints:
+            constraint_validation_output = constraint.__validate__(key, obj)
             if constraint_validation_output is not True:
                 self.__exception__(
                     f"Constraint validation error for variable `{key}` with value `{obj}`. {constraint_validation_output}"
