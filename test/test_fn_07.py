@@ -32,7 +32,16 @@ except Exception as e:
     if "Type mismatch" in str(e):
         success_3 = True
 
-if success_1 and success_2 and success_3:
+success_4 = False
+try:
+    my_fn(
+        a=["a"], b={"a": 1}, c=(1, "1.5"), d={"a"}
+    )  # Error (c can only accept int and float)
+except Exception as e:
+    if "Type mismatch" in str(e):
+        success_4 = True
+
+if success_1 and success_2 and success_3 and success_4:
     print("test_fn_07.py passed")
 else:
     print("test_fn_07.py failed")
