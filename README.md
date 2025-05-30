@@ -54,7 +54,7 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
     - For example, `dict[str, int|float]` or `dict[int, float]` are valid types.
 - Tuple types now allow for `N` types to be specified.
     - Each item refers to the positional type of each item in the tuple.
-    - Support for elipsis (`...`) is supported if you only specify two types and the second is the elipsis type.
+    - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type.
         - For example, `tuple[int, ...]` or `tuple[int|str, ...]` are valid types.
     - Note: Unions between two tuples are not supported.
         - For example, `tuple[int, str] | tuple[str, int]` will not work.
@@ -84,7 +84,7 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
         - e.g. `list[int]`, `set[str]`, `list[float|str]`
     - Note: `tuple` Allows for `N` types to be specified
         - Each item refers to the positional type of each item in the tuple
-        - Support for elipsis (`...`) is supported if you only specify two types and the second is the elipsis type
+        - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type
             - e.g. `tuple[int, ...]` or `tuple[int|str, ...]`
         - Note: Unions between two tuples are not supported
             - e.g. `tuple[int, str] | tuple[str, int]` will not work
