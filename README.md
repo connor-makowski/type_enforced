@@ -47,7 +47,7 @@ Variables without an annotation for type are not enforced.
 The main changes in version 2.0.0 revolve around migrating towards the standard python typing hint process and away from the original type_enfoced type hints (as type enforced was originally created before the `|` operator was added to python).
 - Support for python3.10 has been dropped.
 - List based union types are no longer supported.
-    - For example `[int, float]` is no longer a supported type hint. 
+    - For example `[int, float]` is no longer a supported type hint.
     - Use `int|float` or `typing.Union[int, float]` instead.
 - Dict types now require two types to be specified.
     - The first type is the key type and the second type is the value type.
@@ -111,10 +111,10 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
         - Note: Multiple types can be passed in the same `Literal` as acceptable values.
             - e.g. Literal['a', 'b', 1, 2] will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.
         - Note: If type is a `str | Literal['a', 'b']`
-            - The check will validate that the type is a string or the value is equal to `'a'` or `'b'`. 
+            - The check will validate that the type is a string or the value is equal to `'a'` or `'b'`.
             - This means that an input of `'c'` will pass the check since it matches the string type, but an input of `1` will fail.
         - Note: If type is a `int | Literal['a', 'b']`
-            - The check will validate that the type is an int or the value is equal to `'a'` or `'b'`. 
+            - The check will validate that the type is an int or the value is equal to `'a'` or `'b'`.
             - This means that an input of `'c'` will fail the check, but an input of `1` will pass.
         - Note: Literals stack when used with unions.
             - e.g. `Literal['a', 'b'] | Literal[1, 2]` will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.

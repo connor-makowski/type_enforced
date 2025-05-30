@@ -1,7 +1,6 @@
 from types import (
     FunctionType,
     MethodType,
-    GenericAlias,
     GeneratorType,
     BuiltinFunctionType,
     BuiltinMethodType,
@@ -83,10 +82,15 @@ class FunctionMethodEnforcer:
             return {type(None): None}
 
         # Handle `int | str` syntax (Python 3.10+) and Unions
-        if isinstance(annotation, UnionType) or getattr(annotation, "__origin__", None) == Union:
+        if (
+            isinstance(annotation, UnionType)
+            or getattr(annotation, "__origin__", None) == Union
+        ):
             combined_types = {}
             for sub_type in annotation.__args__:
-                combined_types = DeepMerge(combined_types, self.__get_checkable_type__(sub_type))
+                combined_types = DeepMerge(
+                    combined_types, self.__get_checkable_type__(sub_type)
+                )
             return combined_types
 
         # Handle typing.Literal
@@ -99,12 +103,16 @@ class FunctionMethodEnforcer:
 
         if origin == list:
             if len(args) != 1:
-                raise TypeError(f"List must have a single type argument, got: {args}")
+                raise TypeError(
+                    f"List must have a single type argument, got: {args}"
+                )
             return {list: self.__get_checkable_type__(args[0])}
 
         if origin == dict:
             if len(args) != 2:
-                raise TypeError(f"Dict must have two type arguments, got: {args}")
+                raise TypeError(
+                    f"Dict must have two type arguments, got: {args}"
+                )
             key_type = self.__get_checkable_type__(args[0])
             value_type = self.__get_checkable_type__(args[1])
             return {dict: (key_type, value_type)}
@@ -115,18 +123,25 @@ class FunctionMethodEnforcer:
                     raise TypeError(
                         "Tuple with Ellipsis must have exactly two type arguments and the second must be Ellipsis."
                     )
-            if len(args)==2:
+            if len(args) == 2:
                 if args[0] is Ellipsis:
                     raise TypeError(
                         "Tuple with Ellipsis must have exactly two type arguments and the first must not be Ellipsis."
                     )
                 if args[1] is Ellipsis:
                     return {tuple: (self.__get_checkable_type__(args[0]), True)}
-            return {tuple: (tuple(self.__get_checkable_type__(arg) for arg in args), False)}
+            return {
+                tuple: (
+                    tuple(self.__get_checkable_type__(arg) for arg in args),
+                    False,
+                )
+            }
 
         if origin == set:
             if len(args) != 1:
-                raise TypeError(f"Set must have a single type argument, got: {args}")
+                raise TypeError(
+                    f"Set must have a single type argument, got: {args}"
+                )
             return {set: self.__get_checkable_type__(args[0])}
 
         # Handle Sized types
@@ -166,9 +181,9 @@ class FunctionMethodEnforcer:
         # Handle standard types
         if isinstance(annotation, type):
             return {annotation: None}
-        
+
         # Hanldle typing.Type (for uninitialized classes)
-        if origin is type and len(args) ==1:
+        if origin is type and len(args) == 1:
             return {annotation: None}
 
         raise TypeError(f"Unsupported type hint: {annotation}")
@@ -185,7 +200,9 @@ class FunctionMethodEnforcer:
             - Type: str
             - What: The message to warn users with
         """
-        raise TypeError(f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}")
+        raise TypeError(
+            f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
+        )
 
     def __get__(self, obj, objtype):
         """
@@ -283,7 +300,9 @@ class FunctionMethodEnforcer:
                 expected_args, is_ellipsis = subtype
                 if is_ellipsis:
                     for idx, item in enumerate(obj):
-                        self.__check_type__(item, expected_args, f"{key}[{idx}]")
+                        self.__check_type__(
+                            item, expected_args, f"{key}[{idx}]"
+                        )
                 else:
                     if len(obj) != len(expected_args):
                         self.__exception__(
@@ -295,14 +314,13 @@ class FunctionMethodEnforcer:
                 for item in obj:
                     self.__check_type__(item, subtype, f"{key}[{repr(item)}]")
 
-        constraints = extra.get("__constraints__",[])
+        constraints = extra.get("__constraints__", [])
         for constraint in constraints:
             constraint_validation_output = constraint.__validate__(key, obj)
             if constraint_validation_output is not True:
                 self.__exception__(
                     f"Constraint validation error for variable `{key}` with value `{obj}`. {constraint_validation_output}"
                 )
-                
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
@@ -378,7 +396,9 @@ def Enforcer(clsFnMethod, enabled):
         for key, value in clsFnMethod.__dict__.items():
             # Skip the __annotate__ method if present in __dict__ as it deletes itself upon invocation
             # Skip any previously wrapped methods if they are already a FunctionMethodEnforcer
-            if key == "__annotate__" or isinstance(value, FunctionMethodEnforcer):
+            if key == "__annotate__" or isinstance(
+                value, FunctionMethodEnforcer
+            ):
                 continue
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)
@@ -386,7 +406,9 @@ def Enforcer(clsFnMethod, enabled):
                 setattr(clsFnMethod, key, Enforcer(value, enabled=enabled))
         return clsFnMethod
     else:
-        raise Exception("Enforcer can only be used on classes, methods, or functions.")
+        raise Exception(
+            "Enforcer can only be used on classes, methods, or functions."
+        )
 
 
 Enforcer = Partial(Enforcer, enabled=True)

@@ -9,7 +9,9 @@ CustomConstraint = GenericConstraint(
 
 
 @type_enforced.Enforcer()
-def positive_int_lt5_test(value: int | Constraint(ge=0) | Constraint(le=5)) -> bool:
+def positive_int_lt5_test(
+    value: int | Constraint(ge=0) | Constraint(le=5),
+) -> bool:
     return True
 
 

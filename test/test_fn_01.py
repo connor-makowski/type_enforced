@@ -2,7 +2,7 @@ import type_enforced
 
 
 @type_enforced.Enforcer
-def my_fn(a: int, b: int|str, c: int) -> None:
+def my_fn(a: int, b: int | str, c: int) -> None:
     return None
 
 

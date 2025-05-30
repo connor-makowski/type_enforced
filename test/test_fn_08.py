@@ -28,7 +28,7 @@ except Exception as e:
 
 success_4 = False
 try:
-    my_fn(a={"a": {1: 1}}, b=[{"a"}]) # Error Dict keys must be str
+    my_fn(a={"a": {1: 1}}, b=[{"a"}])  # Error Dict keys must be str
 except Exception as e:
     if "Type mismatch" in str(e):
         success_4 = True

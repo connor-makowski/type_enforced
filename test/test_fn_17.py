@@ -5,7 +5,7 @@ try:
     success = True
 
     @type_enforced.Enforcer
-    def my_fn(x: list[str|int] | list[list[int]]) -> None:
+    def my_fn(x: list[str | int] | list[list[int]]) -> None:
         pass
 
     @type_enforced.Enforcer

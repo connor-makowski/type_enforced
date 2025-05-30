@@ -6,8 +6,10 @@ from typing import Literal
 def my_fn(a: int | Literal["a"] | Literal["b"]):
     pass
 
+
 def my_fn_2(a: int | str | Literal["a", "b"]):
     pass
+
 
 success_1 = True
 try:
