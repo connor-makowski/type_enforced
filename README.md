@@ -13,7 +13,7 @@ Make sure you have Python 3.11.x (or higher) installed on your system. You can d
     - For 3.7: use type_enforced==0.0.16 (only very basic type checking is supported)
     - For 3.8: use type_enforced==0.0.16 (only very basic type checking is supported)
     - For 3.9: use type_enforced<=1.9.0 (`staticmethod`, union with `|` and `from __future__ import annotations` typechecking are not supported)
-    - For 3.10: use type_enforced<=10.2.0 (`from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods))
+    - For 3.10: use type_enforced<=1.10.2 (`from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods))
 
 ### Installation
 
@@ -172,7 +172,7 @@ import typing
 
 @type_enforced.Enforcer
 def my_fn(
-    a: dict[str,dict[str, int|float]], # Note: dict keys are not validated, only values
+    a: dict[str,dict[str, int|float]], # Note: For dicts, the key is the first type and the value is the second type
     b: list[typing.Set[str]] # Could also just use set
 ) -> None:
     return None

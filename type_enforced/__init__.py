@@ -173,7 +173,7 @@ import typing
 
 @type_enforced.Enforcer
 def my_fn(
-    a: dict[str,dict[str, int|float]], # Note: dict keys are not validated, only values
+    a: dict[str,dict[str, int|float]], # Note: For dicts, the key is the first type and the value is the second type
     b: list[typing.Set[str]] # Could also just use set
 ) -> None:
     return None
