@@ -99,6 +99,7 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
         - `Tuple`
     - `Union`
     - `Optional`
+    - `Any`
     - `Sized`
         - Essentially creates a union of:
             - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
@@ -335,15 +336,12 @@ y=my_class(Foo) # Works great!
 x=my_class(Foo()) # Fails
 ```
 
-## Validate classes with inheritance
+By default, type_enforced will check for subclasses of a class when validating types. This means that if you pass a subclass of the expected class, it will pass the type check.
 
-A special helper utility is provided to get all the subclasses of a class (with delayed evaluation - so you can validate subclasses even if they were defined later or in other files).
-
-See: [WithSubclasses](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#WithSubclasses) for more information.
+Note: Uninitialized class objects that are passed are not checked for subclasses.
 
 ```py
 import type_enforced
-from type_enforced.utils import WithSubclasses
 
 class Foo:
     pass
@@ -355,7 +353,7 @@ class Baz:
     pass
 
 @type_enforced.Enforcer
-def my_fn(custom_class: WithSubclasses(Foo)):
+def my_fn(custom_class: Foo):
     pass
 
 my_fn(Foo()) # Passes as expected

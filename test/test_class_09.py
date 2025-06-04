@@ -2,6 +2,9 @@ import type_enforced
 from type_enforced.utils import WithSubclasses
 
 
+# This test is no longer officially needed, but is kept to check for backwards compatibility
+# TODO: Remove/Modify this test in the next major release of type_enforced
+
 class Foo:
     def __init__(self) -> None:
         pass

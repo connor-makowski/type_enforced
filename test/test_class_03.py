@@ -10,6 +10,10 @@ class Bar(Foo):
     def __init__(self) -> None:
         super().__init__()
 
+class Bum:
+    def __init__(self) -> None:
+        pass
+
 
 @type_enforced.Enforcer
 class Baz:
@@ -25,6 +29,11 @@ except:
 
 try:
     y = Baz(Bar())
+except:
+    success = False
+
+try:
+    y = Baz(Bum())
     success = False
 except:
     pass

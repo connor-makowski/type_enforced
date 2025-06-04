@@ -6,13 +6,13 @@ from types import (
     BuiltinMethodType,
     UnionType,
 )
-from typing import Type, Union, Sized, Literal, Callable, get_type_hints
+from typing import Type, Union, Sized, Literal, Callable, get_type_hints, Any
 from functools import update_wrapper, wraps
 from type_enforced.utils import (
     Partial,
     GenericConstraint,
     DeepMerge,
-    WithSubclasses,
+    iterable_types,
 )
 
 
@@ -169,10 +169,11 @@ class FunctionMethodEnforcer:
                 BuiltinMethodType: None,
                 GeneratorType: None,
             }
-
-        # Handle WithSubclasses
-        if isinstance(annotation, WithSubclasses):
-            return {subclass: None for subclass in annotation.get_subclasses()}
+        
+        if annotation == Any:
+            return {
+                object: None,
+            }
 
         # Handle Constraints
         if isinstance(annotation, GenericConstraint):
@@ -266,11 +267,14 @@ class FunctionMethodEnforcer:
         expected = {k: v for k, v in expected.items() if k != "__extra__"}
 
         if isinstance(obj, type):
+            # An uninitialized class is passed, we need to check if the type is in the expected types using Type[obj]
             obj_type = Type[obj]
+            is_present = obj_type in expected
         else:
             obj_type = type(obj)
+            is_present = isinstance(obj, tuple(expected.keys()))
 
-        if obj_type not in expected:
+        if not is_present:
             # Allow for literals to be used to bypass type checks if present
             literal = extra.get("__literal__", ())
             if literal:
@@ -284,19 +288,20 @@ class FunctionMethodEnforcer:
                     f"Type mismatch for typed variable `{key}`. Expected one of the following `{list(expected.keys())}` but got `{obj_type}` with value `{obj}` instead."
                 )
         # If the object_type is in the expected types, we can proceed with validation
-        else:
-            subtype = expected[obj_type]
-
+        elif obj_type in iterable_types:
+            subtype = expected.get(obj_type, None)
+            if subtype is None:
+                pass
             # Recursive validation
-            if obj_type == list and subtype:
+            elif obj_type == list:
                 for idx, item in enumerate(obj):
                     self.__check_type__(item, subtype, f"{key}[{idx}]")
-            elif obj_type == dict and subtype:
+            elif obj_type == dict:
                 key_type, val_type = subtype
                 for k, v in obj.items():
                     self.__check_type__(k, key_type, f"{key}.key[{repr(k)}]")
                     self.__check_type__(v, val_type, f"{key}[{repr(k)}]")
-            elif obj_type == tuple and subtype:
+            elif obj_type == tuple:
                 expected_args, is_ellipsis = subtype
                 if is_ellipsis:
                     for idx, item in enumerate(obj):
@@ -310,10 +315,11 @@ class FunctionMethodEnforcer:
                         )
                     for idx, (item, ex) in enumerate(zip(obj, expected_args)):
                         self.__check_type__(item, ex, f"{key}[{idx}]")
-            elif obj_type == set and subtype:
+            elif obj_type == set:
                 for item in obj:
                     self.__check_type__(item, subtype, f"{key}[{repr(item)}]")
 
+        # Validate constraints if any are present
         constraints = extra.get("__constraints__", [])
         for constraint in constraints:
             constraint_validation_output = constraint.__validate__(key, obj)

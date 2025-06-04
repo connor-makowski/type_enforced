@@ -1,6 +1,4 @@
 import type_enforced
-import sys
-
 import pydoc
 
 
