@@ -14,7 +14,7 @@ Make sure you have Python 3.11.x (or higher) installed on your system. You can d
     - For 3.7: use type_enforced==0.0.16 (only very basic type checking is supported)
     - For 3.8: use type_enforced==0.0.16 (only very basic type checking is supported)
     - For 3.9: use type_enforced<=1.9.0 (`staticmethod`, union with `|` and `from __future__ import annotations` typechecking are not supported)
-    - For 3.10: use type_enforced<=10.2.0 (`from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods))
+    - For 3.10: use type_enforced<=1.10.2 (`from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods))
 
 ### Installation
 
@@ -55,7 +55,7 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
     - For example, `dict[str, int|float]` or `dict[int, float]` are valid types.
 - Tuple types now allow for `N` types to be specified.
     - Each item refers to the positional type of each item in the tuple.
-    - Support for elipsis (`...`) is supported if you only specify two types and the second is the elipsis type.
+    - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type.
         - For example, `tuple[int, ...]` or `tuple[int|str, ...]` are valid types.
     - Note: Unions between two tuples are not supported.
         - For example, `tuple[int, str] | tuple[str, int]` will not work.
@@ -85,7 +85,7 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
         - e.g. `list[int]`, `set[str]`, `list[float|str]`
     - Note: `tuple` Allows for `N` types to be specified
         - Each item refers to the positional type of each item in the tuple
-        - Support for elipsis (`...`) is supported if you only specify two types and the second is the elipsis type
+        - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type
             - e.g. `tuple[int, ...]` or `tuple[int|str, ...]`
         - Note: Unions between two tuples are not supported
             - e.g. `tuple[int, str] | tuple[str, int]` will not work
@@ -100,6 +100,7 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
         - `Tuple`
     - `Union`
     - `Optional`
+    - `Any`
     - `Sized`
         - Essentially creates a union of:
             - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
@@ -336,15 +337,12 @@ y=my_class(Foo) # Works great!
 x=my_class(Foo()) # Fails
 ```
 
-## Validate classes with inheritance
+By default, type_enforced will check for subclasses of a class when validating types. This means that if you pass a subclass of the expected class, it will pass the type check.
 
-A special helper utility is provided to get all the subclasses of a class (with delayed evaluation - so you can validate subclasses even if they were defined later or in other files).
-
-See: [WithSubclasses](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#WithSubclasses) for more information.
+Note: Uninitialized class objects that are passed are not checked for subclasses.
 
 ```py
 import type_enforced
-from type_enforced.utils import WithSubclasses
 
 class Foo:
     pass
@@ -356,7 +354,7 @@ class Baz:
     pass
 
 @type_enforced.Enforcer
-def my_fn(custom_class: WithSubclasses(Foo)):
+def my_fn(custom_class: Foo):
     pass
 
 my_fn(Foo()) # Passes as expected

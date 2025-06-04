@@ -58,25 +58,13 @@
 
             </li>
             <li>
-                    <a class="class" href="#WithSubclasses">WithSubclasses</a>
-                            <ul class="memberlist">
-                        <li>
-                                <a class="function" href="#WithSubclasses.__init__">WithSubclasses</a>
-                        </li>
-                        <li>
-                                <a class="variable" href="#WithSubclasses.obj">obj</a>
-                        </li>
-                        <li>
-                                <a class="variable" href="#WithSubclasses.cache">cache</a>
-                        </li>
-                        <li>
-                                <a class="function" href="#WithSubclasses.get_subclasses">get_subclasses</a>
-                        </li>
-                </ul>
-
+                    <a class="function" href="#DeepMerge">DeepMerge</a>
             </li>
             <li>
-                    <a class="function" href="#DeepMerge">DeepMerge</a>
+                    <a class="function" href="#WithSubclasses">WithSubclasses</a>
+            </li>
+            <li>
+                    <a class="variable" href="#iterable_types">iterable_types</a>
             </li>
     </ul>
 
@@ -368,105 +356,52 @@
 </span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a>            <span class="p">)</span>
 </span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a>
 </span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a>
-</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a><span class="k">class</span><span class="w"> </span><span class="nc">WithSubclasses</span><span class="p">:</span>
-</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a><span class="sd">        A special helper class to allow a class type to be passed and also allow all subclasses of that type.</span>
-</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a>
-</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a><span class="sd">        This allows delayed evaluation of the subclasses until initial call time such that delayed inherited classes are considered.</span>
-</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a>
-</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a><span class="sd">        Note: You can not validate that a passed object is a WithSubclasses object as this is a special case.</span>
-</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a>
-</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a><span class="sd">        Required Arguments:</span>
-</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a>
-</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a><span class="sd">        - `obj`:</span>
-</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a><span class="sd">            - What: An uninitialized class that should also be considered type correct if a subclass is passed.</span>
-</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="sd">            - Type: Any Uninitialized class</span>
-</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a>
-</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="sd">        Optional Arguments:</span>
-</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a>
-</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">        - `cache`:</span>
-</span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a><span class="sd">            - What: Whether to cache the calcuation of the subclasses. If set to False, this will recalculate the subclasses on each call.</span>
-</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a><span class="sd">            - Type: bool</span>
-</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a><span class="sd">            - Default: True</span>
-</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">obj</span> <span class="o">=</span> <span class="n">obj</span>
-</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">cache</span>
-</span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a>
-</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a>    <span class="nd">@classmethod</span>
-</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">__get_subclasses__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
-</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a><span class="sd">        A special helper method to get all of the subclasses of a provided class object.</span>
-</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a>
-</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a><span class="sd">        Requires:</span>
+</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.</span>
+</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a>
+</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a><span class="sd">    Required Arguments:</span>
+</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a>
+</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a><span class="sd">    - `original`:</span>
+</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
+</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a><span class="sd">        - Type: dict</span>
+</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a><span class="sd">    - `update`:</span>
+</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
+</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a><span class="sd">        - Type: dict</span>
+</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">update</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a>        <span class="k">if</span> <span class="p">(</span>
+</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
+</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
+</span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a>        <span class="p">):</span>
+</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
+</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a>        <span class="k">elif</span> <span class="p">(</span>
+</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
+</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
+</span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a>        <span class="p">):</span>
+</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a>        <span class="k">else</span><span class="p">:</span>
+</span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a>    <span class="k">return</span> <span class="n">original</span>
+</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a>
 </span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a>
-</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a><span class="sd">        - `obj`:</span>
-</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a><span class="sd">            - What: An uninitialized class that should also be considered type correct if a subclass is passed.</span>
-</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a><span class="sd">            - Type: Any Uninitialized class</span>
-</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a>
-</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a><span class="sd">        Returns:</span>
-</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a>
-</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a><span class="sd">        - `out`:</span>
-</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="sd">            - What: A list of all of the subclasses (recursively parsed)</span>
-</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a><span class="sd">            - Type: list of strs</span>
-</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a>
-</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a>
-</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a><span class="sd">        Notes:</span>
+</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a><span class="k">def</span><span class="w"> </span><span class="nf">WithSubclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a><span class="sd">    A utility class to preserve backwards compatibility</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="sd">    with the older versions of type_enforced.</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a>
+</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a><span class="sd">    By default subclasses of all classes are now enforced by type_enforced.</span>
+</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a>
+</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="sd">    It is slated to be removed in the next major version.</span>
+</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a>    <span class="c1"># TODO: Remove this in the next major version of type_enforced</span>
+</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a>    <span class="k">return</span> <span class="bp">cls</span>
+</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a>
 </span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a>
-</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a><span class="sd">        - From a functional perspective, this recursively gets the subclasses for an uninitialised class (type).</span>
-</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a>        <span class="n">out</span> <span class="o">=</span> <span class="p">[</span><span class="n">obj</span><span class="p">]</span>
-</span><span id="L-273"><a href="#L-273"><span class="linenos">273</span></a>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">__subclasses__</span><span class="p">():</span>
-</span><span id="L-274"><a href="#L-274"><span class="linenos">274</span></a>            <span class="n">out</span> <span class="o">+=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">__get_subclasses__</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-</span><span id="L-275"><a href="#L-275"><span class="linenos">275</span></a>        <span class="k">return</span> <span class="n">out</span>
-</span><span id="L-276"><a href="#L-276"><span class="linenos">276</span></a>
-</span><span id="L-277"><a href="#L-277"><span class="linenos">277</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_subclasses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="L-278"><a href="#L-278"><span class="linenos">278</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-279"><a href="#L-279"><span class="linenos">279</span></a><span class="sd">        Returns a list of all of the subclasses of the class that was passed to the WithSubclasses object.</span>
-</span><span id="L-280"><a href="#L-280"><span class="linenos">280</span></a>
-</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a><span class="sd">        If already calculated, it will return the cached value.</span>
-</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a>
-</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a><span class="sd">        Returns:</span>
-</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a>
-</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a><span class="sd">        - `subclasses`:</span>
-</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a><span class="sd">            - What: A list of all of the subclasses of the class that was passed to the WithSubclasses object.</span>
-</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a><span class="sd">            - Type: list of strs</span>
-</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;subclasses&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
-</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">subclasses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__get_subclasses__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">obj</span><span class="p">)</span>
-</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subclasses</span>
-</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a>
-</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a>
-</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span id="L-295"><a href="#L-295"><span class="linenos">295</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.</span>
-</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a>
-</span><span id="L-298"><a href="#L-298"><span class="linenos">298</span></a><span class="sd">    Required Arguments:</span>
-</span><span id="L-299"><a href="#L-299"><span class="linenos">299</span></a>
-</span><span id="L-300"><a href="#L-300"><span class="linenos">300</span></a><span class="sd">    - `original`:</span>
-</span><span id="L-301"><a href="#L-301"><span class="linenos">301</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
-</span><span id="L-302"><a href="#L-302"><span class="linenos">302</span></a><span class="sd">        - Type: dict</span>
-</span><span id="L-303"><a href="#L-303"><span class="linenos">303</span></a><span class="sd">    - `update`:</span>
-</span><span id="L-304"><a href="#L-304"><span class="linenos">304</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
-</span><span id="L-305"><a href="#L-305"><span class="linenos">305</span></a><span class="sd">        - Type: dict</span>
-</span><span id="L-306"><a href="#L-306"><span class="linenos">306</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-307"><a href="#L-307"><span class="linenos">307</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
-</span><span id="L-308"><a href="#L-308"><span class="linenos">308</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">update</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="L-309"><a href="#L-309"><span class="linenos">309</span></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="L-310"><a href="#L-310"><span class="linenos">310</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="L-311"><a href="#L-311"><span class="linenos">311</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="L-312"><a href="#L-312"><span class="linenos">312</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="L-313"><a href="#L-313"><span class="linenos">313</span></a>        <span class="p">):</span>
-</span><span id="L-314"><a href="#L-314"><span class="linenos">314</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
-</span><span id="L-315"><a href="#L-315"><span class="linenos">315</span></a>        <span class="k">elif</span> <span class="p">(</span>
-</span><span id="L-316"><a href="#L-316"><span class="linenos">316</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="L-317"><a href="#L-317"><span class="linenos">317</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="L-318"><a href="#L-318"><span class="linenos">318</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="L-319"><a href="#L-319"><span class="linenos">319</span></a>        <span class="p">):</span>
-</span><span id="L-320"><a href="#L-320"><span class="linenos">320</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-</span><span id="L-321"><a href="#L-321"><span class="linenos">321</span></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="L-322"><a href="#L-322"><span class="linenos">322</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span><span id="L-323"><a href="#L-323"><span class="linenos">323</span></a>    <span class="k">return</span> <span class="n">original</span>
+</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a><span class="n">iterable_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">dict</span><span class="p">])</span>
 </span></pre></div>
 
 
@@ -1005,224 +940,6 @@
 
                             </div>
                 </section>
-                <section id="WithSubclasses">
-                            <input id="WithSubclasses-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
-<div class="attr class">
-            
-    <span class="def">class</span>
-    <span class="name">WithSubclasses</span>:
-
-                <label class="view-source-button" for="WithSubclasses-view-source"><span>View Source</span></label>
-
-    </div>
-    <a class="headerlink" href="#WithSubclasses"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="WithSubclasses-226"><a href="#WithSubclasses-226"><span class="linenos">226</span></a><span class="k">class</span><span class="w"> </span><span class="nc">WithSubclasses</span><span class="p">:</span>
-</span><span id="WithSubclasses-227"><a href="#WithSubclasses-227"><span class="linenos">227</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span><span id="WithSubclasses-228"><a href="#WithSubclasses-228"><span class="linenos">228</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-229"><a href="#WithSubclasses-229"><span class="linenos">229</span></a><span class="sd">        A special helper class to allow a class type to be passed and also allow all subclasses of that type.</span>
-</span><span id="WithSubclasses-230"><a href="#WithSubclasses-230"><span class="linenos">230</span></a>
-</span><span id="WithSubclasses-231"><a href="#WithSubclasses-231"><span class="linenos">231</span></a><span class="sd">        This allows delayed evaluation of the subclasses until initial call time such that delayed inherited classes are considered.</span>
-</span><span id="WithSubclasses-232"><a href="#WithSubclasses-232"><span class="linenos">232</span></a>
-</span><span id="WithSubclasses-233"><a href="#WithSubclasses-233"><span class="linenos">233</span></a><span class="sd">        Note: You can not validate that a passed object is a WithSubclasses object as this is a special case.</span>
-</span><span id="WithSubclasses-234"><a href="#WithSubclasses-234"><span class="linenos">234</span></a>
-</span><span id="WithSubclasses-235"><a href="#WithSubclasses-235"><span class="linenos">235</span></a><span class="sd">        Required Arguments:</span>
-</span><span id="WithSubclasses-236"><a href="#WithSubclasses-236"><span class="linenos">236</span></a>
-</span><span id="WithSubclasses-237"><a href="#WithSubclasses-237"><span class="linenos">237</span></a><span class="sd">        - `obj`:</span>
-</span><span id="WithSubclasses-238"><a href="#WithSubclasses-238"><span class="linenos">238</span></a><span class="sd">            - What: An uninitialized class that should also be considered type correct if a subclass is passed.</span>
-</span><span id="WithSubclasses-239"><a href="#WithSubclasses-239"><span class="linenos">239</span></a><span class="sd">            - Type: Any Uninitialized class</span>
-</span><span id="WithSubclasses-240"><a href="#WithSubclasses-240"><span class="linenos">240</span></a>
-</span><span id="WithSubclasses-241"><a href="#WithSubclasses-241"><span class="linenos">241</span></a><span class="sd">        Optional Arguments:</span>
-</span><span id="WithSubclasses-242"><a href="#WithSubclasses-242"><span class="linenos">242</span></a>
-</span><span id="WithSubclasses-243"><a href="#WithSubclasses-243"><span class="linenos">243</span></a><span class="sd">        - `cache`:</span>
-</span><span id="WithSubclasses-244"><a href="#WithSubclasses-244"><span class="linenos">244</span></a><span class="sd">            - What: Whether to cache the calcuation of the subclasses. If set to False, this will recalculate the subclasses on each call.</span>
-</span><span id="WithSubclasses-245"><a href="#WithSubclasses-245"><span class="linenos">245</span></a><span class="sd">            - Type: bool</span>
-</span><span id="WithSubclasses-246"><a href="#WithSubclasses-246"><span class="linenos">246</span></a><span class="sd">            - Default: True</span>
-</span><span id="WithSubclasses-247"><a href="#WithSubclasses-247"><span class="linenos">247</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-248"><a href="#WithSubclasses-248"><span class="linenos">248</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">obj</span> <span class="o">=</span> <span class="n">obj</span>
-</span><span id="WithSubclasses-249"><a href="#WithSubclasses-249"><span class="linenos">249</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">cache</span>
-</span><span id="WithSubclasses-250"><a href="#WithSubclasses-250"><span class="linenos">250</span></a>
-</span><span id="WithSubclasses-251"><a href="#WithSubclasses-251"><span class="linenos">251</span></a>    <span class="nd">@classmethod</span>
-</span><span id="WithSubclasses-252"><a href="#WithSubclasses-252"><span class="linenos">252</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">__get_subclasses__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
-</span><span id="WithSubclasses-253"><a href="#WithSubclasses-253"><span class="linenos">253</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-254"><a href="#WithSubclasses-254"><span class="linenos">254</span></a><span class="sd">        A special helper method to get all of the subclasses of a provided class object.</span>
-</span><span id="WithSubclasses-255"><a href="#WithSubclasses-255"><span class="linenos">255</span></a>
-</span><span id="WithSubclasses-256"><a href="#WithSubclasses-256"><span class="linenos">256</span></a><span class="sd">        Requires:</span>
-</span><span id="WithSubclasses-257"><a href="#WithSubclasses-257"><span class="linenos">257</span></a>
-</span><span id="WithSubclasses-258"><a href="#WithSubclasses-258"><span class="linenos">258</span></a><span class="sd">        - `obj`:</span>
-</span><span id="WithSubclasses-259"><a href="#WithSubclasses-259"><span class="linenos">259</span></a><span class="sd">            - What: An uninitialized class that should also be considered type correct if a subclass is passed.</span>
-</span><span id="WithSubclasses-260"><a href="#WithSubclasses-260"><span class="linenos">260</span></a><span class="sd">            - Type: Any Uninitialized class</span>
-</span><span id="WithSubclasses-261"><a href="#WithSubclasses-261"><span class="linenos">261</span></a>
-</span><span id="WithSubclasses-262"><a href="#WithSubclasses-262"><span class="linenos">262</span></a><span class="sd">        Returns:</span>
-</span><span id="WithSubclasses-263"><a href="#WithSubclasses-263"><span class="linenos">263</span></a>
-</span><span id="WithSubclasses-264"><a href="#WithSubclasses-264"><span class="linenos">264</span></a><span class="sd">        - `out`:</span>
-</span><span id="WithSubclasses-265"><a href="#WithSubclasses-265"><span class="linenos">265</span></a><span class="sd">            - What: A list of all of the subclasses (recursively parsed)</span>
-</span><span id="WithSubclasses-266"><a href="#WithSubclasses-266"><span class="linenos">266</span></a><span class="sd">            - Type: list of strs</span>
-</span><span id="WithSubclasses-267"><a href="#WithSubclasses-267"><span class="linenos">267</span></a>
-</span><span id="WithSubclasses-268"><a href="#WithSubclasses-268"><span class="linenos">268</span></a>
-</span><span id="WithSubclasses-269"><a href="#WithSubclasses-269"><span class="linenos">269</span></a><span class="sd">        Notes:</span>
-</span><span id="WithSubclasses-270"><a href="#WithSubclasses-270"><span class="linenos">270</span></a>
-</span><span id="WithSubclasses-271"><a href="#WithSubclasses-271"><span class="linenos">271</span></a><span class="sd">        - From a functional perspective, this recursively gets the subclasses for an uninitialised class (type).</span>
-</span><span id="WithSubclasses-272"><a href="#WithSubclasses-272"><span class="linenos">272</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-273"><a href="#WithSubclasses-273"><span class="linenos">273</span></a>        <span class="n">out</span> <span class="o">=</span> <span class="p">[</span><span class="n">obj</span><span class="p">]</span>
-</span><span id="WithSubclasses-274"><a href="#WithSubclasses-274"><span class="linenos">274</span></a>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">__subclasses__</span><span class="p">():</span>
-</span><span id="WithSubclasses-275"><a href="#WithSubclasses-275"><span class="linenos">275</span></a>            <span class="n">out</span> <span class="o">+=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">__get_subclasses__</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-</span><span id="WithSubclasses-276"><a href="#WithSubclasses-276"><span class="linenos">276</span></a>        <span class="k">return</span> <span class="n">out</span>
-</span><span id="WithSubclasses-277"><a href="#WithSubclasses-277"><span class="linenos">277</span></a>
-</span><span id="WithSubclasses-278"><a href="#WithSubclasses-278"><span class="linenos">278</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_subclasses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="WithSubclasses-279"><a href="#WithSubclasses-279"><span class="linenos">279</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-280"><a href="#WithSubclasses-280"><span class="linenos">280</span></a><span class="sd">        Returns a list of all of the subclasses of the class that was passed to the WithSubclasses object.</span>
-</span><span id="WithSubclasses-281"><a href="#WithSubclasses-281"><span class="linenos">281</span></a>
-</span><span id="WithSubclasses-282"><a href="#WithSubclasses-282"><span class="linenos">282</span></a><span class="sd">        If already calculated, it will return the cached value.</span>
-</span><span id="WithSubclasses-283"><a href="#WithSubclasses-283"><span class="linenos">283</span></a>
-</span><span id="WithSubclasses-284"><a href="#WithSubclasses-284"><span class="linenos">284</span></a><span class="sd">        Returns:</span>
-</span><span id="WithSubclasses-285"><a href="#WithSubclasses-285"><span class="linenos">285</span></a>
-</span><span id="WithSubclasses-286"><a href="#WithSubclasses-286"><span class="linenos">286</span></a><span class="sd">        - `subclasses`:</span>
-</span><span id="WithSubclasses-287"><a href="#WithSubclasses-287"><span class="linenos">287</span></a><span class="sd">            - What: A list of all of the subclasses of the class that was passed to the WithSubclasses object.</span>
-</span><span id="WithSubclasses-288"><a href="#WithSubclasses-288"><span class="linenos">288</span></a><span class="sd">            - Type: list of strs</span>
-</span><span id="WithSubclasses-289"><a href="#WithSubclasses-289"><span class="linenos">289</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-290"><a href="#WithSubclasses-290"><span class="linenos">290</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;subclasses&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
-</span><span id="WithSubclasses-291"><a href="#WithSubclasses-291"><span class="linenos">291</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">subclasses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__get_subclasses__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">obj</span><span class="p">)</span>
-</span><span id="WithSubclasses-292"><a href="#WithSubclasses-292"><span class="linenos">292</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subclasses</span>
-</span></pre></div>
-
-
-    
-
-                            <div id="WithSubclasses.__init__" class="classattr">
-                                        <input id="WithSubclasses.__init__-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
-<div class="attr function">
-            
-        <span class="name">WithSubclasses</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">obj</span>, </span><span class="param"><span class="n">cache</span><span class="o">=</span><span class="kc">True</span></span>)</span>
-
-                <label class="view-source-button" for="WithSubclasses.__init__-view-source"><span>View Source</span></label>
-
-    </div>
-    <a class="headerlink" href="#WithSubclasses.__init__"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="WithSubclasses.__init__-227"><a href="#WithSubclasses.__init__-227"><span class="linenos">227</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-</span><span id="WithSubclasses.__init__-228"><a href="#WithSubclasses.__init__-228"><span class="linenos">228</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="WithSubclasses.__init__-229"><a href="#WithSubclasses.__init__-229"><span class="linenos">229</span></a><span class="sd">        A special helper class to allow a class type to be passed and also allow all subclasses of that type.</span>
-</span><span id="WithSubclasses.__init__-230"><a href="#WithSubclasses.__init__-230"><span class="linenos">230</span></a>
-</span><span id="WithSubclasses.__init__-231"><a href="#WithSubclasses.__init__-231"><span class="linenos">231</span></a><span class="sd">        This allows delayed evaluation of the subclasses until initial call time such that delayed inherited classes are considered.</span>
-</span><span id="WithSubclasses.__init__-232"><a href="#WithSubclasses.__init__-232"><span class="linenos">232</span></a>
-</span><span id="WithSubclasses.__init__-233"><a href="#WithSubclasses.__init__-233"><span class="linenos">233</span></a><span class="sd">        Note: You can not validate that a passed object is a WithSubclasses object as this is a special case.</span>
-</span><span id="WithSubclasses.__init__-234"><a href="#WithSubclasses.__init__-234"><span class="linenos">234</span></a>
-</span><span id="WithSubclasses.__init__-235"><a href="#WithSubclasses.__init__-235"><span class="linenos">235</span></a><span class="sd">        Required Arguments:</span>
-</span><span id="WithSubclasses.__init__-236"><a href="#WithSubclasses.__init__-236"><span class="linenos">236</span></a>
-</span><span id="WithSubclasses.__init__-237"><a href="#WithSubclasses.__init__-237"><span class="linenos">237</span></a><span class="sd">        - `obj`:</span>
-</span><span id="WithSubclasses.__init__-238"><a href="#WithSubclasses.__init__-238"><span class="linenos">238</span></a><span class="sd">            - What: An uninitialized class that should also be considered type correct if a subclass is passed.</span>
-</span><span id="WithSubclasses.__init__-239"><a href="#WithSubclasses.__init__-239"><span class="linenos">239</span></a><span class="sd">            - Type: Any Uninitialized class</span>
-</span><span id="WithSubclasses.__init__-240"><a href="#WithSubclasses.__init__-240"><span class="linenos">240</span></a>
-</span><span id="WithSubclasses.__init__-241"><a href="#WithSubclasses.__init__-241"><span class="linenos">241</span></a><span class="sd">        Optional Arguments:</span>
-</span><span id="WithSubclasses.__init__-242"><a href="#WithSubclasses.__init__-242"><span class="linenos">242</span></a>
-</span><span id="WithSubclasses.__init__-243"><a href="#WithSubclasses.__init__-243"><span class="linenos">243</span></a><span class="sd">        - `cache`:</span>
-</span><span id="WithSubclasses.__init__-244"><a href="#WithSubclasses.__init__-244"><span class="linenos">244</span></a><span class="sd">            - What: Whether to cache the calcuation of the subclasses. If set to False, this will recalculate the subclasses on each call.</span>
-</span><span id="WithSubclasses.__init__-245"><a href="#WithSubclasses.__init__-245"><span class="linenos">245</span></a><span class="sd">            - Type: bool</span>
-</span><span id="WithSubclasses.__init__-246"><a href="#WithSubclasses.__init__-246"><span class="linenos">246</span></a><span class="sd">            - Default: True</span>
-</span><span id="WithSubclasses.__init__-247"><a href="#WithSubclasses.__init__-247"><span class="linenos">247</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="WithSubclasses.__init__-248"><a href="#WithSubclasses.__init__-248"><span class="linenos">248</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">obj</span> <span class="o">=</span> <span class="n">obj</span>
-</span><span id="WithSubclasses.__init__-249"><a href="#WithSubclasses.__init__-249"><span class="linenos">249</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">cache</span>
-</span></pre></div>
-
-
-            <div class="docstring"><p>A special helper class to allow a class type to be passed and also allow all subclasses of that type.</p>
-
-<p>This allows delayed evaluation of the subclasses until initial call time such that delayed inherited classes are considered.</p>
-
-<p>Note: You can not validate that a passed object is a WithSubclasses object as this is a special case.</p>
-
-<p>Required Arguments:</p>
-
-<ul>
-<li><code><a href="#WithSubclasses.obj">obj</a></code>:
-<ul>
-<li>What: An uninitialized class that should also be considered type correct if a subclass is passed.</li>
-<li>Type: Any Uninitialized class</li>
-</ul></li>
-</ul>
-
-<p>Optional Arguments:</p>
-
-<ul>
-<li><code><a href="#WithSubclasses.cache">cache</a></code>:
-<ul>
-<li>What: Whether to cache the calcuation of the subclasses. If set to False, this will recalculate the subclasses on each call.</li>
-<li>Type: bool</li>
-<li>Default: True</li>
-</ul></li>
-</ul>
-</div>
-
-
-                            </div>
-                            <div id="WithSubclasses.obj" class="classattr">
-                                <div class="attr variable">
-            <span class="name">obj</span>
-
-        
-    </div>
-    <a class="headerlink" href="#WithSubclasses.obj"></a>
-    
-    
-
-                            </div>
-                            <div id="WithSubclasses.cache" class="classattr">
-                                <div class="attr variable">
-            <span class="name">cache</span>
-
-        
-    </div>
-    <a class="headerlink" href="#WithSubclasses.cache"></a>
-    
-    
-
-                            </div>
-                            <div id="WithSubclasses.get_subclasses" class="classattr">
-                                        <input id="WithSubclasses.get_subclasses-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
-<div class="attr function">
-            
-        <span class="def">def</span>
-        <span class="name">get_subclasses</span><span class="signature pdoc-code condensed">(<span class="param"><span class="bp">self</span></span><span class="return-annotation">):</span></span>
-
-                <label class="view-source-button" for="WithSubclasses.get_subclasses-view-source"><span>View Source</span></label>
-
-    </div>
-    <a class="headerlink" href="#WithSubclasses.get_subclasses"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="WithSubclasses.get_subclasses-278"><a href="#WithSubclasses.get_subclasses-278"><span class="linenos">278</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_subclasses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="WithSubclasses.get_subclasses-279"><a href="#WithSubclasses.get_subclasses-279"><span class="linenos">279</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="WithSubclasses.get_subclasses-280"><a href="#WithSubclasses.get_subclasses-280"><span class="linenos">280</span></a><span class="sd">        Returns a list of all of the subclasses of the class that was passed to the WithSubclasses object.</span>
-</span><span id="WithSubclasses.get_subclasses-281"><a href="#WithSubclasses.get_subclasses-281"><span class="linenos">281</span></a>
-</span><span id="WithSubclasses.get_subclasses-282"><a href="#WithSubclasses.get_subclasses-282"><span class="linenos">282</span></a><span class="sd">        If already calculated, it will return the cached value.</span>
-</span><span id="WithSubclasses.get_subclasses-283"><a href="#WithSubclasses.get_subclasses-283"><span class="linenos">283</span></a>
-</span><span id="WithSubclasses.get_subclasses-284"><a href="#WithSubclasses.get_subclasses-284"><span class="linenos">284</span></a><span class="sd">        Returns:</span>
-</span><span id="WithSubclasses.get_subclasses-285"><a href="#WithSubclasses.get_subclasses-285"><span class="linenos">285</span></a>
-</span><span id="WithSubclasses.get_subclasses-286"><a href="#WithSubclasses.get_subclasses-286"><span class="linenos">286</span></a><span class="sd">        - `subclasses`:</span>
-</span><span id="WithSubclasses.get_subclasses-287"><a href="#WithSubclasses.get_subclasses-287"><span class="linenos">287</span></a><span class="sd">            - What: A list of all of the subclasses of the class that was passed to the WithSubclasses object.</span>
-</span><span id="WithSubclasses.get_subclasses-288"><a href="#WithSubclasses.get_subclasses-288"><span class="linenos">288</span></a><span class="sd">            - Type: list of strs</span>
-</span><span id="WithSubclasses.get_subclasses-289"><a href="#WithSubclasses.get_subclasses-289"><span class="linenos">289</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="WithSubclasses.get_subclasses-290"><a href="#WithSubclasses.get_subclasses-290"><span class="linenos">290</span></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;subclasses&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
-</span><span id="WithSubclasses.get_subclasses-291"><a href="#WithSubclasses.get_subclasses-291"><span class="linenos">291</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">subclasses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__get_subclasses__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">obj</span><span class="p">)</span>
-</span><span id="WithSubclasses.get_subclasses-292"><a href="#WithSubclasses.get_subclasses-292"><span class="linenos">292</span></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subclasses</span>
-</span></pre></div>
-
-
-            <div class="docstring"><p>Returns a list of all of the subclasses of the class that was passed to the WithSubclasses object.</p>
-
-<p>If already calculated, it will return the cached value.</p>
-
-<p>Returns:</p>
-
-<ul>
-<li><code>subclasses</code>:
-<ul>
-<li>What: A list of all of the subclasses of the class that was passed to the WithSubclasses object.</li>
-<li>Type: list of strs</li>
-</ul></li>
-</ul>
-</div>
-
-
-                            </div>
-                </section>
                 <section id="DeepMerge">
                             <input id="DeepMerge-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -1234,36 +951,36 @@
 
     </div>
     <a class="headerlink" href="#DeepMerge"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="DeepMerge-295"><a href="#DeepMerge-295"><span class="linenos">295</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span id="DeepMerge-296"><a href="#DeepMerge-296"><span class="linenos">296</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="DeepMerge-297"><a href="#DeepMerge-297"><span class="linenos">297</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.</span>
-</span><span id="DeepMerge-298"><a href="#DeepMerge-298"><span class="linenos">298</span></a>
-</span><span id="DeepMerge-299"><a href="#DeepMerge-299"><span class="linenos">299</span></a><span class="sd">    Required Arguments:</span>
-</span><span id="DeepMerge-300"><a href="#DeepMerge-300"><span class="linenos">300</span></a>
-</span><span id="DeepMerge-301"><a href="#DeepMerge-301"><span class="linenos">301</span></a><span class="sd">    - `original`:</span>
-</span><span id="DeepMerge-302"><a href="#DeepMerge-302"><span class="linenos">302</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
-</span><span id="DeepMerge-303"><a href="#DeepMerge-303"><span class="linenos">303</span></a><span class="sd">        - Type: dict</span>
-</span><span id="DeepMerge-304"><a href="#DeepMerge-304"><span class="linenos">304</span></a><span class="sd">    - `update`:</span>
-</span><span id="DeepMerge-305"><a href="#DeepMerge-305"><span class="linenos">305</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
-</span><span id="DeepMerge-306"><a href="#DeepMerge-306"><span class="linenos">306</span></a><span class="sd">        - Type: dict</span>
-</span><span id="DeepMerge-307"><a href="#DeepMerge-307"><span class="linenos">307</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="DeepMerge-308"><a href="#DeepMerge-308"><span class="linenos">308</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
-</span><span id="DeepMerge-309"><a href="#DeepMerge-309"><span class="linenos">309</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">update</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="DeepMerge-310"><a href="#DeepMerge-310"><span class="linenos">310</span></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="DeepMerge-311"><a href="#DeepMerge-311"><span class="linenos">311</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="DeepMerge-312"><a href="#DeepMerge-312"><span class="linenos">312</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="DeepMerge-313"><a href="#DeepMerge-313"><span class="linenos">313</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="DeepMerge-314"><a href="#DeepMerge-314"><span class="linenos">314</span></a>        <span class="p">):</span>
-</span><span id="DeepMerge-315"><a href="#DeepMerge-315"><span class="linenos">315</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
-</span><span id="DeepMerge-316"><a href="#DeepMerge-316"><span class="linenos">316</span></a>        <span class="k">elif</span> <span class="p">(</span>
-</span><span id="DeepMerge-317"><a href="#DeepMerge-317"><span class="linenos">317</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="DeepMerge-318"><a href="#DeepMerge-318"><span class="linenos">318</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="DeepMerge-319"><a href="#DeepMerge-319"><span class="linenos">319</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="DeepMerge-320"><a href="#DeepMerge-320"><span class="linenos">320</span></a>        <span class="p">):</span>
-</span><span id="DeepMerge-321"><a href="#DeepMerge-321"><span class="linenos">321</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-</span><span id="DeepMerge-322"><a href="#DeepMerge-322"><span class="linenos">322</span></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="DeepMerge-323"><a href="#DeepMerge-323"><span class="linenos">323</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span><span id="DeepMerge-324"><a href="#DeepMerge-324"><span class="linenos">324</span></a>    <span class="k">return</span> <span class="n">original</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="DeepMerge-226"><a href="#DeepMerge-226"><span class="linenos">226</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="DeepMerge-227"><a href="#DeepMerge-227"><span class="linenos">227</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="DeepMerge-228"><a href="#DeepMerge-228"><span class="linenos">228</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.</span>
+</span><span id="DeepMerge-229"><a href="#DeepMerge-229"><span class="linenos">229</span></a>
+</span><span id="DeepMerge-230"><a href="#DeepMerge-230"><span class="linenos">230</span></a><span class="sd">    Required Arguments:</span>
+</span><span id="DeepMerge-231"><a href="#DeepMerge-231"><span class="linenos">231</span></a>
+</span><span id="DeepMerge-232"><a href="#DeepMerge-232"><span class="linenos">232</span></a><span class="sd">    - `original`:</span>
+</span><span id="DeepMerge-233"><a href="#DeepMerge-233"><span class="linenos">233</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
+</span><span id="DeepMerge-234"><a href="#DeepMerge-234"><span class="linenos">234</span></a><span class="sd">        - Type: dict</span>
+</span><span id="DeepMerge-235"><a href="#DeepMerge-235"><span class="linenos">235</span></a><span class="sd">    - `update`:</span>
+</span><span id="DeepMerge-236"><a href="#DeepMerge-236"><span class="linenos">236</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
+</span><span id="DeepMerge-237"><a href="#DeepMerge-237"><span class="linenos">237</span></a><span class="sd">        - Type: dict</span>
+</span><span id="DeepMerge-238"><a href="#DeepMerge-238"><span class="linenos">238</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="DeepMerge-239"><a href="#DeepMerge-239"><span class="linenos">239</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+</span><span id="DeepMerge-240"><a href="#DeepMerge-240"><span class="linenos">240</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">update</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="DeepMerge-241"><a href="#DeepMerge-241"><span class="linenos">241</span></a>        <span class="k">if</span> <span class="p">(</span>
+</span><span id="DeepMerge-242"><a href="#DeepMerge-242"><span class="linenos">242</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
+</span><span id="DeepMerge-243"><a href="#DeepMerge-243"><span class="linenos">243</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
+</span><span id="DeepMerge-244"><a href="#DeepMerge-244"><span class="linenos">244</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+</span><span id="DeepMerge-245"><a href="#DeepMerge-245"><span class="linenos">245</span></a>        <span class="p">):</span>
+</span><span id="DeepMerge-246"><a href="#DeepMerge-246"><span class="linenos">246</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
+</span><span id="DeepMerge-247"><a href="#DeepMerge-247"><span class="linenos">247</span></a>        <span class="k">elif</span> <span class="p">(</span>
+</span><span id="DeepMerge-248"><a href="#DeepMerge-248"><span class="linenos">248</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
+</span><span id="DeepMerge-249"><a href="#DeepMerge-249"><span class="linenos">249</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
+</span><span id="DeepMerge-250"><a href="#DeepMerge-250"><span class="linenos">250</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+</span><span id="DeepMerge-251"><a href="#DeepMerge-251"><span class="linenos">251</span></a>        <span class="p">):</span>
+</span><span id="DeepMerge-252"><a href="#DeepMerge-252"><span class="linenos">252</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span id="DeepMerge-253"><a href="#DeepMerge-253"><span class="linenos">253</span></a>        <span class="k">else</span><span class="p">:</span>
+</span><span id="DeepMerge-254"><a href="#DeepMerge-254"><span class="linenos">254</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</span><span id="DeepMerge-255"><a href="#DeepMerge-255"><span class="linenos">255</span></a>    <span class="k">return</span> <span class="n">original</span>
 </span></pre></div>
 
 
@@ -1285,6 +1002,53 @@
 </ul>
 </div>
 
+
+                </section>
+                <section id="WithSubclasses">
+                            <input id="WithSubclasses-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">WithSubclasses</span><span class="signature pdoc-code condensed">(<span class="param"><span class="bp">cls</span></span><span class="return-annotation">):</span></span>
+
+                <label class="view-source-button" for="WithSubclasses-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#WithSubclasses"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="WithSubclasses-258"><a href="#WithSubclasses-258"><span class="linenos">258</span></a><span class="k">def</span><span class="w"> </span><span class="nf">WithSubclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span id="WithSubclasses-259"><a href="#WithSubclasses-259"><span class="linenos">259</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="WithSubclasses-260"><a href="#WithSubclasses-260"><span class="linenos">260</span></a><span class="sd">    A utility class to preserve backwards compatibility</span>
+</span><span id="WithSubclasses-261"><a href="#WithSubclasses-261"><span class="linenos">261</span></a><span class="sd">    with the older versions of type_enforced.</span>
+</span><span id="WithSubclasses-262"><a href="#WithSubclasses-262"><span class="linenos">262</span></a>
+</span><span id="WithSubclasses-263"><a href="#WithSubclasses-263"><span class="linenos">263</span></a><span class="sd">    By default subclasses of all classes are now enforced by type_enforced.</span>
+</span><span id="WithSubclasses-264"><a href="#WithSubclasses-264"><span class="linenos">264</span></a>
+</span><span id="WithSubclasses-265"><a href="#WithSubclasses-265"><span class="linenos">265</span></a><span class="sd">    It is slated to be removed in the next major version.</span>
+</span><span id="WithSubclasses-266"><a href="#WithSubclasses-266"><span class="linenos">266</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="WithSubclasses-267"><a href="#WithSubclasses-267"><span class="linenos">267</span></a>    <span class="c1"># TODO: Remove this in the next major version of type_enforced</span>
+</span><span id="WithSubclasses-268"><a href="#WithSubclasses-268"><span class="linenos">268</span></a>    <span class="k">return</span> <span class="bp">cls</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>A utility class to preserve backwards compatibility
+with the older versions of type_enforced.</p>
+
+<p>By default subclasses of all classes are now enforced by type_enforced.</p>
+
+<p>It is slated to be removed in the next major version.</p>
+</div>
+
+
+                </section>
+                <section id="iterable_types">
+                    <div class="attr variable">
+            <span class="name">iterable_types</span>        =
+<span class="default_value">{&lt;class &#39;list&#39;&gt;, &lt;class &#39;set&#39;&gt;, &lt;class &#39;tuple&#39;&gt;, &lt;class &#39;dict&#39;&gt;}</span>
+
+        
+    </div>
+    <a class="headerlink" href="#iterable_types"></a>
+    
+    
 
                 </section>
     </main>

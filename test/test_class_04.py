@@ -1,6 +1,8 @@
 import type_enforced
 from typing import Type
 
+# This test checks for Uninitialized class type checking
+
 
 class Foo:
     def __init__(self) -> None:
@@ -10,6 +12,11 @@ class Foo:
 class Bar(Foo):
     def __init__(self) -> None:
         super().__init__()
+
+
+class Bum:
+    def __init__(self) -> None:
+        pass
 
 
 @type_enforced.Enforcer
@@ -25,7 +32,19 @@ except:
     success = False
 
 try:
+    x = Baz(Foo())
+    success = False
+except:
+    pass
+
+try:
     y = Baz(Bar)
+    success = False
+except:
+    pass
+
+try:
+    y = Baz(Bum)
     success = False
 except:
     pass
