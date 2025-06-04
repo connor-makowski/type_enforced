@@ -169,7 +169,7 @@ class FunctionMethodEnforcer:
                 BuiltinMethodType: None,
                 GeneratorType: None,
             }
-        
+
         if annotation == Any:
             return {
                 object: None,

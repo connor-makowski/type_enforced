@@ -260,10 +260,11 @@ def WithSubclasses(cls):
     with the older versions of type_enforced.
 
     By default subclasses of all classes are now enforced by type_enforced.
-    
+
     It is slated to be removed in the next major version.
     """
     # TODO: Remove this in the next major version of type_enforced
     return cls
+
 
 iterable_types = set([list, tuple, set, dict])

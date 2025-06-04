@@ -13,6 +13,7 @@ class Bar(Foo):
     def __init__(self) -> None:
         super().__init__()
 
+
 class Bum:
     def __init__(self) -> None:
         pass

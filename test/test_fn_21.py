@@ -1,8 +1,10 @@
 import type_enforced, typing
+
 # Test for Any / object type checking
 
+
 @type_enforced.Enforcer
-def my_fn(a: typing.Any, b:object) -> None:
+def my_fn(a: typing.Any, b: object) -> None:
     return None
 
 
