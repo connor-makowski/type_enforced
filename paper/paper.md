@@ -38,8 +38,8 @@ bibliography: paper.bib
 
 - [X] Be stored in a repository that can be cloned without registration.
 - [X] Be stored in a repository that is browsable online without registration.
-- [ ] Have an issue tracker that is readable without registration.
-- [ ] Permit individuals to create issues/file tickets against your repository.
+- [X] Have an issue tracker that is readable without registration.
+- [X] Permit individuals to create issues/file tickets against your repository.
 
 ---
 
@@ -49,9 +49,9 @@ bibliography: paper.bib
 
 # Statement of Need
 
-Python's dynamic typing system offers flexibility but can lead to runtime errors that are difficult to diagnose in complex scientific software and research applications. Static type checking tools such as Mypy provide valuable compile-time validation; however, they do not prevent runtime type errors. Existing runtime enforcement libraries often require extensive boilerplate code or lack support for advanced typing features and nested structures.
+Python's dynamic typing system offers flexibility but can lead to runtime errors that are difficult to diagnose in web applications, complex scientific software, and research applications. Static type checking tools such as Mypy provide valuable compile-time validation; however, they do not prevent runtime type errors. Existing runtime enforcement libraries often require extensive boilerplate code or lack support for advanced typing features and nested structures.
 
-The `type_enforced` package addresses these limitations by providing robust runtime enforcement of Python type annotations with minimal overhead. It supports advanced typing features including nested iterables, union types, dataclasses, inheritance-based validation (`WithSubclasses`), and custom constraints (`Constraint`, `GenericConstraint`). This makes it particularly suitable for research software development where correctness of data types is critical for reproducibility and reliability.
+The `type_enforced` package addresses these limitations by providing robust runtime enforcement of Python type annotations with minimal overhead. It supports advanced typing features including nested iterables, union types, dataclasses, inheritance-based validation, unitialized class type checks, and custom constraints (`Constraint`, `GenericConstraint`). This makes it particularly suitable for research software development where correctness of data types is critical for reproducibility and reliability.
 
 # Functionality and Features
 
@@ -60,18 +60,18 @@ Key features provided by the package include:
 - **Decorator-based enforcement**: 
   Easily apply enforcement to functions, methods, classes, static methods, class methods, and dataclasses.
 - **Comprehensive typing support**: 
-  Supports built-in Python types (`int`, `str`, `list`, `dict`, etc.), typing module constructs (`List`, `Dict`, `Union`, `Optional`, `Literal`), union types (`int | float`), nested structures (`dict[dict[int]]`), and deeply nested iterables (`list[set[str]]`).
+  Supports built-in Python types (`int`, `str`, `list`, `dict`, etc.), typing module constructs (`List`, `Dict`, `Union`, `Optional`, `Literal`, `Any`), union types (`int | float`), nested structures (`dict[str, dict[str, int]]`), and deeply nested iterables (`list[set[str]]`).
 - **Custom constraints**: 
   Validate input values with built-in constraint classes (e.g., numerical bounds) or user-defined generic constraints (e.g., membership in a predefined set).
 - **Inheritance-aware validation**: 
-  Validate instances against class hierarchies using the provided utility class (`WithSubclasses`).
+  Validate instances against class hierarchies.
 - **Flexible enable/disable mechanism**: 
   Enable or disable enforcement selectively at the function or class level to accommodate debugging versus production environments.
 
 ---
 
 `TODO`
-- [ ] Check if what I wrote makes any sense
+- [X] Check if what I wrote makes any sense
 
 ---
 
@@ -103,8 +103,8 @@ Static type checkers analyze code before execution, using type hints to catch po
 
 Runtime type checkers enforce type constraints as the program executes, which is particularly valuable when handling external data or integrating with user-facing APIs.
 
-- **Pydantic** [@Colvin:2017]: Pydantic is a widely used library for runtime data validation, leveraging type hints to enforce data schemas and automatically cast input values. It is central to frameworks like FastAPI and is particularly effective for validating input from untrusted sources.
-- **Typeguard** [@Gronholm:2016]: Typeguard offers runtime enforcement of function type annotations, raising errors when arguments or return values violate declared types. It is lightweight and integrates easily into existing codebases.
+- **Pydantic** [@Colvin:2017]: Pydantic is a widely used library for runtime data validation targed at dataclass like objects, leveraging type hints to enforce data schemas and automatically cast input values. It is central to frameworks like FastAPI and is particularly effective for validating input from untrusted sources.
+- **Typeguard** [@Gronholm:2016]: Typeguard offers single type level runtime enforcement of function type annotations, raising errors when arguments or return values violate declared types. It is lightweight and integrates easily into existing codebases.
 - **Enforce** [@KeithMagee:2016]: Provides basic runtime enforcement but does not support advanced typing features such as deeply nested structures or constraint-based validations.
 - **Marshmallow**: [@Loria:2013]:Marshmallow provides serialization, deserialization, and validation of complex data structures, with support for custom validation logic. It is commonly used in web frameworks for API data validation.
 - **type_enforced**: In contrast to the above, `type_enforced` offers decorator-based runtime enforcement of Python type annotations, including support for nested structures, custom constraints, and inheritance-aware validation. Its focus is on minimal boilerplate and compatibility with modern Python typing constructs, making it suitable for research and collaborative environments where correctness and ease of use are paramount.
@@ -141,7 +141,7 @@ A simple example demonstrating basic usage:
 import type_enforced
 
 @type_enforced.Enforcer()
-def calculate_area(width: float, height: float) -> float:
+def calculate_area(width: int | float, height: int | float) -> int | float:
     return width * height
 
 calculate_area(3.0, 4.5)   # Passes
@@ -151,27 +151,21 @@ calculate_area('3', 4.5)   # Raises TypeError at runtime
 An example demonstrating constraint validation:
 
 ```python
-from type_enforced import Enforcer
+import type_enforced
 from type_enforced.utils import Constraint
 
-@Enforcer()
-def positive_number(value: [int, Constraint(ge=0)]) -> int:
+@type_enforced.Enforcer()
+def positive_integer(value: int | Constraint(ge=0)) -> int:
     return value
 
-positive_number(10)   # Passes
-positive_number(-5)   # Raises TypeError due to constraint violation
+positive_integer(10)   # Passes
+positive_integer(-5)   # Raises TypeError due to constraint violation
 ```
 
 # Acknowledgments
 
-Development of this software was supported by the MIT Center for Transportation \& Logistics (CTL).
-
----
-
-`TODO`
-
-- [ ] Do we want to say anything here? Really this is a Connor question
-
----
+Development of this software was supported by:
+- MIT Center for Transportation \& Logistics (CTL)
+- MIT Computational Analytics, Visualization \& Education Lab (CAVE)
 
 # References
