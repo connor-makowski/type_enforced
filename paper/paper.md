@@ -26,23 +26,6 @@ affiliations:
 date: 30 May 2025
 bibliography: paper.bib
 ---
-
-`TODO`
-
-- [T] Check your name
-- [ ] Who else are we going to include on this?
-- [ ] I read this as Connor needs to be the corresponding author
-- [T] Check the list of tags
-
-**JOSS Software Requirements** 
-
-- [X] Be stored in a repository that can be cloned without registration.
-- [X] Be stored in a repository that is browsable online without registration.
-- [X] Have an issue tracker that is readable without registration.
-- [X] Permit individuals to create issues/file tickets against your repository.
-
----
-
 # Summary
 
 `type_enforced` is a pure Python package designed to enforce type annotations at runtime without the need for a special compiler. It provides an intuitive decorator-based interface that allows developers to enforce explicit typing constraints on function and method inputs, return types, dataclasses, and class instances. The package supports a comprehensive set of Python's built-in types, typing module constructs (such as `List`, `Dict`, `Union`, `Optional`, and `Literal`), nested data structures, and custom constraints. By offering runtime validation of type annotations and constraints, `type_enforced` enhances code reliability, readability, and maintainability.
@@ -67,13 +50,6 @@ Key features provided by the package include:
   Validate instances against class hierarchies.
 - **Flexible enable/disable mechanism**: 
   Enable or disable enforcement selectively at the function or class level to accommodate debugging versus production environments.
-
----
-
-`TODO`
-- [X] Check if what I wrote makes any sense
-
----
 
 # Research Applications
 
@@ -112,17 +88,6 @@ Runtime type checkers enforce type constraints as the program executes, which is
 ## Discussion
 
 The diversity of tools reflects the dual nature of Python's type system—supporting both static and dynamic paradigms. As [@Rak-amnouykit:2020] demonstrate, the adoption of type annotations is increasing, but real-world usage patterns remain heterogeneous, and the semantics of type checking tools can differ in subtle but important ways. Packages like `type_enforced` complement this landscape by providing runtime guarantees that static checkers cannot, especially in collaborative or data-driven research settings. Compared to these tools, `type_enforced` uniquely combines comprehensive type annotation enforcement with powerful constraint validation capabilities and inheritance-aware checks.
-
---- 
-
-`TODO`
-
-- [ ] Figure out how to reference something in the paper.bib file
-- [ ] Should I get rid of the last sentence?
-- [ ] Can someone take a look at these and see if what Tim wrote makes sense?
-- [ ] Are there other better known examples of Python type checkers?
-
----
 
 # Usage Example
 
