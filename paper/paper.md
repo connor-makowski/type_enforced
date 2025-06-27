@@ -121,6 +121,7 @@ positive_integer(-5)   # Raises TypeError due to constraint violation
 # Acknowledgments
 
 Development of this software was supported by:
+
 - MIT Center for Transportation \& Logistics (CTL)
 - MIT Computational Analytics, Visualization \& Education Lab (CAVE)
 
