@@ -49,27 +49,33 @@ Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`
 
 Variables without an annotation for type are not enforced.
 
-## What changed in 2.0.0?
-The main changes in version 2.0.0 revolve around migrating towards the standard python typing hint process and away from the original type_enfoced type hints (as type enforced was originally created before the `|` operator was added to python).
-- Support for python3.10 has been dropped.
-- List based union types are no longer supported.
-    - For example `[int, float]` is no longer a supported type hint.
-    - Use `int|float` or `typing.Union[int, float]` instead.
-- Dict types now require two types to be specified.
-    - The first type is the key type and the second type is the value type.
-    - For example, `dict[str, int|float]` or `dict[int, float]` are valid types.
-- Tuple types now allow for `N` types to be specified.
-    - Each item refers to the positional type of each item in the tuple.
-    - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type.
-        - For example, `tuple[int, ...]` or `tuple[int|str, ...]` are valid types.
-    - Note: Unions between two tuples are not supported.
-        - For example, `tuple[int, str] | tuple[str, int]` will not work.
-- Constraints and Literals can now be stacked with unions.
-    - For example, `int | Constraint(ge=0) | Constraint(le=5)` will require any passed values to be integers that are greater than or equal to `0` and less than or equal to `5`.
-    - For example, `Literal['a', 'b'] | Literal[1, 2]` will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.
-- Literals now evaluate during the same time as type checking and operate as OR checks.
-    - For example, `int | Literal['a', 'b']` will validate that the type is an int or the value is equal to `'a'` or `'b'`.
-- Constraints are still are evaluated after type checking and operate independently of the type checking.
+## Why use Type Enforced?
+
+- `type_enforced` is a pure python type enforcer that does not require any special compiler or preprocessor to work. 
+- `type_enforced`  uses the standard python typing hints and enforces them at runtime.
+    - This means that you can use it in any python environment (3.11+) without any special setup.
+- `type_enforced`  is designed to be lightweight and easy to use, making it a great choice for both small and large projects.
+- `type_enforced`  supports complex (nested) typing hints, union types, and many of the standard python typing functions.
+- Other Options:
+    - `Pydantic`:
+        - A great all around option.
+        - Its ~40% slower at scale than type enforced for larger object verifications with complex (nested) types.
+        - It is ~30% faster for verifications of smaller objects.
+        - It is designed for data classes
+        - We have found it to be very consistent with type checking including complex (nested) type hints.
+    - `Beartype`:
+        - The fastest option we tested by far (close to O(n) time complexity).
+        - Is great for simple type checking and we highly recommend it for that use case. 
+        - Is inconsistent at catching errors with complex (nested) type hints (at least in beartype 0.21.0)
+            - EG: Running the same data over a loop randomly fails to catch type errors.
+    - `Typeguard`:
+        - A useable option.
+        - ~100% slower than type enforced for simple type checking.
+        - Does not support complex (nested) type hints.
+    - `Enforce`:
+        - Has not been updated since 2017.
+        - We were unable to get working with python 3.13.
+- Note: See the [benchmarks](https://github.com/connor-makowski/type_enforced/blob/main/benchmark.md) for more information on the performance of each type checker.
 
 ## Supported Type Checking Features:
 
@@ -366,6 +372,28 @@ my_fn(Foo()) # Passes as expected
 my_fn(Bar()) # Passes as expected
 my_fn(Baz()) # Raises TypeError as expected
 ```
+
+## What changed in 2.0.0?
+The main changes in version 2.0.0 revolve around migrating towards the standard python typing hint process and away from the original type_enfoced type hints (as type enforced was originally created before the `|` operator was added to python).
+- Support for python3.10 has been dropped.
+- List based union types are no longer supported.
+    - For example `[int, float]` is no longer a supported type hint.
+    - Use `int|float` or `typing.Union[int, float]` instead.
+- Dict types now require two types to be specified.
+    - The first type is the key type and the second type is the value type.
+    - For example, `dict[str, int|float]` or `dict[int, float]` are valid types.
+- Tuple types now allow for `N` types to be specified.
+    - Each item refers to the positional type of each item in the tuple.
+    - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type.
+        - For example, `tuple[int, ...]` or `tuple[int|str, ...]` are valid types.
+    - Note: Unions between two tuples are not supported.
+        - For example, `tuple[int, str] | tuple[str, int]` will not work.
+- Constraints and Literals can now be stacked with unions.
+    - For example, `int | Constraint(ge=0) | Constraint(le=5)` will require any passed values to be integers that are greater than or equal to `0` and less than or equal to `5`.
+    - For example, `Literal['a', 'b'] | Literal[1, 2]` will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.
+- Literals now evaluate during the same time as type checking and operate as OR checks.
+    - For example, `int | Literal['a', 'b']` will validate that the type is an int or the value is equal to `'a'` or `'b'`.
+- Constraints are still are evaluated after type checking and operate independently of the type checking.
 
 # Development
 ## Running Tests, Prettifying Code, and Updating Docs

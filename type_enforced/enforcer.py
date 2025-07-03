@@ -269,6 +269,17 @@ class FunctionMethodEnforcer:
         if self.__return_type__ is not None:
             self.__check_type__(return_value, self.__return_type__, "return")
         return return_value
+    
+    def __quick_check__(self, subtype, obj):
+        if all([v==None for v in subtype.values()]):
+            # If the subtype does not contain iterables with typing, we can validate the items directly.
+            types = set(subtype.keys())
+            values = set([type(v) for v in obj])
+            if values.issubset(types):
+                # We can return True to bypass the full validation
+                return True
+            # Otherwise, validation did not pass and a full validation is required to raise an indexed/keyed type mismatch error
+        return False
 
     def __check_type__(self, obj, expected, key):
         """
@@ -308,20 +319,24 @@ class FunctionMethodEnforcer:
                 pass
             # Recursive validation
             elif obj_type == list:
-                for idx, item in enumerate(obj):
-                    self.__check_type__(item, subtype, f"{key}[{idx}]")
+                # If the subtype does not contain iterables with typing, we can validate the items directly.
+                if not self.__quick_check__(subtype, obj):
+                    for idx, item in enumerate(obj):
+                        self.__check_type__(item, subtype, f"{key}[{idx}]")
             elif obj_type == dict:
                 key_type, val_type = subtype
-                for k, v in obj.items():
-                    self.__check_type__(k, key_type, f"{key}.key[{repr(k)}]")
-                    self.__check_type__(v, val_type, f"{key}[{repr(k)}]")
+                if not self.__quick_check__(key_type, obj.keys()):
+                    for key in obj.keys():
+                        self.__check_type__(key, key_type, f"{key}.key[{repr(key)}]")
+                if not self.__quick_check__(val_type, obj.values()):
+                    for key, value in obj.items():
+                        self.__check_type__(value, val_type, f"{key}[{repr(key)}]")
             elif obj_type == tuple:
                 expected_args, is_ellipsis = subtype
                 if is_ellipsis:
-                    for idx, item in enumerate(obj):
-                        self.__check_type__(
-                            item, expected_args, f"{key}[{idx}]"
-                        )
+                    if not self.__quick_check__(expected_args, obj):
+                        for idx, item in enumerate(obj):
+                            self.__check_type__(item, expected_args, f"{key}[{idx}]")
                 else:
                     if len(obj) != len(expected_args):
                         self.__exception__(
@@ -330,8 +345,9 @@ class FunctionMethodEnforcer:
                     for idx, (item, ex) in enumerate(zip(obj, expected_args)):
                         self.__check_type__(item, ex, f"{key}[{idx}]")
             elif obj_type == set:
-                for item in obj:
-                    self.__check_type__(item, subtype, f"{key}[{repr(item)}]")
+                if not self.__quick_check__(subtype, obj):
+                    for item in obj:
+                        self.__check_type__(item, subtype, f"{key}[{repr(item)}]")
 
         # Validate constraints if any are present
         constraints = extra.get("__constraints__", [])
