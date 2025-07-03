@@ -17,7 +17,7 @@ from type_enforced.utils import (
 
 
 class FunctionMethodEnforcer:
-    def __init__(self, __fn__):
+    def __init__(self, __fn__, __strict__=False):
         """
         Initialize a FunctionMethodEnforcer class object as a wrapper for a passed function `__fn__`.
 
@@ -29,6 +29,7 @@ class FunctionMethodEnforcer:
         """
         update_wrapper(self, __fn__)
         self.__fn__ = __fn__
+        self.__strict__ = __strict__
         self.__outer_self__ = None
         # Validate that the passed function or method is a method or function
         self.__check_method_function__()
@@ -103,15 +104,17 @@ class FunctionMethodEnforcer:
 
         if origin == list:
             if len(args) != 1:
-                raise TypeError(
-                    f"List must have a single type argument, got: {args}"
+                self.__exception__(
+                    f"List must have a single type argument, got: {args}",
+                    raise_exception=True
                 )
             return {list: self.__get_checkable_type__(args[0])}
 
         if origin == dict:
             if len(args) != 2:
-                raise TypeError(
-                    f"Dict must have two type arguments, got: {args}"
+                self.__exception__(
+                    f"Dict must have two type arguments, got: {args}",
+                    raise_exception=True
                 )
             key_type = self.__get_checkable_type__(args[0])
             value_type = self.__get_checkable_type__(args[1])
@@ -120,13 +123,15 @@ class FunctionMethodEnforcer:
         if origin == tuple:
             if len(args) > 2 or len(args) == 1:
                 if Ellipsis in args:
-                    raise TypeError(
-                        "Tuple with Ellipsis must have exactly two type arguments and the second must be Ellipsis."
+                    self.__exception__(
+                        "Tuple with Ellipsis must have exactly two type arguments and the second must be Ellipsis.",
+                        raise_exception=True
                     )
             if len(args) == 2:
                 if args[0] is Ellipsis:
-                    raise TypeError(
-                        "Tuple with Ellipsis must have exactly two type arguments and the first must not be Ellipsis."
+                    self.__exception__(
+                        "Tuple with Ellipsis must have exactly two type arguments and the first must not be Ellipsis.",
+                        raise_exception=True
                     )
                 if args[1] is Ellipsis:
                     return {tuple: (self.__get_checkable_type__(args[0]), True)}
@@ -139,8 +144,9 @@ class FunctionMethodEnforcer:
 
         if origin == set:
             if len(args) != 1:
-                raise TypeError(
-                    f"Set must have a single type argument, got: {args}"
+                self.__exception__(
+                    f"Set must have a single type argument, got: {args}",
+                    raise_exception=True
                 )
             return {set: self.__get_checkable_type__(args[0])}
 
@@ -187,9 +193,9 @@ class FunctionMethodEnforcer:
         if origin is type and len(args) == 1:
             return {annotation: None}
 
-        raise TypeError(f"Unsupported type hint: {annotation}")
+        self.__exception__(f"Unsupported type hint: {annotation}", raise_exception=True)
 
-    def __exception__(self, message):
+    def __exception__(self, message, raise_exception=False):
         """
         Usage:
 
@@ -200,10 +206,18 @@ class FunctionMethodEnforcer:
         - `message`:
             - Type: str
             - What: The message to warn users with
+
+        Optional:
+
+        - `raise_exception`:
+            - Type: bool
+            - What: Forces an exception to be raised regardless of the `self.__strict__` setting.
+            - Default: False
         """
-        raise TypeError(
-            f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
-        )
+        if self.__strict__ or raise_exception:
+            raise TypeError(f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}")
+        else:
+            print(f"TypeEnforced Warning ({self.__fn__.__qualname__}): {message}")
 
     def __get__(self, obj, objtype):
         """
@@ -332,7 +346,7 @@ class FunctionMethodEnforcer:
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
 
 
-def Enforcer(clsFnMethod, enabled):
+def Enforcer(clsFnMethod, enabled, strict):
     """
     A wrapper to enforce types within a function or method given argument annotations.
 
@@ -356,6 +370,12 @@ def Enforcer(clsFnMethod, enabled):
         - What: A boolean to enable or disable the enforcer
         - Type: bool
         - Default: True
+    - `strict`:
+        - What: A boolean to enable or disable exceptions. If True, exceptions will be raised when type checking fails. If False, exceptions will not be raised but instead a warning will be printed to the console.
+        - Type: bool
+        - Default: False
+        - Note: Type hints that are wrapped with the type enforcer and are invalid will still raise an exception.
+
 
     Example Use:
     ```
@@ -393,11 +413,11 @@ def Enforcer(clsFnMethod, enabled):
         if get_type_hints(clsFnMethod) == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
-            return staticmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
+            return staticmethod(FunctionMethodEnforcer(__fn__=clsFnMethod.__func__, __strict__=strict))
         elif isinstance(clsFnMethod, classmethod):
-            return classmethod(FunctionMethodEnforcer(clsFnMethod.__func__))
+            return classmethod(FunctionMethodEnforcer(__fn__=clsFnMethod.__func__, __strict__=strict))
         else:
-            return FunctionMethodEnforcer(clsFnMethod)
+            return FunctionMethodEnforcer(__fn__=clsFnMethod, __strict__=strict)
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
             # Skip the __annotate__ method if present in __dict__ as it deletes itself upon invocation
@@ -409,7 +429,7 @@ def Enforcer(clsFnMethod, enabled):
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)
             ):
-                setattr(clsFnMethod, key, Enforcer(value, enabled=enabled))
+                setattr(clsFnMethod, key, Enforcer(value, enabled=enabled, strict=strict))
         return clsFnMethod
     else:
         raise Exception(
@@ -417,4 +437,4 @@ def Enforcer(clsFnMethod, enabled):
         )
 
 
-Enforcer = Partial(Enforcer, enabled=True)
+Enforcer = Partial(Enforcer, enabled=True, strict=True)

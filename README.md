@@ -25,15 +25,21 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer(enabled=True)
+@type_enforced.Enforcer(enabled=True, strict=True)
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
-- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
+- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class. 
+- Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
 
 ## Getting Started
 
 `type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce many basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html).
+
+`Enforcer` can be used as a decorator for functions, methods, and classes. It will enforce the type hints on the function or method inputs and outputs. It takes in the following optional arguments:
+
+- `enabled` (True): A boolean to enable or disable type checking. If `True`, type checking will be enforced. If `False`, type checking will be disabled.
+- `strict` (True): A boolean to enable or disable type mismatch exceptions. If `True` exceptions will be raised when type checking fails. If `False`, exceptions will not be raised but instead a warning will be printed to the console.
 
 `type_enforcer` currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an `int`, a number `int | float`, an instance of the self defined `MyClass`, or a even a vector with `list[int]`. Items like `typing.List`, `typing.Dict`, `typing.Union` and `typing.Optional` are supported.
 
