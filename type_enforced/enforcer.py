@@ -106,7 +106,7 @@ class FunctionMethodEnforcer:
             if len(args) != 1:
                 self.__exception__(
                     f"List must have a single type argument, got: {args}",
-                    raise_exception=True
+                    raise_exception=True,
                 )
             return {list: self.__get_checkable_type__(args[0])}
 
@@ -114,7 +114,7 @@ class FunctionMethodEnforcer:
             if len(args) != 2:
                 self.__exception__(
                     f"Dict must have two type arguments, got: {args}",
-                    raise_exception=True
+                    raise_exception=True,
                 )
             key_type = self.__get_checkable_type__(args[0])
             value_type = self.__get_checkable_type__(args[1])
@@ -125,13 +125,13 @@ class FunctionMethodEnforcer:
                 if Ellipsis in args:
                     self.__exception__(
                         "Tuple with Ellipsis must have exactly two type arguments and the second must be Ellipsis.",
-                        raise_exception=True
+                        raise_exception=True,
                     )
             if len(args) == 2:
                 if args[0] is Ellipsis:
                     self.__exception__(
                         "Tuple with Ellipsis must have exactly two type arguments and the first must not be Ellipsis.",
-                        raise_exception=True
+                        raise_exception=True,
                     )
                 if args[1] is Ellipsis:
                     return {tuple: (self.__get_checkable_type__(args[0]), True)}
@@ -146,7 +146,7 @@ class FunctionMethodEnforcer:
             if len(args) != 1:
                 self.__exception__(
                     f"Set must have a single type argument, got: {args}",
-                    raise_exception=True
+                    raise_exception=True,
                 )
             return {set: self.__get_checkable_type__(args[0])}
 
@@ -193,7 +193,9 @@ class FunctionMethodEnforcer:
         if origin is type and len(args) == 1:
             return {annotation: None}
 
-        self.__exception__(f"Unsupported type hint: {annotation}", raise_exception=True)
+        self.__exception__(
+            f"Unsupported type hint: {annotation}", raise_exception=True
+        )
 
     def __exception__(self, message, raise_exception=False):
         """
@@ -215,9 +217,13 @@ class FunctionMethodEnforcer:
             - Default: False
         """
         if self.__strict__ or raise_exception:
-            raise TypeError(f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}")
+            raise TypeError(
+                f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
+            )
         else:
-            print(f"TypeEnforced Warning ({self.__fn__.__qualname__}): {message}")
+            print(
+                f"TypeEnforced Warning ({self.__fn__.__qualname__}): {message}"
+            )
 
     def __get__(self, obj, objtype):
         """
@@ -269,9 +275,9 @@ class FunctionMethodEnforcer:
         if self.__return_type__ is not None:
             self.__check_type__(return_value, self.__return_type__, "return")
         return return_value
-    
+
     def __quick_check__(self, subtype, obj):
-        if all([v==None for v in subtype.values()]):
+        if all([v == None for v in subtype.values()]):
             # If the subtype does not contain iterables with typing, we can validate the items directly.
             types = set(subtype.keys())
             values = set([type(v) for v in obj])
@@ -327,16 +333,22 @@ class FunctionMethodEnforcer:
                 key_type, val_type = subtype
                 if not self.__quick_check__(key_type, obj.keys()):
                     for key in obj.keys():
-                        self.__check_type__(key, key_type, f"{key}.key[{repr(key)}]")
+                        self.__check_type__(
+                            key, key_type, f"{key}.key[{repr(key)}]"
+                        )
                 if not self.__quick_check__(val_type, obj.values()):
                     for key, value in obj.items():
-                        self.__check_type__(value, val_type, f"{key}[{repr(key)}]")
+                        self.__check_type__(
+                            value, val_type, f"{key}[{repr(key)}]"
+                        )
             elif obj_type == tuple:
                 expected_args, is_ellipsis = subtype
                 if is_ellipsis:
                     if not self.__quick_check__(expected_args, obj):
                         for idx, item in enumerate(obj):
-                            self.__check_type__(item, expected_args, f"{key}[{idx}]")
+                            self.__check_type__(
+                                item, expected_args, f"{key}[{idx}]"
+                            )
                 else:
                     if len(obj) != len(expected_args):
                         self.__exception__(
@@ -347,7 +359,9 @@ class FunctionMethodEnforcer:
             elif obj_type == set:
                 if not self.__quick_check__(subtype, obj):
                     for item in obj:
-                        self.__check_type__(item, subtype, f"{key}[{repr(item)}]")
+                        self.__check_type__(
+                            item, subtype, f"{key}[{repr(item)}]"
+                        )
 
         # Validate constraints if any are present
         constraints = extra.get("__constraints__", [])
@@ -429,9 +443,17 @@ def Enforcer(clsFnMethod, enabled, strict):
         if get_type_hints(clsFnMethod) == {}:
             return clsFnMethod
         elif isinstance(clsFnMethod, staticmethod):
-            return staticmethod(FunctionMethodEnforcer(__fn__=clsFnMethod.__func__, __strict__=strict))
+            return staticmethod(
+                FunctionMethodEnforcer(
+                    __fn__=clsFnMethod.__func__, __strict__=strict
+                )
+            )
         elif isinstance(clsFnMethod, classmethod):
-            return classmethod(FunctionMethodEnforcer(__fn__=clsFnMethod.__func__, __strict__=strict))
+            return classmethod(
+                FunctionMethodEnforcer(
+                    __fn__=clsFnMethod.__func__, __strict__=strict
+                )
+            )
         else:
             return FunctionMethodEnforcer(__fn__=clsFnMethod, __strict__=strict)
     elif hasattr(clsFnMethod, "__dict__"):
@@ -445,7 +467,11 @@ def Enforcer(clsFnMethod, enabled, strict):
             if hasattr(value, "__call__") or isinstance(
                 value, (classmethod, staticmethod)
             ):
-                setattr(clsFnMethod, key, Enforcer(value, enabled=enabled, strict=strict))
+                setattr(
+                    clsFnMethod,
+                    key,
+                    Enforcer(value, enabled=enabled, strict=strict),
+                )
         return clsFnMethod
     else:
         raise Exception(

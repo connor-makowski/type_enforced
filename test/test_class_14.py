@@ -10,11 +10,13 @@ import os, sys
 class HiddenPrints:
     def __enter__(self):
         self._original_stdout = sys.stdout
-        sys.stdout = open(os.devnull, 'w')
+        sys.stdout = open(os.devnull, "w")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.stdout.close()
         sys.stdout = self._original_stdout
+
+
 ###########################################
 
 
@@ -51,18 +53,18 @@ success = True
 
 try:
     with HiddenPrints():
-        mc.fn_2('a')
-        mc_2.fn_1('a')
+        mc.fn_2("a")
+        mc_2.fn_1("a")
 except Exception as e:
     success = False
 try:
-    mc.fn_1('a')
+    mc.fn_1("a")
     success = False
 except Exception as e:
     pass
 
 try:
-    mc_2.fn_2('a')
+    mc_2.fn_2("a")
     success = False
 except Exception as e:
     pass
