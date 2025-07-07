@@ -52,30 +52,13 @@ Variables without an annotation for type are not enforced.
 ## Why use Type Enforced?
 
 - `type_enforced` is a pure python type enforcer that does not require any special compiler or preprocessor to work. 
-- `type_enforced`  uses the standard python typing hints and enforces them at runtime.
+- `type_enforced` uses the standard python typing hints and enforces them at runtime.
     - This means that you can use it in any python environment (3.11+) without any special setup.
-- `type_enforced`  is designed to be lightweight and easy to use, making it a great choice for both small and large projects.
-- `type_enforced`  supports complex (nested) typing hints, union types, and many of the standard python typing functions.
-- Other Options:
-    - `Pydantic`:
-        - A great all around option.
-        - Its ~40% slower at scale than type enforced for larger object verifications with complex (nested) types.
-        - It is ~30% faster for verifications of smaller objects.
-        - It is designed for data classes
-        - We have found it to be very consistent with type checking including complex (nested) type hints.
-    - `Beartype`:
-        - The fastest option we tested by far (close to O(n) time complexity).
-        - Is great for simple type checking and we highly recommend it for that use case. 
-        - Is inconsistent at catching errors with complex (nested) type hints (at least in beartype 0.21.0)
-            - EG: Running the same data over a loop randomly fails to catch type errors.
-    - `Typeguard`:
-        - A useable option.
-        - ~100% slower than type enforced for simple type checking.
-        - Does not support complex (nested) type hints.
-    - `Enforce`:
-        - Has not been updated since 2017.
-        - We were unable to get working with python 3.13.
-- Note: See the [benchmarks](https://github.com/connor-makowski/type_enforced/blob/main/benchmark.md) for more information on the performance of each type checker.
+- `type_enforced` is designed to be lightweight and easy to use, making it a great choice for both small and large projects.
+- `type_enforced` supports complex (nested) typing hints, union types, and many of the standard python typing functions.
+- `type_enforced` is designed to be fast and efficient, with minimal overhead. 
+- `type_enforced` offers the fastest performance for enforcing large objects of complex types 
+    - Note: See the [benchmarks](https://github.com/connor-makowski/type_enforced/blob/main/benchmark.md) for more information on the performance of each type checker.
 
 ## Supported Type Checking Features:
 
