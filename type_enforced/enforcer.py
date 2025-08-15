@@ -376,7 +376,8 @@ class FunctionMethodEnforcer:
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
 
 
-def Enforcer(clsFnMethod, enabled, strict):
+@Partial
+def Enforcer(clsFnMethod, enabled=True, strict=True):
     """
     A wrapper to enforce types within a function or method given argument annotations.
 
@@ -477,6 +478,3 @@ def Enforcer(clsFnMethod, enabled, strict):
         raise Exception(
             "Enforcer can only be used on classes, methods, or functions."
         )
-
-
-Enforcer = Partial(Enforcer, enabled=True, strict=True)

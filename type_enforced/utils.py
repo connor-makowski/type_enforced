@@ -20,6 +20,7 @@ class Partial:
         self.__kwargs__ = __kwargs__
         self.__fnArity__ = self.__getFnArity__()
         self.__arity__ = self.__getArity__(__args__, __kwargs__)
+        self.__get_fn_arg_default_keys__()
 
     def __exception__(self, message):
         pre_message = (
@@ -30,10 +31,12 @@ class Partial:
     def __call__(self, *args, **kwargs):
         new_args = self.__args__ + args
         new_kwargs = {**self.__kwargs__, **kwargs}
-        self.__arity__ = self.__getArity__(new_args, new_kwargs)
-        if self.__arity__ < 0:
+        # Create a comprehensive set of assigned variable names to determine arity
+        assigned_vars = set(self.__fn_arg_default_keys__ + self.__fn_arg_keys__[:len(new_args)] + list(new_kwargs.keys()))
+        arity = self.__fnArity__ - len(assigned_vars)
+        if arity < 0:
             self.__exception__("Too many arguments were supplied")
-        if self.__arity__ == 0:
+        if arity == 0:
             results = self.__fn__(*new_args, **new_kwargs)
             return results
         return Partial(
@@ -41,6 +44,19 @@ class Partial:
             *new_args,
             **new_kwargs,
         )
+
+    def __get_fn_arg_default_keys__(self):
+        """
+        Get the default values of the passed function or method and store them in `self.__fn_defaults__`.
+        """
+        self.__fn_var_keys__ = list(self.__fn__.__code__.co_varnames)
+        self.__fn_arg_keys__ = self.__fn_var_keys__[: self.__fn__.__code__.co_argcount]
+        if self.__fn__.__defaults__ is not None:
+            self.__fn_arg_default_keys__ = self.__fn_arg_keys__[-len(self.__fn__.__defaults__):]
+        else:
+            self.__fn_arg_default_keys__ = []
+        if self.__fn__.__kwdefaults__ is not None:
+            self.__fn_arg_default_keys__.extend(list(self.__fn__.__kwdefaults__.keys()))
 
     def __get__(self, instance, owner):
         def bind(*args, **kwargs):
