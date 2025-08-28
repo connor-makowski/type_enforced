@@ -31,7 +31,7 @@ import type_enforced
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
-- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class. 
+- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 - Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
 
 ## Getting Started
@@ -53,13 +53,13 @@ Variables without an annotation for type are not enforced.
 
 ## Why use Type Enforced?
 
-- `type_enforced` is a pure python type enforcer that does not require any special compiler or preprocessor to work. 
+- `type_enforced` is a pure python type enforcer that does not require any special compiler or preprocessor to work.
 - `type_enforced` uses the standard python typing hints and enforces them at runtime.
     - This means that you can use it in any python environment (3.11+) without any special setup.
 - `type_enforced` is designed to be lightweight and easy to use, making it a great choice for both small and large projects.
 - `type_enforced` supports complex (nested) typing hints, union types, and many of the standard python typing functions.
-- `type_enforced` is designed to be fast and efficient, with minimal overhead. 
-- `type_enforced` offers the fastest performance for enforcing large objects of complex types 
+- `type_enforced` is designed to be fast and efficient, with minimal overhead.
+- `type_enforced` offers the fastest performance for enforcing large objects of complex types
     - Note: See the [benchmarks](https://github.com/connor-makowski/type_enforced/blob/main/benchmark.md) for more information on the performance of each type checker.
 
 ## Supported Type Checking Features:
@@ -394,5 +394,7 @@ Make sure Docker is installed and running.
 - Update the docs (see ./utils/docs.sh)
     - `./run.sh docs`
 
-- Note: You can and should modify the `Dockerfile` to test different python versions."""
+- Note: You can and should modify the `Dockerfile` to test different python versions.
+"""
+
 from .enforcer import Enforcer, FunctionMethodEnforcer

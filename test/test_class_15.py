@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import type_enforced
 
+
 class Foo:
     @type_enforced.Enforcer
     def __init__(self, object: Bar) -> None:
         pass
 
+
 class Bar:
     def __init__(self) -> None:
         pass
 
+
 class Baz:
     def __init__(self) -> None:
         pass
+
 
 success = True
 try:
