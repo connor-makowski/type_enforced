@@ -441,9 +441,13 @@ def Enforcer(clsFnMethod, enabled=True, strict=True):
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
         # Only apply the enforcer if type_hints are present
-        if get_type_hints(clsFnMethod) == {}:
-            return clsFnMethod
-        elif isinstance(clsFnMethod, staticmethod):
+        # Add try except clause to better handle forward refs.
+        try:
+            if get_type_hints(clsFnMethod) == {}:
+                return clsFnMethod
+        except:
+            pass
+        if isinstance(clsFnMethod, staticmethod):
             return staticmethod(
                 FunctionMethodEnforcer(
                     __fn__=clsFnMethod.__func__, __strict__=strict
