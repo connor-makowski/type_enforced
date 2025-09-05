@@ -123,6 +123,7 @@ Variables without an annotation for type are not enforced.
 - `Constraint` validation.
     - This is a special type of validation that allows passed input to be validated.
         - Standard and custom constraints are supported.
+    - Constraints are not actually types. They are type_enforced specific validators and may cause issues with other runtime or static type checkers like `mypy`.
     - This is useful for validating that a passed input is within a certain range or meets a certain criteria.
     - Note: Constraints stack when used with unions.
         - e.g. `int | Constraint(ge=0) | Constraint(le=5)` will require any passed values to be integers that are greater than or equal to `0` and less than or equal to `5`.
