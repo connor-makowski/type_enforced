@@ -4,7 +4,7 @@
 [![PyPI Downloads](https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads)](https://pypi.org/project/type_enforced/)
 <!-- [![PyPI Downloads](https://pepy.tech/badge/type_enforced)](https://pypi.org/project/type_enforced/) -->
 
-A pure python (no special compiler required) type enforcer for type annotations. Enforce types in python functions and methods.
+A pure python runtime type enforcer for type annotations. Enforce types in python functions and methods.
 
 # Setup
 
@@ -131,7 +131,6 @@ Variables without an annotation for type are not enforced.
         - This operates differently than other checks (like `Literal`) and is evaluated post type checking.
         - For example, if you have an annotation of `str | Constraint(ge=0)`, this will always raise an exception since if you pass a string, it will raise on the constraint check and if you pass an integer, it will raise on the type check.
     - Note: See the example below or technical [constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) and [generic constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint) docs for more information.
-    ```
 
 ## Interactive Example
 
