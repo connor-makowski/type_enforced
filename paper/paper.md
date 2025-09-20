@@ -32,9 +32,9 @@ bibliography: paper.bib
 
 # Statement of Need
 
-Python's dynamic typing system offers flexibility but can lead to runtime errors that are difficult to diagnose in web applications, complex scientific software, and research applications. Static type checking tools such as Mypy provide valuable compile-time validation; however, they do not prevent runtime type errors. Existing runtime enforcement libraries often require extensive boilerplate code or lack support for advanced typing features and nested structures. 
+Python's dynamic typing system offers flexibility but can lead to runtime errors that are difficult to diagnose in web applications, complex scientific software, and research applications. Static type checking tools such as Mypy provide valuable compile-time validation; however, they do not prevent runtime type errors. Existing runtime enforcement libraries often require extensive boilerplate code or lack support for advanced typing features and nested structures.
 
-The `type_enforced` package addresses these limitations by providing robust runtime enforcement of Python type annotations with minimal overhead. It supports advanced typing features including nested iterables, union types, dataclasses, inheritance-based validation, uninitialized class type checks, and custom constraints (`Constraint`, `GenericConstraint`). This functionality  is particularly important for research software development, where correctness of data types is critical for reproducibility and reliability.
+The `type_enforced` package addresses these limitations by providing robust runtime enforcement of Python type annotations with comparable speed when compared to [benchmarking](https://github.com/connor-makowski/type_enforced/blob/main/benchmark.md). It supports advanced typing features including nested iterables, union types, dataclasses, inheritance-based validation, uninitialized class type checks, and custom constraints (`Constraint`, `GenericConstraint`). This functionality  is particularly important for research software development, where correctness of data types is critical for reproducibility and reliability.
 
 In scientific computing, `type_enforced` helps ensure the correctness of numerical simulations, validates complex machine learning data pipelines, and reduces subtle runtime errors that could compromise reproducibility. It has proven valuable in collaborative environments, such as transportation modeling and logistics optimization, where contributors with varying Python expertise develop models that must integrate seamlessly through APIs or shared workflows. By catching type mismatches early, `type_enforced` improves the robustness and trustworthiness of research software.
 
@@ -49,7 +49,9 @@ Key features provided by the package include:
 - **Custom constraints**: 
   Validate input values with built-in constraint classes (e.g., numerical bounds) or user-defined generic constraints (e.g., membership in a predefined set).
 - **Inheritance-aware validation**: 
-  Validate instances against class hierarchies.
+  Validate instances against class hierarchies. Inheritance-aware validation allows any subclass to pass type checks if the parent class is expected (e.g., accepting a MySubclass instance for a parameter of type MyParentClass).
+- **Validate class instances and classes**: 
+  Type enforcement supports both class instance and uninitialized class object validation, enabling flexible function signatures for factory methods and advanced patterns.
 - **Flexible enable/disable mechanism**: 
   Enable or disable enforcement selectively at the function or class level to accommodate debugging versus production environments.
 
