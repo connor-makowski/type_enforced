@@ -65,9 +65,9 @@ Static type checkers analyze code before execution, using type hints to catch po
 
 - **Mypy** [@Lehtosalo:2012]: 
   Mypy is the most widely adopted static type checker for Python, implementing a conventional static type system based on PEP 484. It enforces fixed variable types and reports errors when type annotations are violated. As detailed by [@Rak-amnouykit:2020], Mypy represents the canonical approach to static type checking in Python, and its semantics have become a baseline for evaluating new type inference tools.
-- **Pyright** : 
+- **Pyright** [@pyright:2025]: 
   A fast type checker developed by Microsoft, offering real-time feedback in editors.
-- **PyType**: 
+- **PyType** [@pytype:2025]: 
   Developed by Google, PyType also provides static analysis and type inference for Python code, but with a distinct approach. Unlike Mypy, PyType maintains separate type environments for different branches in control flow and can infer more precise union types for variables that take on multiple types. The comparative study by [@Rak-amnouykit:2020] shows that PyType and Mypy differ in their handling of type joins, attribute typing, and error reporting, reflecting broader trade-offs in static analysis for dynamic languages.
 
 ## Runtime Type Checkers and Data Validation
