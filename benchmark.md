@@ -1,4 +1,4 @@
-# Benchmark Results (python 3.13.5)
+# Benchmark Results (python 3.13.7)
 
 This file contains the results of the benchmark tests for various type checkers.
 
@@ -18,12 +18,12 @@ The following table summarizes the average time taken by each type checker for d
 
 | Type                        | type_enforced  | Pydantic       | Beartype       | Typeguard     |
 |:-----------------------------|:----------------|:----------------|:----------------|:----------------|
-| int                            | <span style='color: green;'>2.71 µs</span> | <span style='color: green;'>2.30 µs</span> | <span style='color: green;'>0.40 µs</span> | <span style='color: green;'>3.95 µs</span> |
-| Union[int,float]               | <span style='color: green;'>2.60 µs</span> | <span style='color: green;'>2.16 µs</span> | <span style='color: green;'>0.46 µs</span> | <span style='color: green;'>8.72 µs</span> |
-| str                            | <span style='color: green;'>2.25 µs</span> | <span style='color: green;'>1.94 µs</span> | <span style='color: green;'>0.40 µs</span> | <span style='color: green;'>3.82 µs</span> |
-| dict[str,int] (5 keys)         | <span style='color: green;'>4.72 µs</span> | <span style='color: green;'>2.38 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
-| dict[str,int] (1000 keys)      | <span style='color: green;'>60.39 µs</span> | <span style='color: green;'>104.42 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
-| list[Union[int,float]] (5 items) | <span style='color: green;'>3.47 µs</span> | <span style='color: green;'>2.33 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
-| list[Union[int,float]] (1000 items) | <span style='color: green;'>27.73 µs</span> | <span style='color: green;'>140.96 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
-| list[dict[str,int]] (5 items)  | <span style='color: green;'>18.34 µs</span> | <span style='color: green;'>4.83 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
-| list[dict[str,int]] (100 items) | <span style='color: green;'>6340.95 µs</span> | <span style='color: green;'>11991.26 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
+| int                            | <span style='color: green;'>2.40 µs</span> | <span style='color: green;'>1.94 µs</span> | <span style='color: green;'>0.38 µs</span> | <span style='color: green;'>3.75 µs</span> |
+| Union[int,float]               | <span style='color: green;'>2.52 µs</span> | <span style='color: green;'>1.87 µs</span> | <span style='color: green;'>0.44 µs</span> | <span style='color: green;'>8.27 µs</span> |
+| str                            | <span style='color: green;'>2.21 µs</span> | <span style='color: green;'>1.89 µs</span> | <span style='color: green;'>0.43 µs</span> | <span style='color: green;'>3.62 µs</span> |
+| dict[str,int] (5 keys)         | <span style='color: green;'>4.69 µs</span> | <span style='color: green;'>2.26 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
+| dict[str,int] (1000 keys)      | <span style='color: green;'>59.66 µs</span> | <span style='color: green;'>101.23 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
+| list[Union[int,float]] (5 items) | <span style='color: green;'>3.51 µs</span> | <span style='color: green;'>2.28 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
+| list[Union[int,float]] (1000 items) | <span style='color: green;'>25.87 µs</span> | <span style='color: green;'>79.29 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
+| list[dict[str,int]] (5 items)  | <span style='color: green;'>17.88 µs</span> | <span style='color: green;'>4.65 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
+| list[dict[str,int]] (100 items) | <span style='color: green;'>5838.23 µs</span> | <span style='color: green;'>11854.13 µs</span> | <span style='color: red;'>N/A</span> | <span style='color: red;'>N/A</span> |
