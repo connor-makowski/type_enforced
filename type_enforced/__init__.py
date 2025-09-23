@@ -5,7 +5,7 @@
 [![PyPI Downloads](https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads)](https://pypi.org/project/type_enforced/)
 <!-- [![PyPI Downloads](https://pepy.tech/badge/type_enforced)](https://pypi.org/project/type_enforced/) -->
 
-A pure python (no special compiler required) type enforcer for type annotations. Enforce types in python functions and methods.
+A pure python runtime type enforcer for type annotations. Enforce types in python functions and methods.
 
 # Setup
 
@@ -31,7 +31,7 @@ import type_enforced
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
-- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class. 
+- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 - Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
 
 ## Getting Started
@@ -53,13 +53,13 @@ Variables without an annotation for type are not enforced.
 
 ## Why use Type Enforced?
 
-- `type_enforced` is a pure python type enforcer that does not require any special compiler or preprocessor to work. 
+- `type_enforced` is a pure python type enforcer that does not require any special compiler or preprocessor to work.
 - `type_enforced` uses the standard python typing hints and enforces them at runtime.
     - This means that you can use it in any python environment (3.11+) without any special setup.
 - `type_enforced` is designed to be lightweight and easy to use, making it a great choice for both small and large projects.
 - `type_enforced` supports complex (nested) typing hints, union types, and many of the standard python typing functions.
-- `type_enforced` is designed to be fast and efficient, with minimal overhead. 
-- `type_enforced` offers the fastest performance for enforcing large objects of complex types 
+- `type_enforced` is designed to be fast and efficient, with minimal overhead.
+- `type_enforced` offers the fastest performance for enforcing large objects of complex types
     - Note: See the [benchmarks](https://github.com/connor-makowski/type_enforced/blob/main/benchmark.md) for more information on the performance of each type checker.
 
 ## Supported Type Checking Features:
@@ -124,6 +124,7 @@ Variables without an annotation for type are not enforced.
 - `Constraint` validation.
     - This is a special type of validation that allows passed input to be validated.
         - Standard and custom constraints are supported.
+    - Constraints are not actually types. They are type_enforced specific validators and may cause issues with other runtime or static type checkers like `mypy`.
     - This is useful for validating that a passed input is within a certain range or meets a certain criteria.
     - Note: Constraints stack when used with unions.
         - e.g. `int | Constraint(ge=0) | Constraint(le=5)` will require any passed values to be integers that are greater than or equal to `0` and less than or equal to `5`.
@@ -131,7 +132,6 @@ Variables without an annotation for type are not enforced.
         - This operates differently than other checks (like `Literal`) and is evaluated post type checking.
         - For example, if you have an annotation of `str | Constraint(ge=0)`, this will always raise an exception since if you pass a string, it will raise on the constraint check and if you pass an integer, it will raise on the type check.
     - Note: See the example below or technical [constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) and [generic constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint) docs for more information.
-    ```
 
 ## Interactive Example
 
@@ -380,8 +380,39 @@ The main changes in version 2.0.0 revolve around migrating towards the standard 
     - For example, `int | Literal['a', 'b']` will validate that the type is an int or the value is equal to `'a'` or `'b'`.
 - Constraints are still are evaluated after type checking and operate independently of the type checking.
 
-# Development
-## Running Tests, Prettifying Code, and Updating Docs
+# Support
+
+## Bug Reports and Feature Requests
+
+If you find a bug or are looking for a new feature, please open an issue on GitHub.
+
+## Need Help?
+
+If you need help, please open an issue on GitHub.
+
+# Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
+
+## Development
+
+To avoid extra development overhead, we expect all developers to use a unix based environment (Linux or Mac). If you use Windows, please use WSL2.
+
+For development, we test using Docker so we can lock system deps and swap out python versions easily. However, you can also use a virtual environment if you prefer. We provide a test script and a prettify script to help with development.
+
+## Making Changes
+
+1) Fork the repo and clone it locally.
+2) Make your modifications.
+3) Use Docker or a virtual environment to run tests and make sure they pass.
+4) Prettify your code.
+5) **DO NOT GENERATE DOCS**.
+    - We will generate the docs and update the version number when we are ready to release a new version.
+6) Only commit relevant changes and add clear commit messages.
+    - Atomic commits are preferred.
+7) Submit a pull request.
+
+## Docker
 
 Make sure Docker is installed and running.
 
@@ -391,8 +422,22 @@ Make sure Docker is installed and running.
     - `./run.sh test`
 - Prettify the code (see ./utils/prettify.sh)
     - `./run.sh prettify`
-- Update the docs (see ./utils/docs.sh)
-    - `./run.sh docs`
 
-- Note: You can and should modify the `Dockerfile` to test different python versions."""
+- Note: You can and should modify the `Dockerfile` to test different python versions.
+
+## Virtual Environment
+
+- Create a virtual environment
+    - `python3.XX -m venv venv`
+        - Replace `3.XX` with your python version (3.11 or higher)
+- Activate the virtual environment
+    - `source venv/bin/activate`
+- Install the development requirements
+    - `pip install -r requirements/dev.txt`
+- Run Tests
+    - `./utils/test.sh`
+- Prettify Code
+    - `./utils/prettify.sh`
+"""
+
 from .enforcer import Enforcer, FunctionMethodEnforcer
