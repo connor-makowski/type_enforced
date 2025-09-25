@@ -57,18 +57,18 @@ Key features provided by the package include:
 
 # Related Work
 
-Python's ecosystem for type checking and data validation is rich and rapidly evolving, reflecting the growing need for both static and runtime type safety in scientific and production code. The landscape can be broadly divided into static type checkers, runtime type checkers, and project-based frameworks. Recent empirical studies, such as [@Rak-amnouykit:2020], have analyzed the adoption and semantics of Python's type systems in real-world codebases, highlighting both the promise and the challenges of practical type enforcement.
+Python's ecosystem for type checking and data validation is rich and rapidly evolving, reflecting the growing need for both static and runtime type safety in scientific and production code. The landscape can be broadly divided into static type checkers, runtime type checkers, and project-based frameworks. Recent empirical studies, such as @Rak-amnouykit:2020, have analyzed the adoption and semantics of Python's type systems in real-world codebases, highlighting both the promise and the challenges of practical type enforcement.
 
 ## Static Type Checkers
 
 Static type checkers analyze code before execution, using type hints to catch potential errors and improve code reliability without incurring runtime overhead.
 
 - **Mypy** [@Lehtosalo:2012]: 
-  Mypy is the most widely adopted static type checker for Python, implementing a conventional static type system based on PEP 484. It enforces fixed variable types and reports errors when type annotations are violated. As detailed by [@Rak-amnouykit:2020], Mypy represents the canonical approach to static type checking in Python, and its semantics have become a baseline for evaluating new type inference tools.
+  Mypy is the most widely adopted static type checker for Python, implementing a conventional static type system based on PEP 484. It enforces fixed variable types and reports errors when type annotations are violated. As detailed by @Rak-amnouykit:2020, Mypy represents the canonical approach to static type checking in Python, and its semantics have become a baseline for evaluating new type inference tools.
 - **Pyright** [@pyright:2025]: 
   A fast type checker developed by Microsoft, offering real-time feedback in editors.
 - **PyType** [@pytype:2025]: 
-  Developed by Google, PyType also provides static analysis and type inference for Python code, but with a distinct approach. Unlike Mypy, PyType maintains separate type environments for different branches in control flow and can infer more precise union types for variables that take on multiple types. The comparative study by [@Rak-amnouykit:2020] shows that PyType and Mypy differ in their handling of type joins, attribute typing, and error reporting, reflecting broader trade-offs in static analysis for dynamic languages.
+  Developed by Google, PyType also provides static analysis and type inference for Python code, but with a distinct approach. Unlike Mypy, PyType maintains separate type environments for different branches in control flow and can infer more precise union types for variables that take on multiple types. The comparative study by @Rak-amnouykit:2020 shows that PyType and Mypy differ in their handling of type joins, attribute typing, and error reporting, reflecting broader trade-offs in static analysis for dynamic languages.
 
 ## Runtime Type Checkers and Data Validation
 
@@ -82,7 +82,7 @@ Runtime type checkers enforce type constraints as the program executes, which is
   
 ## Discussion
 
-The diversity of tools reflects the dual nature of Python's type system—supporting both static and dynamic paradigms. As [@Rak-amnouykit:2020] demonstrate, the adoption of type annotations is increasing, but real-world usage patterns remain heterogeneous, and the semantics of type checking tools can differ in subtle but important ways. Packages like `type_enforced` complement this landscape by providing runtime guarantees that static checkers cannot, especially in collaborative or data-driven research settings. Compared to these tools, `type_enforced` uniquely combines comprehensive type annotation enforcement with powerful constraint validation capabilities and inheritance-aware checks.
+The diversity of tools reflects the dual nature of Python's type system—supporting both static and dynamic paradigms. As @Rak-amnouykit:2020 demonstrate, the adoption of type annotations is increasing, but real-world usage patterns remain heterogeneous, and the semantics of type checking tools can differ in subtle but important ways. Packages like `type_enforced` complement this landscape by providing runtime guarantees that static checkers cannot, especially in collaborative or data-driven research settings. Compared to these tools, `type_enforced` uniquely combines comprehensive type annotation enforcement with powerful constraint validation capabilities and inheritance-aware checks.
 
 # Usage Example
 
