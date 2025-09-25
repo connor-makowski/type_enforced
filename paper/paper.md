@@ -77,7 +77,7 @@ Runtime type checkers enforce type constraints as the program executes, which is
 - **Pydantic** [@Colvin:2017]: Pydantic is a widely used library for runtime data validation targed at dataclass like objects, leveraging type hints to enforce data schemas and automatically cast input values. It is central to frameworks like FastAPI and is particularly effective for validating input from untrusted sources.
 - **Typeguard** [@Gronholm:2016]: Typeguard offers single type level runtime enforcement of function type annotations, raising errors when arguments or return values violate declared types. It is lightweight and integrates easily into existing codebases.
 - **Enforce** [@KeithMagee:2016]: Provides basic runtime enforcement but does not support advanced typing features such as deeply nested structures or constraint-based validations.
-- **Marshmallow**: [@Loria:2013]:Marshmallow provides serialization, deserialization, and validation of complex data structures, with support for custom validation logic. It is commonly used in web frameworks for API data validation.
+- **Marshmallow** [@Loria:2013]:Marshmallow provides serialization, deserialization, and validation of complex data structures, with support for custom validation logic. It is commonly used in web frameworks for API data validation.
 - **type_enforced**: In contrast to the above, `type_enforced` offers decorator-based runtime enforcement of Python type annotations, including support for nested structures, custom constraints, and inheritance-aware validation. Its focus is on minimal boilerplate and compatibility with modern Python typing constructs, making it suitable for research and collaborative environments where correctness and ease of use are paramount.
   
 ## Discussion
