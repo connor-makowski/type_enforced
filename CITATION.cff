@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: >-
+  Type Enforced: A Python type enforcer for type annotations
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: article
+authors:
+  - given-names: Connor
+    family-names: Makowski
+    email: conmak@mit.edu
+    affiliation: MIT
+    orcid: 'https://orcid.org/0009-0005-1522-022X'
+  - given-names: Willem
+    family-names: Guter
+  - given-names: Tim
+    family-names: Russell
+journal: Journal of Open Source Software
+issue: '10-113'
+year: 2025
+url: 'https://joss.theoj.org/papers/10.21105/joss.08832'
+repository-code: 'https://github.com/connor-makowski/type-enforced'
+abstract: >-
+  A pure python runtime type enforcer for type annotations. Enforce types in python functions and methods.
