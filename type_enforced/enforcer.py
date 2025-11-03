@@ -14,10 +14,11 @@ from type_enforced.utils import (
     DeepMerge,
     iterable_types,
 )
+import sys
 
 
 class FunctionMethodEnforcer:
-    def __init__(self, __fn__, __strict__=False):
+    def __init__(self, __fn__, __strict__=False, __clean_traceback__=True):
         """
         Initialize a FunctionMethodEnforcer class object as a wrapper for a passed function `__fn__`.
 
@@ -26,10 +27,24 @@ class FunctionMethodEnforcer:
             - `__fn__`:
                 - What: The function to enforce
                 - Type: function | method | class
+
+        Optional:
+
+            - `__strict__`:
+                - What: A boolean to enable or disable exceptions. If True, exceptions will be raised
+                    when type checking fails. If False, exceptions will not be raised but instead a warning
+                    will be printed to the console.
+                - Type: bool
+                - Default: False
+            - `__clean_traceback__`:
+                - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.
+                - Type: bool
+                - Default: True
         """
         update_wrapper(self, __fn__)
         self.__fn__ = __fn__
         self.__strict__ = __strict__
+        self.__clean_traceback__ = __clean_traceback__
         self.__outer_self__ = None
         # Validate that the passed function or method is a method or function
         self.__check_method_function__()
@@ -217,9 +232,24 @@ class FunctionMethodEnforcer:
             - Default: False
         """
         if self.__strict__ or raise_exception:
-            raise TypeError(
-                f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
-            )
+            msg = f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
+            import traceback
+            if self.__clean_traceback__:
+                try:
+                    raise TypeError(msg)
+                except TypeError:
+                    import traceback
+                    _, _, tb = sys.exc_info()
+                    tb_list = traceback.extract_tb(tb)
+                    print(tb_list)
+                    # Walk to the last frame *inside* type_enforced
+                    print(tb.tb_frame.f_globals.get("__name__", ""))
+                    while tb and "type_enforced" in tb.tb_frame.f_globals.get("__name__", "") and tb.tb_next:
+                        print("calling next")
+                        tb = tb.tb_next
+                raise TypeError(msg).with_traceback(tb)
+            else:
+                raise TypeError(msg)
         else:
             print(
                 f"TypeEnforced Warning ({self.__fn__.__qualname__}): {message}"
