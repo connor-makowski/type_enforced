@@ -14,7 +14,8 @@ from type_enforced.utils import (
     DeepMerge,
     iterable_types,
 )
-import sys
+import sys, traceback
+from pathlib import Path
 
 
 class FunctionMethodEnforcer:
@@ -233,23 +234,27 @@ class FunctionMethodEnforcer:
         """
         if self.__strict__ or raise_exception:
             msg = f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
-            import traceback
             if self.__clean_traceback__:
-                try:
-                    raise TypeError(msg)
-                except TypeError:
-                    import traceback
-                    _, _, tb = sys.exc_info()
-                    tb_list = traceback.extract_tb(tb)
-                    print(tb_list)
-                    # Walk to the last frame *inside* type_enforced
-                    print(tb.tb_frame.f_globals.get("__name__", ""))
-                    while tb and "type_enforced" in tb.tb_frame.f_globals.get("__name__", "") and tb.tb_next:
-                        print("calling next")
-                        tb = tb.tb_next
-                raise TypeError(msg).with_traceback(tb)
-            else:
-                raise TypeError(msg)
+                package_path = Path(__file__).parent.resolve()
+                frame = sys._getframe()
+                relevant_tb_count = 0
+                while frame is not None:
+                    frame_file = Path(frame.f_code.co_filename).resolve()
+                    try:
+                        frame_file.relative_to(package_path)
+                    except ValueError:
+                        relevant_tb_count += 1
+                    frame = frame.f_back
+                original_excepthook = sys.excepthook
+
+                def excepthook(type, value, tb):
+                    traceback.print_exception(
+                        type, value, tb, limit=relevant_tb_count
+                    )
+                    sys.excepthook = original_excepthook
+
+                sys.excepthook = excepthook
+            raise TypeError(msg)
         else:
             print(
                 f"TypeEnforced Warning ({self.__fn__.__qualname__}): {message}"
@@ -407,7 +412,7 @@ class FunctionMethodEnforcer:
 
 
 @Partial
-def Enforcer(clsFnMethod, enabled=True, strict=True):
+def Enforcer(clsFnMethod, enabled=True, strict=True, clean_traceback=True):
     """
     A wrapper to enforce types within a function or method given argument annotations.
 
@@ -436,6 +441,11 @@ def Enforcer(clsFnMethod, enabled=True, strict=True):
         - Type: bool
         - Default: False
         - Note: Type hints that are wrapped with the type enforcer and are invalid will still raise an exception.
+    - `clean_traceback`:
+        - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.
+        - If True, modifies the excepthook temporarily such that only the relevant stack (not in the type_enforced package) is shown.
+        - Type: bool
+        - Default: True
 
 
     Example Use:
@@ -480,17 +490,25 @@ def Enforcer(clsFnMethod, enabled=True, strict=True):
         if isinstance(clsFnMethod, staticmethod):
             return staticmethod(
                 FunctionMethodEnforcer(
-                    __fn__=clsFnMethod.__func__, __strict__=strict
+                    __fn__=clsFnMethod.__func__,
+                    __strict__=strict,
+                    __clean_traceback__=clean_traceback,
                 )
             )
         elif isinstance(clsFnMethod, classmethod):
             return classmethod(
                 FunctionMethodEnforcer(
-                    __fn__=clsFnMethod.__func__, __strict__=strict
+                    __fn__=clsFnMethod.__func__,
+                    __strict__=strict,
+                    __clean_traceback__=clean_traceback,
                 )
             )
         else:
-            return FunctionMethodEnforcer(__fn__=clsFnMethod, __strict__=strict)
+            return FunctionMethodEnforcer(
+                __fn__=clsFnMethod,
+                __strict__=strict,
+                __clean_traceback__=clean_traceback,
+            )
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
             # Skip the __annotate__ method if present in __dict__ as it deletes itself upon invocation
@@ -505,7 +523,12 @@ def Enforcer(clsFnMethod, enabled=True, strict=True):
                 setattr(
                     clsFnMethod,
                     key,
-                    Enforcer(value, enabled=enabled, strict=strict),
+                    Enforcer(
+                        value,
+                        enabled=enabled,
+                        strict=strict,
+                        clean_traceback=clean_traceback,
+                    ),
                 )
         return clsFnMethod
     else:

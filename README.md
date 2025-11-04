@@ -27,12 +27,13 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer(enabled=True, strict=True)
+@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True)
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
 - Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 - Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
+- Note: `clean_traceback=True` by default if not specified. This modifies the excepthook temporarily when a type exception is raised such that only the relevant stack (stack items not from type_enforced) is shown.
 
 ## Getting Started
 
@@ -145,22 +146,9 @@ Variables without an annotation for type are not enforced.
 >>> my_fn(a=1, b='2', c=3)
 >>> my_fn(a='a', b=2, c=3)
 Traceback (most recent call last):
-  File "<python-input-2>", line 1, in <module>
-    my_fn(a='a', b=2, c=3)
-    ~~~~~^^^^^^^^^^^^^^^^^
-  File "/app/type_enforced/enforcer.py", line 233, in __call__
-    self.__check_type__(assigned_vars.get(key), value, key)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/app/type_enforced/enforcer.py", line 266, in __check_type__
-    self.__exception__(
-    ~~~~~~~~~~~~~~~~~~^
-        f"Type mismatch for typed variable `{key}`. Expected one of the following `{list(expected.keys())}` but got `{obj_type}` with value `{obj}` instead."
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/app/type_enforced/enforcer.py", line 188, in __exception__
-    raise TypeError(f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}")
+  File "<stdin>", line 1, in <module>
 TypeError: TypeEnforced Exception (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` with value `a` instead.
+
 ```
 
 ## Nested Examples
