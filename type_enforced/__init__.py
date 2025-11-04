@@ -3,6 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads)](https://pypi.org/project/type_enforced/)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.08832/status.svg)](https://doi.org/10.21105/joss.08832)
 <!-- [![PyPI Downloads](https://pepy.tech/badge/type_enforced)](https://pypi.org/project/type_enforced/) -->
 
 A pure python runtime type enforcer for type annotations. Enforce types in python functions and methods.
@@ -17,7 +18,7 @@ Make sure you have Python 3.11.x (or higher) installed on your system. You can d
     - For 3.9: use type_enforced<=1.9.0 (`staticmethod`, union with `|` and `from __future__ import annotations` typechecking are not supported)
     - For 3.10: use type_enforced<=1.10.2 (`from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods))
 
-### Installation
+## Installation
 
 ```
 pip install type_enforced
@@ -27,12 +28,13 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer(enabled=True, strict=True)
+@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True)
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
 - Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 - Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
+- Note: `clean_traceback=True` by default if not specified. This modifies the excepthook temporarily when a type exception is raised such that only the relevant stack (stack items not from type_enforced) is shown.
 
 ## Getting Started
 
@@ -145,22 +147,9 @@ Variables without an annotation for type are not enforced.
 >>> my_fn(a=1, b='2', c=3)
 >>> my_fn(a='a', b=2, c=3)
 Traceback (most recent call last):
-  File "<python-input-2>", line 1, in <module>
-    my_fn(a='a', b=2, c=3)
-    ~~~~~^^^^^^^^^^^^^^^^^
-  File "/app/type_enforced/enforcer.py", line 233, in __call__
-    self.__check_type__(assigned_vars.get(key), value, key)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/app/type_enforced/enforcer.py", line 266, in __check_type__
-    self.__exception__(
-    ~~~~~~~~~~~~~~~~~~^
-        f"Type mismatch for typed variable `{key}`. Expected one of the following `{list(expected.keys())}` but got `{obj_type}` with value `{obj}` instead."
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/app/type_enforced/enforcer.py", line 188, in __exception__
-    raise TypeError(f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}")
+  File "<stdin>", line 1, in <module>
 TypeError: TypeEnforced Exception (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` with value `a` instead.
+
 ```
 
 ## Nested Examples
@@ -437,7 +426,5 @@ Make sure Docker is installed and running.
 - Run Tests
     - `./utils/test.sh`
 - Prettify Code
-    - `./utils/prettify.sh`
-"""
-
+    - `./utils/prettify.sh`"""
 from .enforcer import Enforcer, FunctionMethodEnforcer
