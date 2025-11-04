@@ -1,9 +1,10 @@
 from type_enforced import Enforcer
 from unittest.mock import MagicMock
 
+
 # A magic mock test to ensure that the type enforcement works with mocks
 @Enforcer
-def my_fn(a: int , b: int|str =2, c: int =3) -> None:
+def my_fn(a: int, b: int | str = 2, c: int = 3) -> None:
     pass
 
 

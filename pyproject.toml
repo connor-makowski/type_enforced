@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "type_enforced"
-version = "2.2.3"
+version = "2.3.0"
 description = "A pure python type enforcer for python type annotations"
 authors = [
     {name="Connor Makowski", email="conmak@mit.edu"}
