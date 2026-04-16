@@ -14,12 +14,18 @@ from type_enforced.utils import (
     DeepMerge,
     iterable_types,
 )
-import sys, traceback
+import sys, traceback, random
 from pathlib import Path
 
 
 class FunctionMethodEnforcer:
-    def __init__(self, __fn__, __strict__=False, __clean_traceback__=True):
+    def __init__(
+        self,
+        __fn__,
+        __strict__=False,
+        __clean_traceback__=True,
+        __iterable_sample_pct__=100,
+    ):
         """
         Initialize a FunctionMethodEnforcer class object as a wrapper for a passed function `__fn__`.
 
@@ -41,11 +47,18 @@ class FunctionMethodEnforcer:
                 - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.
                 - Type: bool
                 - Default: True
+            - `__iterable_sample_pct__`:
+                - What: The percentage of items to sample when validating iterables. If 100, all items
+                    are validated. If less than 100, the first and last items are always validated
+                    plus a random sample of the remaining items up to the specified percentage.
+                - Type: int | float
+                - Default: 100
         """
         update_wrapper(self, __fn__)
         self.__fn__ = __fn__
         self.__strict__ = __strict__
         self.__clean_traceback__ = __clean_traceback__
+        self.__iterable_sample_pct__ = __iterable_sample_pct__
         self.__outer_self__ = None
         # Validate that the passed function or method is a method or function
         self.__check_method_function__()
@@ -69,6 +82,46 @@ class FunctionMethodEnforcer:
         if self.__fn__.__kwdefaults__ is not None:
             # Update the output dictionary with the keyword default values
             self.__fn_defaults__.update(self.__fn__.__kwdefaults__)
+
+    def __get_sample_indices__(self, length):
+        """
+        Get a sorted list of indices to sample for iterable validation.
+
+        If iterable_sample_pct is 0, only the first item (index 0) is checked.
+        Otherwise, always includes the first (0) and last (length-1) indices.
+        If length > 3, samples additional middle indices up to the
+        iterable_sample_pct percentage.
+        Only called when self.__iterable_sample_pct__ < 100.
+        """
+        if length == 0:
+            return []
+        if self.__iterable_sample_pct__ == 0:
+            return [0]
+        if length <= 3:
+            return range(length)
+        n = max(3, int(length * self.__iterable_sample_pct__ / 100))
+        if n >= length:
+            return range(length)
+        middle_sample = random.sample(range(1, length - 1), n - 2)
+        return sorted([0] + middle_sample + [length - 1])
+
+    def __get_sample_keys__(self, keys):
+        """
+        Get a sampled list of dict keys for iterable validation.
+
+        If iterable_sample_pct is 0, only the first key is returned.
+        Otherwise, always includes the first key plus a random sample of
+        the remaining keys up to the iterable_sample_pct percentage.
+        Only called when self.__iterable_sample_pct__ < 100.
+        """
+        if len(keys) == 0:
+            return []
+        if self.__iterable_sample_pct__ == 0 or len(keys) == 1:
+            return [keys[0]]
+        n = max(1, int(len(keys) * self.__iterable_sample_pct__ / 100))
+        if n >= len(keys):
+            return keys
+        return [keys[0]] + random.sample(keys[1:], n - 1)
 
     def __get_checkable_types__(self):
         """
@@ -360,26 +413,51 @@ class FunctionMethodEnforcer:
                 pass
             # Recursive validation
             elif obj_type == list:
+                if self.__iterable_sample_pct__ < 100:
+                    for idx in self.__get_sample_indices__(len(obj)):
+                        self.__check_type__(
+                            obj[idx], subtype, f"{key}[{idx}]"
+                        )
                 # If the subtype does not contain iterables with typing, we can validate the items directly.
-                if not self.__quick_check__(subtype, obj):
+                elif not self.__quick_check__(subtype, obj):
                     for idx, item in enumerate(obj):
                         self.__check_type__(item, subtype, f"{key}[{idx}]")
             elif obj_type == dict:
                 key_type, val_type = subtype
-                if not self.__quick_check__(key_type, obj.keys()):
-                    for key in obj.keys():
-                        self.__check_type__(
-                            key, key_type, f"{key}.key[{repr(key)}]"
-                        )
-                if not self.__quick_check__(val_type, obj.values()):
-                    for key, value in obj.items():
-                        self.__check_type__(
-                            value, val_type, f"{key}[{repr(key)}]"
-                        )
+                if self.__iterable_sample_pct__ < 100:
+                    sampled_keys = self.__get_sample_keys__(list(obj.keys()))
+                    if not self.__quick_check__(key_type, sampled_keys):
+                        for dk in sampled_keys:
+                            self.__check_type__(
+                                dk, key_type, f"{key}.key[{repr(dk)}]"
+                            )
+                    if not self.__quick_check__(
+                        val_type, [obj[dk] for dk in sampled_keys]
+                    ):
+                        for dk in sampled_keys:
+                            self.__check_type__(
+                                obj[dk], val_type, f"{key}[{repr(dk)}]"
+                            )
+                else:
+                    if not self.__quick_check__(key_type, obj.keys()):
+                        for key in obj.keys():
+                            self.__check_type__(
+                                key, key_type, f"{key}.key[{repr(key)}]"
+                            )
+                    if not self.__quick_check__(val_type, obj.values()):
+                        for key, value in obj.items():
+                            self.__check_type__(
+                                value, val_type, f"{key}[{repr(key)}]"
+                            )
             elif obj_type == tuple:
                 expected_args, is_ellipsis = subtype
                 if is_ellipsis:
-                    if not self.__quick_check__(expected_args, obj):
+                    if self.__iterable_sample_pct__ < 100:
+                        for idx in self.__get_sample_indices__(len(obj)):
+                            self.__check_type__(
+                                obj[idx], expected_args, f"{key}[{idx}]"
+                            )
+                    elif not self.__quick_check__(expected_args, obj):
                         for idx, item in enumerate(obj):
                             self.__check_type__(
                                 item, expected_args, f"{key}[{idx}]"
@@ -392,7 +470,14 @@ class FunctionMethodEnforcer:
                     for idx, (item, ex) in enumerate(zip(obj, expected_args)):
                         self.__check_type__(item, ex, f"{key}[{idx}]")
             elif obj_type == set:
-                if not self.__quick_check__(subtype, obj):
+                if self.__iterable_sample_pct__ < 100:
+                    obj_list = list(obj)
+                    for idx in self.__get_sample_indices__(len(obj_list)):
+                        item = obj_list[idx]
+                        self.__check_type__(
+                            item, subtype, f"{key}[{repr(item)}]"
+                        )
+                elif not self.__quick_check__(subtype, obj):
                     for item in obj:
                         self.__check_type__(
                             item, subtype, f"{key}[{repr(item)}]"
@@ -412,7 +497,13 @@ class FunctionMethodEnforcer:
 
 
 @Partial
-def Enforcer(clsFnMethod, enabled=True, strict=True, clean_traceback=True):
+def Enforcer(
+    clsFnMethod,
+    enabled=True,
+    strict=True,
+    clean_traceback=True,
+    iterable_sample_pct=100,
+):
     """
     A wrapper to enforce types within a function or method given argument annotations.
 
@@ -446,6 +537,13 @@ def Enforcer(clsFnMethod, enabled=True, strict=True, clean_traceback=True):
         - If True, modifies the excepthook temporarily such that only the relevant stack (not in the type_enforced package) is shown.
         - Type: bool
         - Default: True
+    - `iterable_sample_pct`:
+        - What: The percentage (0-100) of items to validate when checking typed iterables (list,
+            dict, set, variable-length tuple). At 100 (default) every item is checked. Below 100,
+            the first and last items are always checked; if the collection has more than 3 items,
+            additional items are randomly sampled so that the total checked is at least 3.
+        - Type: int | float
+        - Default: 100
 
 
     Example Use:
@@ -493,6 +591,7 @@ def Enforcer(clsFnMethod, enabled=True, strict=True, clean_traceback=True):
                     __fn__=clsFnMethod.__func__,
                     __strict__=strict,
                     __clean_traceback__=clean_traceback,
+                    __iterable_sample_pct__=iterable_sample_pct,
                 )
             )
         elif isinstance(clsFnMethod, classmethod):
@@ -501,6 +600,7 @@ def Enforcer(clsFnMethod, enabled=True, strict=True, clean_traceback=True):
                     __fn__=clsFnMethod.__func__,
                     __strict__=strict,
                     __clean_traceback__=clean_traceback,
+                    __iterable_sample_pct__=iterable_sample_pct,
                 )
             )
         else:
@@ -508,6 +608,7 @@ def Enforcer(clsFnMethod, enabled=True, strict=True, clean_traceback=True):
                 __fn__=clsFnMethod,
                 __strict__=strict,
                 __clean_traceback__=clean_traceback,
+                __iterable_sample_pct__=iterable_sample_pct,
             )
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
@@ -528,6 +629,7 @@ def Enforcer(clsFnMethod, enabled=True, strict=True, clean_traceback=True):
                         enabled=enabled,
                         strict=strict,
                         clean_traceback=clean_traceback,
+                        iterable_sample_pct=iterable_sample_pct,
                     ),
                 )
         return clsFnMethod
