@@ -8,6 +8,21 @@ class Partial:
     A special class wrapper to allow for easy partial function wrappings and calls.
     """
 
+    __slots__ = (
+        "__fn__",
+        "__args__",
+        "__kwargs__",
+        "__fnArity__",
+        "__arity__",
+        "__fn_var_keys__",
+        "__fn_arg_keys__",
+        "__fn_arg_default_keys__",
+        "__wrapped__",
+        "__name__",
+        "__qualname__",
+        "__dict__",
+    )
+
     def __init__(
         self,
         __fn__,
@@ -32,17 +47,14 @@ class Partial:
         new_args = self.__args__ + args
         new_kwargs = {**self.__kwargs__, **kwargs}
         # Create a comprehensive set of assigned variable names to determine arity
-        assigned_vars = set(
-            self.__fn_arg_default_keys__
-            + self.__fn_arg_keys__[: len(new_args)]
-            + list(new_kwargs.keys())
-        )
+        assigned_vars = set(self.__fn_arg_default_keys__)
+        assigned_vars.update(self.__fn_arg_keys__[: len(new_args)])
+        assigned_vars.update(new_kwargs)
         arity = self.__fnArity__ - len(assigned_vars)
         if arity < 0:
             self.__exception__("Too many arguments were supplied")
         if arity == 0:
-            results = self.__fn__(*new_args, **new_kwargs)
-            return results
+            return self.__fn__(*new_args, **new_kwargs)
         return Partial(
             self.__fn__,
             *new_args,
@@ -53,20 +65,17 @@ class Partial:
         """
         Get the default values of the passed function or method and store them in `self.__fn_defaults__`.
         """
-        self.__fn_var_keys__ = list(self.__fn__.__code__.co_varnames)
-        self.__fn_arg_keys__ = self.__fn_var_keys__[
-            : self.__fn__.__code__.co_argcount
-        ]
+        co = self.__fn__.__code__
+        self.__fn_var_keys__ = co.co_varnames
+        self.__fn_arg_keys__ = co.co_varnames[: co.co_argcount]
         if self.__fn__.__defaults__ is not None:
-            self.__fn_arg_default_keys__ = self.__fn_arg_keys__[
-                -len(self.__fn__.__defaults__) :
-            ]
+            self.__fn_arg_default_keys__ = list(
+                self.__fn_arg_keys__[-len(self.__fn__.__defaults__) :]
+            )
         else:
             self.__fn_arg_default_keys__ = []
         if self.__fn__.__kwdefaults__ is not None:
-            self.__fn_arg_default_keys__.extend(
-                list(self.__fn__.__kwdefaults__.keys())
-            )
+            self.__fn_arg_default_keys__.extend(self.__fn__.__kwdefaults__)
 
     def __get__(self, instance, owner):
         def bind(*args, **kwargs):
@@ -89,7 +98,7 @@ class Partial:
                 "A non function was passed as a function and does not have any arity. See the stack trace above for more information."
             )
         extra_method_input_count = (
-            1 if isinstance(self.__fn__, (types.MethodType)) else 0
+            1 if isinstance(self.__fn__, types.MethodType) else 0
         )
         return self.__fn__.__code__.co_argcount - extra_method_input_count
 
@@ -220,7 +229,7 @@ class Constraint(GenericConstraint):
                 x, str
             )
             self.__constraint_checks__["Regex Pattern Match"] = lambda x: bool(
-                re.findall(pattern, x)
+                re.search(pattern, x)
             )
         if includes is not None:
             self.__constraint_checks__[f"Includes"] = lambda x: x in includes
@@ -280,6 +289,23 @@ def DeepMerge(original: dict, update: dict):
     return original
 
 
+def merge_type_dicts(target, source):
+    """Merge source type dict into target in-place.
+
+    Like DeepMerge but without copy.deepcopy
+    Safe because both dicts are freshly created during type parsing.
+    """
+    for key, value in source.items():
+        if key not in target:
+            target[key] = value
+        elif isinstance(target[key], dict) and isinstance(value, dict):
+            merge_type_dicts(target[key], value)
+        elif isinstance(target[key], list) and isinstance(value, list):
+            target[key].extend(value)
+        else:
+            target[key] = value
+
+
 def WithSubclasses(cls):
     """
     A utility class to preserve backwards compatibility
@@ -293,4 +319,4 @@ def WithSubclasses(cls):
     return cls
 
 
-iterable_types = set([list, tuple, set, dict])
+iterable_types = frozenset({list, tuple, set, dict})

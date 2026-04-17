@@ -108,9 +108,17 @@ try:
 
         return f
 
+    def type_enforced_sampled_factory(typ):
+        @type_enforced.Enforcer(iterable_sample_pct=0)
+        def f(x: typ) -> None:
+            pass
+
+        return f
+
     # --- Checkers and factories
     checkers = {
         "type_enforced": type_enforced_factory,
+        "type_enforced (0% sample)": type_enforced_sampled_factory,
         "Pydantic": pydantic_factory,
         "Beartype": beartype_factory,
         "Typeguard": typeguard_factory,
@@ -148,7 +156,7 @@ try:
         "The following table summarizes the average time taken by each type checker for different data types and structures.\n"
     )
     print(
-        "- Note: N/A indicates that the validation failed for the given type or structure."
+        "- Note: Timings shown in red indicate that the checker did not consistently catch invalid types for the given type or structure."
     )
     print(
         "    - This could be due to the type checker not raising an error when it should or raising an error when it shouldn't."
@@ -160,10 +168,10 @@ try:
         f"    - The validation is run {REPEATS} times to ensure type checking results are consistent."
     )
     print(
-        "\n| Type                        | type_enforced  | Pydantic       | Beartype       | Typeguard     |"
+        "\n| Type                        | type_enforced  | type_enforced (0% sample) | Pydantic       | Beartype       | Typeguard     |"
     )
     print(
-        "|:-----------------------------|:----------------|:----------------|:----------------|:----------------|"
+        "|:-----------------------------|:----------------|:--------------------------|:----------------|:----------------|:----------------|"
     )
 
     def green_text(text):
@@ -190,7 +198,7 @@ try:
                 avg_us_colored = (
                     green_text(f"{avg_us:.2f} µs")
                     if passed
-                    else red_text(f"N/A")
+                    else red_text(f"{avg_us:.2f} µs")
                 )
                 case_data[name] = avg_us_colored
             except Exception as e:

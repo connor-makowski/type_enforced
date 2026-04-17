@@ -1,9 +1,8 @@
 # Type Enforced
 [![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads)](https://pypi.org/project/type_enforced/)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.08832/status.svg)](https://doi.org/10.21105/joss.08832)
-<!-- [![PyPI Downloads](https://pepy.tech/badge/type_enforced)](https://pypi.org/project/type_enforced/) -->
+[![PyPI Downloads](https://static.pepy.tech/badge/type_enforced/month)](https://pepy.tech/project/type_enforced)
 
 A pure python runtime type enforcer for type annotations. Enforce types in python functions and methods.
 
@@ -27,13 +26,14 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True)
+@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True, iterable_sample_pct=100)
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
 - Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 - Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
 - Note: `clean_traceback=True` by default if not specified. This modifies the excepthook temporarily when a type exception is raised such that only the relevant stack (stack items not from type_enforced) is shown.
+- Note: `iterable_sample_pct=100` by default if not specified. You can set this to a value between 0 and 100 to only check a sample of items in typed iterables (list, dict, set, variable-length tuple). Lower values improve performance for large iterables at the cost of reduced type checking coverage.
 
 ## Getting Started
 
@@ -43,6 +43,9 @@ def my_fn(a: int , b: int | str =2, c: int =3) -> None:
 
 - `enabled` (True): A boolean to enable or disable type checking. If `True`, type checking will be enforced. If `False`, type checking will be disabled.
 - `strict` (True): A boolean to enable or disable type mismatch exceptions. If `True` exceptions will be raised when type checking fails. If `False`, exceptions will not be raised but instead a warning will be printed to the console.
+- `clean_traceback` (True): A boolean to enable or disable cleaning of tracebacks. If `True`, modifies the excepthook temporarily such that only the relevant stack (not in the type_enforced package) is shown.
+- `iterable_sample_pct` (100): An integer percentage (0-100) to control how many items in iterables are checked during type enforcement. If 100, all items are checked. If less than 100, a random sample is checked. If 0, only the first item is checked.
+    - Note: Lower values improve performance for large iterables but reduce type checking coverage.
 
 `type_enforcer` currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an `int`, a number `int | float`, an instance of the self defined `MyClass`, or a even a vector with `list[int]`. Items like `typing.List`, `typing.Dict`, `typing.Union` and `typing.Optional` are supported.
 
