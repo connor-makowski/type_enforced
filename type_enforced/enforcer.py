@@ -12,7 +12,7 @@ from type_enforced.utils import (
     Partial,
     GenericConstraint,
     iterable_types,
-    merge_type_dicts
+    merge_type_dicts,
 )
 import sys, traceback, random
 from pathlib import Path
@@ -170,9 +170,7 @@ class FunctionMethodEnforcer:
                 key: self.__get_checkable_type__(value)
                 for key, value in get_type_hints(self.__fn__).items()
             }
-            self.__return_type__ = self.__checkable_types__.pop(
-                "return", None
-            )
+            self.__return_type__ = self.__checkable_types__.pop("return", None)
             # Classify params: simple types can use a single
             # isinstance call, skipping __check_type__ entirely.
             self.__simple_types__ = {}
@@ -181,29 +179,20 @@ class FunctionMethodEnforcer:
                 if (
                     "__extra__" not in expected
                     and all(v is None for v in expected.values())
-                    and all(
-                        isinstance(k, type) for k in expected.keys()
-                    )
+                    and all(isinstance(k, type) for k in expected.keys())
                 ):
-                    self.__simple_types__[key] = tuple(
-                        expected.keys()
-                    )
+                    self.__simple_types__[key] = tuple(expected.keys())
                 else:
                     self.__complex_types__[key] = expected
             # Same classification for return type
             if self.__return_type__ is not None and (
                 "__extra__" not in self.__return_type__
+                and all(v is None for v in self.__return_type__.values())
                 and all(
-                    v is None for v in self.__return_type__.values()
-                )
-                and all(
-                    isinstance(k, type)
-                    for k in self.__return_type__.keys()
+                    isinstance(k, type) for k in self.__return_type__.keys()
                 )
             ):
-                self.__simple_return_type__ = tuple(
-                    self.__return_type__.keys()
-                )
+                self.__simple_return_type__ = tuple(self.__return_type__.keys())
             else:
                 self.__simple_return_type__ = None
             # Pre-compute param index in co_varnames for
@@ -435,30 +424,22 @@ class FunctionMethodEnforcer:
                 obj = self.__fn_defaults__.get(key)
             if not isinstance(obj, types_tuple):
                 # Fall back to full check for error reporting
-                self.__check_type__(
-                    obj, self.__checkable_types__[key], key
-                )
+                self.__check_type__(obj, self.__checkable_types__[key], key)
         # Full validation for complex types (nested, extras, Type[X])
         if self.__complex_types__:
             assigned_vars = {
                 **self.__fn_defaults__,
-                **dict(
-                    zip(self.__fn_varnames__[: len(args)], args)
-                ),
+                **dict(zip(self.__fn_varnames__[: len(args)], args)),
                 **kwargs,
             }
             for key, value in self.__complex_types__.items():
-                self.__check_type__(
-                    assigned_vars.get(key), value, key
-                )
+                self.__check_type__(assigned_vars.get(key), value, key)
         # Execute the function callable
         return_value = self.__fn__(*args, **kwargs)
         # If a return type was passed, validate the returned object
         if self.__return_type__ is not None:
             if self.__simple_return_type__ is not None:
-                if not isinstance(
-                    return_value, self.__simple_return_type__
-                ):
+                if not isinstance(return_value, self.__simple_return_type__):
                     self.__check_type__(
                         return_value, self.__return_type__, "return"
                     )
@@ -473,9 +454,7 @@ class FunctionMethodEnforcer:
         if subtype_id not in self.__flat_subtypes__:
             # First call for this subtype: compute and cache
             if all(v is None for v in subtype.values()):
-                self.__flat_subtypes__[subtype_id] = frozenset(
-                    subtype.keys()
-                )
+                self.__flat_subtypes__[subtype_id] = frozenset(subtype.keys())
             else:
                 self.__flat_subtypes__[subtype_id] = None
         flat_keys = self.__flat_subtypes__[subtype_id]
@@ -494,9 +473,7 @@ class FunctionMethodEnforcer:
             return
         if "__extra__" in expected:
             extra = expected["__extra__"]
-            expected = {
-                k: v for k, v in expected.items() if k != "__extra__"
-            }
+            expected = {k: v for k, v in expected.items() if k != "__extra__"}
         else:
             extra = None
 
@@ -512,9 +489,7 @@ class FunctionMethodEnforcer:
 
         if not is_present:
             # Allow for literals to be used to bypass type checks if present
-            literal = (
-                extra.get("__literal__", ()) if extra is not None else ()
-            )
+            literal = extra.get("__literal__", ()) if extra is not None else ()
             if literal:
                 if obj not in literal:
                     self.__exception__(
@@ -534,9 +509,7 @@ class FunctionMethodEnforcer:
             elif obj_type == list:
                 if self.__iterable_sample_pct__ < 100:
                     for idx in self.__get_sample_indices__(len(obj)):
-                        self.__check_type__(
-                            obj[idx], subtype, f"{key}[{idx}]"
-                        )
+                        self.__check_type__(obj[idx], subtype, f"{key}[{idx}]")
                 # If the subtype does not contain iterables with typing, we can validate the items directly.
                 elif not self.__quick_check__(subtype, obj):
                     for idx, item in enumerate(obj):
@@ -606,9 +579,7 @@ class FunctionMethodEnforcer:
         if extra is not None:
             constraints = extra.get("__constraints__", ())
             for constraint in constraints:
-                constraint_validation_output = constraint.__validate__(
-                    key, obj
-                )
+                constraint_validation_output = constraint.__validate__(key, obj)
                 if constraint_validation_output is not True:
                     self.__exception__(
                         f"Constraint validation error for variable `{key}` with value `{obj}`. {constraint_validation_output}"

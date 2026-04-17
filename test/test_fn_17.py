@@ -1,6 +1,5 @@
 import type_enforced
 
-
 try:
     success = True
 

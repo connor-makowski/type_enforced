@@ -1,7 +1,6 @@
 import type_enforced
 from typing import Literal
 
-
 try:
 
     @type_enforced.Enforcer

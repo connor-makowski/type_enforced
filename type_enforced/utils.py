@@ -70,16 +70,12 @@ class Partial:
         self.__fn_arg_keys__ = co.co_varnames[: co.co_argcount]
         if self.__fn__.__defaults__ is not None:
             self.__fn_arg_default_keys__ = list(
-                self.__fn_arg_keys__[
-                    -len(self.__fn__.__defaults__) :
-                ]
+                self.__fn_arg_keys__[-len(self.__fn__.__defaults__) :]
             )
         else:
             self.__fn_arg_default_keys__ = []
         if self.__fn__.__kwdefaults__ is not None:
-            self.__fn_arg_default_keys__.extend(
-                self.__fn__.__kwdefaults__
-            )
+            self.__fn_arg_default_keys__.extend(self.__fn__.__kwdefaults__)
 
     def __get__(self, instance, owner):
         def bind(*args, **kwargs):
@@ -291,6 +287,7 @@ def DeepMerge(original: dict, update: dict):
         else:
             original[key] = value
     return original
+
 
 def merge_type_dicts(target, source):
     """Merge source type dict into target in-place.

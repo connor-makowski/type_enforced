@@ -1,7 +1,6 @@
 from __future__ import annotations
 import type_enforced, sys
 
-
 success_1 = True
 try:
 

@@ -28,13 +28,14 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True)
+@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True, iterable_sample_pct=100)
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
 - Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 - Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
 - Note: `clean_traceback=True` by default if not specified. This modifies the excepthook temporarily when a type exception is raised such that only the relevant stack (stack items not from type_enforced) is shown.
+- Note: `iterable_sample_pct=100` by default if not specified. You can set this to a value between 0 and 100 to only check a sample of items in typed iterables (list, dict, set, variable-length tuple). Lower values improve performance for large iterables at the cost of reduced type checking coverage.
 
 ## Getting Started
 
@@ -427,4 +428,5 @@ Make sure Docker is installed and running.
     - `./utils/test.sh`
 - Prettify Code
     - `./utils/prettify.sh`"""
+
 from .enforcer import Enforcer, FunctionMethodEnforcer

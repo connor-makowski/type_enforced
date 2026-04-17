@@ -33,6 +33,7 @@ def my_fn(a: int , b: int | str =2, c: int =3) -> None:
 - Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
 - Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
 - Note: `clean_traceback=True` by default if not specified. This modifies the excepthook temporarily when a type exception is raised such that only the relevant stack (stack items not from type_enforced) is shown.
+- Note: `iterable_sample_pct=100` by default if not specified. You can set this to a value between 0 and 100 to only check a sample of items in typed iterables (list, dict, set, variable-length tuple). Lower values improve performance for large iterables at the cost of reduced type checking coverage.
 
 ## Getting Started
 
@@ -42,6 +43,7 @@ def my_fn(a: int , b: int | str =2, c: int =3) -> None:
 
 - `enabled` (True): A boolean to enable or disable type checking. If `True`, type checking will be enforced. If `False`, type checking will be disabled.
 - `strict` (True): A boolean to enable or disable type mismatch exceptions. If `True` exceptions will be raised when type checking fails. If `False`, exceptions will not be raised but instead a warning will be printed to the console.
+- `clean_traceback` (True): A boolean to enable or disable cleaning of tracebacks. If `True`, modifies the excepthook temporarily such that only the relevant stack (not in the type_enforced package) is shown.
 - `iterable_sample_pct` (100): An integer percentage (0-100) to control how many items in iterables are checked during type enforcement. If 100, all items are checked. If less than 100, a random sample is checked. If 0, only the first item is checked.
     - Note: Lower values improve performance for large iterables but reduce type checking coverage.
 
