@@ -27,7 +27,7 @@ pip install type_enforced
 ```py
 import type_enforced
 
-@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True)
+@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True, iterable_sample_pct=100)
 def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     pass
 ```
@@ -43,6 +43,8 @@ def my_fn(a: int , b: int | str =2, c: int =3) -> None:
 
 - `enabled` (True): A boolean to enable or disable type checking. If `True`, type checking will be enforced. If `False`, type checking will be disabled.
 - `strict` (True): A boolean to enable or disable type mismatch exceptions. If `True` exceptions will be raised when type checking fails. If `False`, exceptions will not be raised but instead a warning will be printed to the console.
+- `iterable_sample_pct` (100): An integer percentage (0-100) to control how many items in iterables are checked during type enforcement. If 100, all items are checked. If less than 100, a random sample is checked. If 0, only the first item is checked.
+    - Note: Lower values improve performance for large iterables but reduce type checking coverage.
 
 `type_enforcer` currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an `int`, a number `int | float`, an instance of the self defined `MyClass`, or a even a vector with `list[int]`. Items like `typing.List`, `typing.Dict`, `typing.Union` and `typing.Optional` are supported.
 

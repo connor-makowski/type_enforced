@@ -1,4 +1,4 @@
-import type_enforced, sys
+import type_enforced
 
 
 try:

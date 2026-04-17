@@ -7,18 +7,44 @@ from types import (
     UnionType,
 )
 from typing import Type, Union, Sized, Literal, Callable, get_type_hints, Any
-from functools import update_wrapper, wraps
+from functools import update_wrapper
 from type_enforced.utils import (
     Partial,
     GenericConstraint,
-    DeepMerge,
     iterable_types,
+    merge_type_dicts
 )
 import sys, traceback, random
 from pathlib import Path
 
+_NoneType = type(None)
+_package_path = Path(__file__).parent.resolve()
+
 
 class FunctionMethodEnforcer:
+    __slots__ = (
+        "__fn__",
+        "__strict__",
+        "__clean_traceback__",
+        "__iterable_sample_pct__",
+        "__outer_self__",
+        "__fn_defaults__",
+        "__fn_varnames__",
+        "__types_parsed__",
+        "__checkable_types__",
+        "__return_type__",
+        "__simple_types__",
+        "__complex_types__",
+        "__simple_return_type__",
+        "__param_indices__",
+        "__flat_subtypes__",
+        "__wrapped__",
+        "__name__",
+        "__qualname__",
+        "__doc__",
+        "__dict__",
+    )
+
     def __init__(
         self,
         __fn__,
@@ -60,6 +86,8 @@ class FunctionMethodEnforcer:
         self.__clean_traceback__ = __clean_traceback__
         self.__iterable_sample_pct__ = __iterable_sample_pct__
         self.__outer_self__ = None
+        self.__types_parsed__ = False
+        self.__flat_subtypes__ = {}
         # Validate that the passed function or method is a method or function
         self.__check_method_function__()
         # Get input defaults for the function or method
@@ -68,11 +96,13 @@ class FunctionMethodEnforcer:
     def __get_defaults__(self):
         """
         Get the default values of the passed function or method and store them in `self.__fn_defaults__`.
+        Also caches the function's variable names for use in `__call__`.
         """
+        self.__fn_varnames__ = self.__fn__.__code__.co_varnames
         self.__fn_defaults__ = {}
         if self.__fn__.__defaults__ is not None:
             # Get the names of all provided default values for args
-            default_varnames = list(self.__fn__.__code__.co_varnames)[
+            default_varnames = list(self.__fn_varnames__)[
                 : self.__fn__.__code__.co_argcount
             ][-len(self.__fn__.__defaults__) :]
             # Update the output dictionary with the default values
@@ -135,12 +165,55 @@ class FunctionMethodEnforcer:
             - What: The return type of the function or method
             - Type: dict | None
         """
-        if not hasattr(self, "__checkable_types__"):
+        if not self.__types_parsed__:
             self.__checkable_types__ = {
                 key: self.__get_checkable_type__(value)
                 for key, value in get_type_hints(self.__fn__).items()
             }
-            self.__return_type__ = self.__checkable_types__.pop("return", None)
+            self.__return_type__ = self.__checkable_types__.pop(
+                "return", None
+            )
+            # Classify params: simple types can use a single
+            # isinstance call, skipping __check_type__ entirely.
+            self.__simple_types__ = {}
+            self.__complex_types__ = {}
+            for key, expected in self.__checkable_types__.items():
+                if (
+                    "__extra__" not in expected
+                    and all(v is None for v in expected.values())
+                    and all(
+                        isinstance(k, type) for k in expected.keys()
+                    )
+                ):
+                    self.__simple_types__[key] = tuple(
+                        expected.keys()
+                    )
+                else:
+                    self.__complex_types__[key] = expected
+            # Same classification for return type
+            if self.__return_type__ is not None and (
+                "__extra__" not in self.__return_type__
+                and all(
+                    v is None for v in self.__return_type__.values()
+                )
+                and all(
+                    isinstance(k, type)
+                    for k in self.__return_type__.keys()
+                )
+            ):
+                self.__simple_return_type__ = tuple(
+                    self.__return_type__.keys()
+                )
+            else:
+                self.__simple_return_type__ = None
+            # Pre-compute param index in co_varnames for
+            # direct arg lookup (skips assigned_vars dict).
+            self.__param_indices__ = {
+                name: i
+                for i, name in enumerate(self.__fn_varnames__)
+                if name in self.__checkable_types__
+            }
+            self.__types_parsed__ = True
 
     def __get_checkable_type__(self, annotation):
         """
@@ -149,7 +222,7 @@ class FunctionMethodEnforcer:
         """
 
         if annotation is None:
-            return {type(None): None}
+            return {_NoneType: None}
 
         # Handle `int | str` syntax (Python 3.10+) and Unions
         if (
@@ -158,8 +231,9 @@ class FunctionMethodEnforcer:
         ):
             combined_types = {}
             for sub_type in annotation.__args__:
-                combined_types = DeepMerge(
-                    combined_types, self.__get_checkable_type__(sub_type)
+                merge_type_dicts(
+                    combined_types,
+                    self.__get_checkable_type__(sub_type),
                 )
             return combined_types
 
@@ -288,7 +362,7 @@ class FunctionMethodEnforcer:
         if self.__strict__ or raise_exception:
             msg = f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
             if self.__clean_traceback__:
-                package_path = Path(__file__).parent.resolve()
+                package_path = _package_path
                 frame = sys._getframe()
                 relevant_tb_count = 0
                 while frame is not None:
@@ -319,12 +393,14 @@ class FunctionMethodEnforcer:
 
         Also stores the calling (__get__) `obj` to be passed as an initial argument for `__call__` such that methods can pass `self` correctly.
         """
+        self.__outer_self__ = obj
 
-        @wraps(self.__fn__)
         def __get_fn__(*args, **kwargs):
             return self.__call__(*args, **kwargs)
 
-        self.__outer_self__ = obj
+        __get_fn__.__name__ = self.__fn__.__name__
+        __get_fn__.__qualname__ = self.__fn__.__qualname__
+        __get_fn__.__doc__ = self.__fn__.__doc__
         return __get_fn__
 
     def __check_method_function__(self):
@@ -348,31 +424,65 @@ class FunctionMethodEnforcer:
         # Get a dictionary of all annotations as checkable types
         # Note: This is only done once at first call to avoid redundant calculations
         self.__get_checkable_types__()
-        # Create a compreshensive dictionary of assigned variables (order matters)
-        assigned_vars = {
-            **self.__fn_defaults__,
-            **dict(zip(self.__fn__.__code__.co_varnames[: len(args)], args)),
-            **kwargs,
-        }
-        # Validate all listed annotations vs the assigned_vars dictionary
-        for key, value in self.__checkable_types__.items():
-            self.__check_type__(assigned_vars.get(key), value, key)
+        # Fast path: simple types use direct index lookup
+        for key, types_tuple in self.__simple_types__.items():
+            idx = self.__param_indices__[key]
+            if idx < len(args):
+                obj = args[idx]
+            elif key in kwargs:
+                obj = kwargs[key]
+            else:
+                obj = self.__fn_defaults__.get(key)
+            if not isinstance(obj, types_tuple):
+                # Fall back to full check for error reporting
+                self.__check_type__(
+                    obj, self.__checkable_types__[key], key
+                )
+        # Full validation for complex types (nested, extras, Type[X])
+        if self.__complex_types__:
+            assigned_vars = {
+                **self.__fn_defaults__,
+                **dict(
+                    zip(self.__fn_varnames__[: len(args)], args)
+                ),
+                **kwargs,
+            }
+            for key, value in self.__complex_types__.items():
+                self.__check_type__(
+                    assigned_vars.get(key), value, key
+                )
         # Execute the function callable
         return_value = self.__fn__(*args, **kwargs)
         # If a return type was passed, validate the returned object
         if self.__return_type__ is not None:
-            self.__check_type__(return_value, self.__return_type__, "return")
+            if self.__simple_return_type__ is not None:
+                if not isinstance(
+                    return_value, self.__simple_return_type__
+                ):
+                    self.__check_type__(
+                        return_value, self.__return_type__, "return"
+                    )
+            else:
+                self.__check_type__(
+                    return_value, self.__return_type__, "return"
+                )
         return return_value
 
     def __quick_check__(self, subtype, obj):
-        if all([v == None for v in subtype.values()]):
-            # If the subtype does not contain iterables with typing, we can validate the items directly.
-            types = set(subtype.keys())
-            values = set([type(v) for v in obj])
-            if values.issubset(types):
-                # We can return True to bypass the full validation
+        subtype_id = id(subtype)
+        if subtype_id not in self.__flat_subtypes__:
+            # First call for this subtype: compute and cache
+            if all(v is None for v in subtype.values()):
+                self.__flat_subtypes__[subtype_id] = frozenset(
+                    subtype.keys()
+                )
+            else:
+                self.__flat_subtypes__[subtype_id] = None
+        flat_keys = self.__flat_subtypes__[subtype_id]
+        if flat_keys is not None:
+            values = {type(v) for v in obj}
+            if values.issubset(flat_keys):
                 return True
-            # Otherwise, validation did not pass and a full validation is required to raise an indexed/keyed type mismatch error
         return False
 
     def __check_type__(self, obj, expected, key):
@@ -380,10 +490,15 @@ class FunctionMethodEnforcer:
         Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `acceptable_types` for the argument.
         """
         # Special case for None
-        if obj is None and type(None) in expected:
+        if obj is None and _NoneType in expected:
             return
-        extra = expected.get("__extra__", {})
-        expected = {k: v for k, v in expected.items() if k != "__extra__"}
+        if "__extra__" in expected:
+            extra = expected["__extra__"]
+            expected = {
+                k: v for k, v in expected.items() if k != "__extra__"
+            }
+        else:
+            extra = None
 
         if isinstance(obj, type):
             # An uninitialized class is passed, we need to check if the type is in the expected types using Type[obj]
@@ -391,11 +506,15 @@ class FunctionMethodEnforcer:
             is_present = obj_type in expected
         else:
             obj_type = type(obj)
-            is_present = isinstance(obj, tuple(expected.keys()))
+            is_present = obj_type in expected or isinstance(
+                obj, tuple(expected.keys())
+            )
 
         if not is_present:
             # Allow for literals to be used to bypass type checks if present
-            literal = extra.get("__literal__", ())
+            literal = (
+                extra.get("__literal__", ()) if extra is not None else ()
+            )
             if literal:
                 if obj not in literal:
                     self.__exception__(
@@ -484,13 +603,16 @@ class FunctionMethodEnforcer:
                         )
 
         # Validate constraints if any are present
-        constraints = extra.get("__constraints__", [])
-        for constraint in constraints:
-            constraint_validation_output = constraint.__validate__(key, obj)
-            if constraint_validation_output is not True:
-                self.__exception__(
-                    f"Constraint validation error for variable `{key}` with value `{obj}`. {constraint_validation_output}"
+        if extra is not None:
+            constraints = extra.get("__constraints__", ())
+            for constraint in constraints:
+                constraint_validation_output = constraint.__validate__(
+                    key, obj
                 )
+                if constraint_validation_output is not True:
+                    self.__exception__(
+                        f"Constraint validation error for variable `{key}` with value `{obj}`. {constraint_validation_output}"
+                    )
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
