@@ -118,7 +118,7 @@ try:
     # --- Checkers and factories
     checkers = {
         "type_enforced": type_enforced_factory,
-        "type_enforced (0% sample)": type_enforced_sampled_factory,
+        "type_enforced (sample)": type_enforced_sampled_factory,
         "Pydantic": pydantic_factory,
         "Beartype": beartype_factory,
         "Typeguard": typeguard_factory,
@@ -168,7 +168,7 @@ try:
         f"    - The validation is run {REPEATS} times to ensure type checking results are consistent."
     )
     print(
-        "\n| Type                        | type_enforced  | type_enforced (0% sample) | Pydantic       | Beartype       | Typeguard     |"
+        "\n| Type                        | type_enforced  | type_enforced (sample) | Pydantic       | Beartype       | Typeguard     |"
     )
     print(
         "|:-----------------------------|:----------------|:--------------------------|:----------------|:----------------|:----------------|"
@@ -178,7 +178,7 @@ try:
         return f"<span style='color: green;'>{text}</span>"
 
     def red_text(text):
-        return f"<span style='color: red;'>{text}</span>"
+        return f"<span style='color: red;'>{text} ⚠</span>"
 
     data = {}
 

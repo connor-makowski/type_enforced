@@ -11,19 +11,19 @@ Each checker is tested with different data types and structures
 ## Results Summary
 The following table summarizes the average time taken by each type checker for different data types and structures.
 
-- Note: Timings shown in red indicate that the checker did not consistently catch invalid types for the given type or structure.
+- Note: Timings shown with ⚠ indicate that the checker did not consistently catch invalid types for the given type or structure.
     - This could be due to the type checker not raising an error when it should or raising an error when it shouldn't.
-- Note: It is also worth noting that Beartype (0.21.0 at initial writing) inconsistently catches type errors in nested structures (including with the same data).
+- Note: It is also worth noting that Beartype (up to 0.22.9) inconsistently catches type errors in nested structures (including with the same data).
     - The validation is run 100 times to ensure type checking results are consistent.
 
-| Type                        | type_enforced  | type_enforced (0% sample) | Pydantic       | Beartype       | Typeguard     |
+| Type                        | type_enforced  | type_enforced (sample) | Pydantic       | Beartype       | Typeguard     |
 |:-----------------------------|:----------------|:--------------------------|:----------------|:----------------|:----------------|
-| int                            | <span style='color: green;'>0.82 µs</span> | <span style='color: green;'>0.74 µs</span> | <span style='color: green;'>1.71 µs</span> | <span style='color: green;'>0.36 µs</span> | <span style='color: green;'>3.59 µs</span> |
-| Union[int,float]               | <span style='color: green;'>0.87 µs</span> | <span style='color: green;'>0.90 µs</span> | <span style='color: green;'>1.87 µs</span> | <span style='color: green;'>0.42 µs</span> | <span style='color: green;'>7.99 µs</span> |
-| str                            | <span style='color: green;'>0.73 µs</span> | <span style='color: green;'>0.71 µs</span> | <span style='color: green;'>1.74 µs</span> | <span style='color: green;'>0.37 µs</span> | <span style='color: green;'>3.71 µs</span> |
-| dict[str,int] (5 keys)         | <span style='color: green;'>3.03 µs</span> | <span style='color: red;'>2.94 µs</span> | <span style='color: green;'>2.18 µs</span> | <span style='color: red;'>0.52 µs</span> | <span style='color: red;'>7.20 µs</span> |
-| dict[str,int] (1000 keys)      | <span style='color: green;'>48.07 µs</span> | <span style='color: red;'>6.81 µs</span> | <span style='color: green;'>97.87 µs</span> | <span style='color: red;'>0.54 µs</span> | <span style='color: red;'>6.95 µs</span> |
-| list[Union[int,float]] (5 items) | <span style='color: green;'>2.24 µs</span> | <span style='color: red;'>2.22 µs</span> | <span style='color: green;'>2.47 µs</span> | <span style='color: red;'>0.56 µs</span> | <span style='color: red;'>7.02 µs</span> |
-| list[Union[int,float]] (1000 items) | <span style='color: green;'>21.38 µs</span> | <span style='color: red;'>2.24 µs</span> | <span style='color: green;'>99.96 µs</span> | <span style='color: red;'>0.60 µs</span> | <span style='color: red;'>6.88 µs</span> |
-| list[dict[str,int]] (5 items)  | <span style='color: green;'>9.84 µs</span> | <span style='color: red;'>3.59 µs</span> | <span style='color: green;'>4.42 µs</span> | <span style='color: red;'>0.68 µs</span> | <span style='color: red;'>8.80 µs</span> |
-| list[dict[str,int]] (100 items) | <span style='color: green;'>4358.17 µs</span> | <span style='color: red;'>8.23 µs</span> | <span style='color: green;'>11632.45 µs</span> | <span style='color: red;'>0.69 µs</span> | <span style='color: red;'>8.94 µs</span> |
+| int                            | <span style='color: green;'>1.02 µs</span> | <span style='color: green;'>0.77 µs</span> | <span style='color: green;'>1.96 µs</span> | <span style='color: green;'>0.36 µs</span> | <span style='color: green;'>3.75 µs</span> |
+| Union[int,float]               | <span style='color: green;'>1.18 µs</span> | <span style='color: green;'>0.87 µs</span> | <span style='color: green;'>1.79 µs</span> | <span style='color: green;'>0.41 µs</span> | <span style='color: green;'>8.09 µs</span> |
+| str                            | <span style='color: green;'>0.77 µs</span> | <span style='color: green;'>0.77 µs</span> | <span style='color: green;'>1.65 µs</span> | <span style='color: green;'>0.37 µs</span> | <span style='color: green;'>3.55 µs</span> |
+| dict[str,int] (5 keys)         | <span style='color: green;'>3.39 µs</span> | <span style='color: red;'>3.36 µs ⚠</span> | <span style='color: green;'>2.27 µs</span> | <span style='color: red;'>0.53 µs ⚠</span> | <span style='color: red;'>7.10 µs ⚠</span> |
+| dict[str,int] (1000 keys)      | <span style='color: green;'>49.60 µs</span> | <span style='color: red;'>7.20 µs ⚠</span> | <span style='color: green;'>97.73 µs</span> | <span style='color: red;'>0.53 µs ⚠</span> | <span style='color: red;'>7.01 µs ⚠</span> |
+| list[Union[int,float]] (5 items) | <span style='color: green;'>2.34 µs</span> | <span style='color: red;'>2.39 µs ⚠</span> | <span style='color: green;'>2.23 µs</span> | <span style='color: red;'>0.55 µs ⚠</span> | <span style='color: red;'>7.04 µs ⚠</span> |
+| list[Union[int,float]] (1000 items) | <span style='color: green;'>25.34 µs</span> | <span style='color: red;'>2.34 µs ⚠</span> | <span style='color: green;'>97.85 µs</span> | <span style='color: red;'>0.61 µs ⚠</span> | <span style='color: red;'>7.17 µs ⚠</span> |
+| list[dict[str,int]] (5 items)  | <span style='color: green;'>10.42 µs</span> | <span style='color: red;'>3.78 µs ⚠</span> | <span style='color: green;'>4.79 µs</span> | <span style='color: red;'>0.68 µs ⚠</span> | <span style='color: red;'>8.89 µs ⚠</span> |
+| list[dict[str,int]] (100 items) | <span style='color: green;'>4932.18 µs</span> | <span style='color: red;'>7.85 µs ⚠</span> | <span style='color: green;'>11430.44 µs</span> | <span style='color: red;'>0.71 µs ⚠</span> | <span style='color: red;'>8.96 µs ⚠</span> |
