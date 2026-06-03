@@ -4,3 +4,6 @@
 *.egg-info
 *.pyc
 .DS_Store
+.venv/
+.nox/
+build/

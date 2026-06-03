@@ -1,7 +1,6 @@
+import pytest
 import type_enforced
 from typing import Type
-
-# This test checks for Uninitialized class type checking
 
 
 class Foo:
@@ -25,31 +24,12 @@ class Baz:
         self.object = use_class
 
 
-success = True
-try:
-    x = Baz(Foo)
-except:
-    success = False
+def test_class_04():
+    Baz(Foo)
 
-try:
-    x = Baz(Foo())
-    success = False
-except:
-    pass
-
-try:
-    y = Baz(Bar)
-    success = False
-except:
-    pass
-
-try:
-    y = Baz(Bum)
-    success = False
-except:
-    pass
-
-if success:
-    print("test_class_04.py passed")
-else:
-    print("test_class_04.py failed")
+    with pytest.raises(Exception):
+        Baz(Foo())
+    with pytest.raises(Exception):
+        Baz(Bar)
+    with pytest.raises(Exception):
+        Baz(Bum)

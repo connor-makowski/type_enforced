@@ -1,4 +1,5 @@
 from __future__ import annotations
+import pytest
 import type_enforced
 
 
@@ -14,23 +15,9 @@ class my_class:
 
 mc = my_class()
 
-mc.my_fn(1)
 
-success = True
-
-try:
+def test_class_13():
     mc.my_fn(1)
-except Exception as e:
-    success = False
 
-try:
-    mc.my_fn("a")
-    success = False
-except Exception as e:
-    if "Type mismatch" not in str(e):
-        success = False
-
-if success:
-    print("test_class_13.py passed")
-else:
-    print("test_class_13.py failed")
+    with pytest.raises(TypeError, match="Type mismatch"):
+        mc.my_fn("a")

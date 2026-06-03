@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 
 
@@ -12,14 +13,7 @@ class my_class:
 
 mc = my_class()
 
-success = False
-try:
-    mc.my_fn("a")
-except Exception as e:
-    if "Type mismatch" in str(e):
-        success = True
 
-if success:
-    print("test_class_02.py passed")
-else:
-    print("test_class_02.py failed")
+def test_class_02():
+    with pytest.raises(TypeError, match="Type mismatch"):
+        mc.my_fn("a")

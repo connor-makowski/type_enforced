@@ -1,5 +1,6 @@
-import type_enforced, sys
-
+import pytest
+import type_enforced
+import sys
 from collections import OrderedDict
 
 
@@ -14,32 +15,17 @@ class MyClass:
 
 my_ordered_dict = OrderedDict()
 
-success = True
-
-try:
-    # Enforce all modules in this file (anything above)
-    type_enforced.Enforcer(sys.modules[__name__])
-except:
-    success = False
+# Enforce all annotated functions/methods in this module at import time
+type_enforced.Enforcer(sys.modules[__name__])
 
 
-try:
-    my_fn(a=1, b=2, c=3)  # No Error
-    my_fn(a=1, b="2", c=3)  # No Error (b can take int or str)
+def test_fn_20():
+    my_fn(a=1, b=2, c=3)
+    my_fn(a=1, b="2", c=3)
 
     my_class = MyClass()
-    my_class.my_fn(a=1, b=2, c=3)  # No Error
-    my_class.my_fn(a=1, b="2", c=3)  # No Error (b can take int or str)
-except:
-    success = False
+    my_class.my_fn(a=1, b=2, c=3)
+    my_class.my_fn(a=1, b="2", c=3)
 
-try:
-    my_fn(a=1, b=2, c="3")  # Error: Type of c is not int
-    success = False
-except:
-    pass
-
-if success:
-    print("test_fn_20.py passed")
-else:
-    print("test_fn_20.py failed")
+    with pytest.raises(Exception):
+        my_fn(a=1, b=2, c="3")

@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 
 
@@ -12,28 +13,11 @@ class Foo:
         return a - b
 
 
-success = True
+def test_class_05():
+    assert Foo.add(1, 2) == 3
+    assert Foo.subtract(4, 3) == 1
 
-try:
-    x = Foo.add(1, 2)
-    y = Foo.subtract(4, 3)
-    success = success and x == 3 and y == 1
-except:
-    success = False
-
-try:
-    Foo.add(1, 2.0)
-    success = False
-except:
-    pass
-
-try:
-    Foo.subtract(1, 2.0)
-    success = False
-except:
-    pass
-
-if success:
-    print("test_class_05.py passed")
-else:
-    print("test_class_05.py failed")
+    with pytest.raises(Exception):
+        Foo.add(1, 2.0)
+    with pytest.raises(Exception):
+        Foo.subtract(1, 2.0)

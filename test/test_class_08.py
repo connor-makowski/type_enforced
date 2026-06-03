@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 
 
@@ -21,46 +22,19 @@ class my_class:
 
 
 obj = my_class()
-success = True
-success_type_error = True
-try:
-    obj.my_fn(a=1, b=2, c=3)  # No Error
-    obj.my_fn_args(a=1, b=2, c=3)  # No Error
-    obj.my_fn_kwargs(a=1, b=2, c=3)  # No Error
-    obj.my_fn_args_kwargs(a=1, b=2, c=3)  # No Error
-except:
-    success = False
-
-try:
-    obj.my_fn(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
-
-try:
-    obj.my_fn_args(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
-
-try:
-    obj.my_fn_kwargs(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
-
-try:
-    obj.my_fn_args_kwargs(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
 
 
-if success and success_type_error:
-    print("test_class_08.py passed")
-else:
-    print("test_class_08.py failed")
+def test_class_08():
+    obj.my_fn(a=1, b=2, c=3)
+    obj.my_fn_args(a=1, b=2, c=3)
+    obj.my_fn_kwargs(a=1, b=2, c=3)
+    obj.my_fn_args_kwargs(a=1, b=2, c=3)
+
+    with pytest.raises(TypeError):
+        obj.my_fn(a="a", b=2, c=3)
+    with pytest.raises(TypeError):
+        obj.my_fn_args(a="a", b=2, c=3)
+    with pytest.raises(TypeError):
+        obj.my_fn_kwargs(a="a", b=2, c=3)
+    with pytest.raises(TypeError):
+        obj.my_fn_args_kwargs(a="a", b=2, c=3)

@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 from type_enforced.utils import Constraint, GenericConstraint
 
@@ -30,77 +31,31 @@ def custom_constraint_test(value: str | CustomConstraint) -> bool:
     return True
 
 
-success = True
-try:
+def test_fn_16():
     positive_int_lt5_test(0)
-except TypeError as err:
-    success = False
 
-try:
-    positive_int_lt5_test(-1)
-    success = False
-except TypeError:
-    pass
+    with pytest.raises(TypeError):
+        positive_int_lt5_test(-1)
+    with pytest.raises(TypeError):
+        positive_int_lt5_test(6)
+    with pytest.raises(TypeError):
+        positive_int_lt5_test("Hello There")
 
-try:
-    positive_int_lt5_test(6)
-    success = False
-except TypeError:
-    pass
-
-try:
-    positive_int_lt5_test("Hello There")
-    success = False
-except TypeError:
-    pass
-
-try:
     positive_float_test(0.1)
-except TypeError:
-    success = False
 
-try:
-    positive_float_test(-0.99)
-    success = False
-except TypeError:
-    pass
+    with pytest.raises(TypeError):
+        positive_float_test(-0.99)
+    with pytest.raises(TypeError):
+        positive_float_test("Hello There")
 
-try:
-    positive_float_test("Hello There")
-    success = False
-except TypeError:
-    pass
+    with pytest.raises(TypeError):
+        running_str_test(0)
+    with pytest.raises(TypeError):
+        running_str_test("this is a stopped status")
 
-try:
-    running_str_test(0)
-    success = False
-except TypeError:
-    pass
-
-try:
-    running_str_test("this is a stopped status")
-    success = False
-except TypeError:
-    pass
-
-try:
     running_str_test("this is running status")
-except TypeError:
-    success = False
 
-try:
     custom_constraint_test("red")
-except TypeError:
-    success = False
 
-try:
-    custom_constraint_test("yellow")
-    success = False
-except TypeError:
-    pass
-
-
-if success:
-    print(f"test_fn_16.py passed")
-else:
-    print(f"test_fn_16.py failed")
+    with pytest.raises(TypeError):
+        custom_constraint_test("yellow")
