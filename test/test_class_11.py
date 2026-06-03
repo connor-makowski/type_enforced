@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 from dataclasses import dataclass
 
@@ -9,19 +10,8 @@ class Foo:
     baz: str
 
 
-passed = True
-try:
-    foo = Foo(bar=1, baz="a")
-except:
-    passed = False
+def test_class_11():
+    Foo(bar=1, baz="a")
 
-try:
-    foo = Foo(bar="a", baz=1)
-    passed = False
-except:
-    pass
-
-if passed:
-    print("test_class_11.py passed")
-else:
-    print("test_class_11.py failed")
+    with pytest.raises(Exception):
+        Foo(bar="a", baz=1)

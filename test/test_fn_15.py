@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 
 
@@ -11,22 +12,10 @@ def my_fn2(a: int):
     return None
 
 
-success = True
-
-try:
+def test_fn_15():
     my_fn(a=1)
     my_fn2(a=1)
     my_fn2(a="1")
-except:
-    success = False
 
-try:
-    my_fn(a="1")
-    success = False
-except:
-    pass
-
-if success:
-    print("test_fn_15.py passed")
-else:
-    print("test_fn_15.py failed")
+    with pytest.raises(TypeError):
+        my_fn(a="1")

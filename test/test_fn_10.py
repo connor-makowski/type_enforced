@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 from typing import Union
 
@@ -7,29 +8,11 @@ def my_fn(a: Union[int, str], b: int | str) -> None:
     return None
 
 
-success_1 = True
-try:
-    my_fn(a=1, b=2)  # No Error
-    my_fn(a="a", b="b")  # No Error
-except:
-    success_1 = False
+def test_fn_10():
+    my_fn(a=1, b=2)
+    my_fn(a="a", b="b")
 
-success_2 = False
-try:
-    my_fn(a=1.5, b="1.5")
-except Exception as e:
-    if "Type mismatch" in str(e):
-        success_2 = True
-
-success_3 = False
-try:
-    my_fn(a="1.5", b=1.5)
-except Exception as e:
-    if "Type mismatch" in str(e):
-        success_3 = True
-
-
-if success_1 and success_2 and success_3:
-    print("test_fn_10.py passed")
-else:
-    print("test_fn_10.py failed")
+    with pytest.raises(TypeError, match="Type mismatch"):
+        my_fn(a=1.5, b="1.5")
+    with pytest.raises(TypeError, match="Type mismatch"):
+        my_fn(a="1.5", b=1.5)

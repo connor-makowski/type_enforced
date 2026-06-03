@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 
 
@@ -22,24 +23,9 @@ class Baz:
         self.object = use_class
 
 
-success = True
-try:
-    x = Baz(Foo())
-except:
-    success = False
+def test_class_03():
+    Baz(Foo())
+    Baz(Bar())
 
-try:
-    y = Baz(Bar())
-except:
-    success = False
-
-try:
-    y = Baz(Bum())
-    success = False
-except:
-    pass
-
-if success:
-    print("test_class_03.py passed")
-else:
-    print("test_class_03.py failed")
+    with pytest.raises(Exception):
+        Baz(Bum())

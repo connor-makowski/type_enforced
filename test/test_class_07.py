@@ -25,11 +25,7 @@ class Foo:
         return a * b
 
 
-docstring = pydoc.render_doc(Foo)
-
-docstring_checks = ["Multiply Docs Here", "Subtract Docs Here", "Add Docs Here"]
-
-if any([i not in docstring for i in docstring_checks]):
-    print("test_class_07.py failed")
-else:
-    print("test_class_07.py passed")
+def test_class_07():
+    docstring = pydoc.render_doc(Foo)
+    for phrase in ["Multiply Docs Here", "Subtract Docs Here", "Add Docs Here"]:
+        assert phrase in docstring

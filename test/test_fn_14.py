@@ -1,8 +1,8 @@
+import pytest
 import type_enforced
 from typing import Callable
 
 
-# Create a generator to return items in a list
 def get_sum_till_now(items):
     total = 0
     for item in items:
@@ -52,8 +52,7 @@ def foo(out: str) -> Callable:
         return None
 
 
-passed = True
-try:
+def test_fn_14():
     foo("sum")
     foo("generator")
     foo("lambda")
@@ -61,16 +60,6 @@ try:
     foo("method")
     foo("staticmethod")
     foo("classmethod")
-except:
-    passed = False
 
-try:
-    foo("other")
-    passed = False
-except:
-    pass
-
-if passed:
-    print("test_fn_14.py passed")
-else:
-    print("test_fn_14.py failed")
+    with pytest.raises(Exception):
+        foo("other")

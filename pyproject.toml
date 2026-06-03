@@ -4,7 +4,7 @@ target-version = ['py39']
 exclude = '/.*(__pycache__).*/'
 
 [tool.setuptools]
-py-modules = ["type_enforced"]
+packages = ["type_enforced"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "type_enforced"
-version = "2.4.0"
+version = "2.5.0"
 description = "A pure python type enforcer for python type annotations"
 authors = [
     {name="Connor Makowski", email="conmak@mit.edu"}
@@ -26,7 +26,26 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "autoflake>=2.3.1",
+    "black>=25.1.0",
+    "build>=1.2.2",
+    "nox>=2026.4.10",
+    "nox-uv>=0.8.0",
+    "pdoc>=15.0.1",
+    "twine>=6.1.0",
+    "pydantic==2.13.2",
+    "beartype==0.22.9",
+    "typeguard==4.5.1",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/connor-makowski/type_enforced"
 "Bug Tracker" = "https://github.com/connor-makowski/type_enforced/issues"
 "Documentation" = "https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["*.py"]

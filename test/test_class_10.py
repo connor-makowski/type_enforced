@@ -21,14 +21,11 @@ class Boo:
         pass
 
 
-try:
+def test_class_10():
     foo = Foo()
-    foo.bar(a=1)  # => No Exception
-    foo.baz(a="a")  # => No Exception
+    foo.bar(a=1)
+    foo.baz(a="a")
 
     boo = Boo()
-    boo.bar(a=1)  # => No Exception
-    boo.baz(a="a")  # => No Exception
-    print("test_class_10.py passed")
-except:
-    print("test_class_10.py failed")
+    boo.bar(a=1)
+    boo.baz(a="a")

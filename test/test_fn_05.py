@@ -1,3 +1,4 @@
+import pytest
 import type_enforced
 
 
@@ -30,47 +31,18 @@ def my_fn_args_kwargs_arg_default(
     return None
 
 
-success = True
-success_type_error = True
-try:
-    my_fn(a=1, b=2, c=3)  # No Error
-    my_fn_args(a=1, b=2, c=3)  # No Error
-    my_fn_kwargs(a=1, b=2, c=3)  # No Error
-    my_fn_args_kwargs(a=1, b=2, c=3)  # No Error
-    my_fn_args_kwargs_arg_default(b=2, c=3)  # No Error
-except:
-    success = False
+def test_fn_05():
+    my_fn(a=1, b=2, c=3)
+    my_fn_args(a=1, b=2, c=3)
+    my_fn_kwargs(a=1, b=2, c=3)
+    my_fn_args_kwargs(a=1, b=2, c=3)
+    my_fn_args_kwargs_arg_default(b=2, c=3)
 
-try:
-    my_fn(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
-
-try:
-    my_fn_args(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
-
-try:
-    my_fn_kwargs(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
-
-try:
-    my_fn_args_kwargs(a="a", b=2, c=3)  # Error (a can only accept int)
-    success = False
-except Exception as e:
-    if type(e) != TypeError:
-        success_type_error = False
-
-
-if success and success_type_error:
-    print("test_fn_05.py passed")
-else:
-    print("test_fn_05.py failed")
+    with pytest.raises(TypeError):
+        my_fn(a="a", b=2, c=3)
+    with pytest.raises(TypeError):
+        my_fn_args(a="a", b=2, c=3)
+    with pytest.raises(TypeError):
+        my_fn_kwargs(a="a", b=2, c=3)
+    with pytest.raises(TypeError):
+        my_fn_args_kwargs(a="a", b=2, c=3)
