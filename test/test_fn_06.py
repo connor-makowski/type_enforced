@@ -22,7 +22,7 @@ def fn4(a, *args, b: str = "b", c=None, **kwargs):
     pass
 
 
-def run_tests(fn):
+def run_tests(fn, star_capture=False):
     fn(a="a", b="b", c="c")
     fn(a="a")
     fn("a")
@@ -32,12 +32,15 @@ def run_tests(fn):
         fn(a="a", b=2, c="c")
     with pytest.raises(Exception):
         fn("a", b=2)
-    with pytest.raises(Exception):
+    if star_capture:
         fn("a", 2)
+    else:
+        with pytest.raises(Exception):
+            fn("a", 2)
 
 
 def test_fn_06():
-    run_tests(fn1)
-    run_tests(fn2)
-    run_tests(fn3)
-    run_tests(fn4)
+    run_tests(fn1, star_capture=False)
+    run_tests(fn2, star_capture=False)
+    run_tests(fn3, star_capture=True)
+    run_tests(fn4, star_capture=True)

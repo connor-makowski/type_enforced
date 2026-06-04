@@ -69,6 +69,11 @@ try:
 
     # --- Timing helper
     def timeit(func, arg):
+        # Warmup call to resolve annotations on first call
+        try:
+            func(arg)
+        except Exception:
+            pass
         durations = []
         for _ in range(REPEATS):
             start = time.perf_counter()
@@ -156,13 +161,10 @@ try:
         "The following table summarizes the average time taken by each type checker for different data types and structures.\n"
     )
     print(
-        "- Note: Timings shown in red indicate that the checker did not consistently catch invalid types for the given type or structure."
+        "- Note: Timings with warning symbols(⚠) indicate that the checker did not consistently catch invalid types for the given type or structure."
     )
     print(
         "    - This could be due to the type checker not raising an error when it should or raising an error when it shouldn't."
-    )
-    print(
-        f"- Note: It is also worth noting that Beartype (0.21.0 at initial writing) inconsistently catches type errors in nested structures (including with the same data)."
     )
     print(
         f"    - The validation is run {REPEATS} times to ensure type checking results are consistent."

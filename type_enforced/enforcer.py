@@ -27,17 +27,21 @@ class FunctionMethodEnforcer:
         "__strict__",
         "__clean_traceback__",
         "__iterable_sample_pct__",
-        "__outer_self__",
         "__fn_defaults__",
         "__fn_varnames__",
         "__types_parsed__",
         "__checkable_types__",
         "__return_type__",
-        "__simple_types__",
-        "__complex_types__",
         "__simple_return_type__",
-        "__param_indices__",
         "__flat_subtypes__",
+        "__keys_tuples__",
+        "__simple_pos_params",
+        "__simple_kwonly_params",
+        "__complex_pos_params",
+        "__complex_kwonly_params",
+        "__has_complex_params__",
+        "__has_simple_params__",
+        "__single_simple_pos__",
         "__wrapped__",
         "__name__",
         "__qualname__",
@@ -85,9 +89,9 @@ class FunctionMethodEnforcer:
         self.__strict__ = __strict__
         self.__clean_traceback__ = __clean_traceback__
         self.__iterable_sample_pct__ = __iterable_sample_pct__
-        self.__outer_self__ = None
         self.__types_parsed__ = False
         self.__flat_subtypes__ = {}
+        self.__keys_tuples__ = {}
         # Validate that the passed function or method is a method or function
         self.__check_method_function__()
         # Get input defaults for the function or method
@@ -155,15 +159,7 @@ class FunctionMethodEnforcer:
 
     def __get_checkable_types__(self):
         """
-        Creates two class attributes:
-
-        - `self.__checkable_types__`:
-            - What: A dictionary of all annotations as checkable types
-            - Type: dict
-
-        - `self.__return_type__`:
-            - What: The return type of the function or method
-            - Type: dict | None
+        Creates class attributes for validation.
         """
         if not self.__types_parsed__:
             self.__checkable_types__ = {
@@ -171,19 +167,48 @@ class FunctionMethodEnforcer:
                 for key, value in get_type_hints(self.__fn__).items()
             }
             self.__return_type__ = self.__checkable_types__.pop("return", None)
-            # Classify params: simple types can use a single
-            # isinstance call, skipping __check_type__ entirely.
-            self.__simple_types__ = {}
-            self.__complex_types__ = {}
+
+            # Pre-classify parameters into simple vs complex positional/keyword-only list configurations
+            self.__simple_pos_params = []
+            self.__simple_kwonly_params = []
+            self.__complex_pos_params = []
+            self.__complex_kwonly_params = []
+
+            co_argcount = self.__fn__.__code__.co_argcount
+            co_kwonlyargcount = self.__fn__.__code__.co_kwonlyargcount
+
             for key, expected in self.__checkable_types__.items():
-                if (
+                if key not in self.__fn_varnames__:
+                    continue
+                idx = self.__fn_varnames__.index(key)
+                is_pos = (idx < co_argcount) or (idx >= co_argcount + co_kwonlyargcount)
+
+                is_simple = (
                     "__extra__" not in expected
                     and all(v is None for v in expected.values())
                     and all(isinstance(k, type) for k in expected.keys())
-                ):
-                    self.__simple_types__[key] = tuple(expected.keys())
+                )
+
+                if is_simple:
+                    types_tuple = tuple(expected.keys())
+                    if is_pos:
+                        self.__simple_pos_params.append((key, idx, types_tuple))
+                    else:
+                        self.__simple_kwonly_params.append((key, types_tuple))
                 else:
-                    self.__complex_types__[key] = expected
+                    if is_pos:
+                        self.__complex_pos_params.append((key, idx, expected))
+                    else:
+                        self.__complex_kwonly_params.append((key, expected))
+
+            self.__has_complex_params__ = bool(self.__complex_pos_params or self.__complex_kwonly_params)
+            self.__has_simple_params__ = bool(self.__simple_pos_params or self.__simple_kwonly_params)
+
+            if not self.__has_complex_params__ and len(self.__simple_pos_params) == 1 and not self.__simple_kwonly_params:
+                self.__single_simple_pos__ = self.__simple_pos_params[0]
+            else:
+                self.__single_simple_pos__ = None
+
             # Same classification for return type
             if self.__return_type__ is not None and (
                 "__extra__" not in self.__return_type__
@@ -195,13 +220,6 @@ class FunctionMethodEnforcer:
                 self.__simple_return_type__ = tuple(self.__return_type__.keys())
             else:
                 self.__simple_return_type__ = None
-            # Pre-compute param index in co_varnames for
-            # direct arg lookup (skips assigned_vars dict).
-            self.__param_indices__ = {
-                name: i
-                for i, name in enumerate(self.__fn_varnames__)
-                if name in self.__checkable_types__
-            }
             self.__types_parsed__ = True
 
     def __get_checkable_type__(self, annotation):
@@ -378,19 +396,11 @@ class FunctionMethodEnforcer:
 
     def __get__(self, obj, objtype):
         """
-        Overwrite standard __get__ method to return __call__ instead for wrapped class methods.
-
-        Also stores the calling (__get__) `obj` to be passed as an initial argument for `__call__` such that methods can pass `self` correctly.
+        Overwrite standard __get__ method to return bound MethodType instead of wrapper function.
         """
-        self.__outer_self__ = obj
-
-        def __get_fn__(*args, **kwargs):
-            return self.__call__(*args, **kwargs)
-
-        __get_fn__.__name__ = self.__fn__.__name__
-        __get_fn__.__qualname__ = self.__fn__.__qualname__
-        __get_fn__.__doc__ = self.__fn__.__doc__
-        return __get_fn__
+        if obj is None:
+            return self
+        return MethodType(self, obj)
 
     def __check_method_function__(self):
         """
@@ -405,38 +415,57 @@ class FunctionMethodEnforcer:
         """
         This method is used to validate the passed inputs and return the output of the wrapped function or method.
         """
-        # Special code to pass self as an initial argument
-        # for validation purposes in methods
-        # See: self.__get__
-        if self.__outer_self__ is not None:
-            args = (self.__outer_self__, *args)
-        # Get a dictionary of all annotations as checkable types
-        # Note: This is only done once at first call to avoid redundant calculations
-        self.__get_checkable_types__()
-        # Fast path: simple types use direct index lookup
-        for key, types_tuple in self.__simple_types__.items():
-            idx = self.__param_indices__[key]
-            if idx < len(args):
-                obj = args[idx]
-            elif key in kwargs:
-                obj = kwargs[key]
-            else:
-                obj = self.__fn_defaults__.get(key)
-            if not isinstance(obj, types_tuple):
-                # Fall back to full check for error reporting
-                self.__check_type__(obj, self.__checkable_types__[key], key)
-        # Full validation for complex types (nested, extras, Type[X])
-        if self.__complex_types__:
-            assigned_vars = {
-                **self.__fn_defaults__,
-                **dict(zip(self.__fn_varnames__[: len(args)], args)),
-                **kwargs,
-            }
-            for key, value in self.__complex_types__.items():
-                self.__check_type__(assigned_vars.get(key), value, key)
-        # Execute the function callable
+        if not self.__types_parsed__:
+            self.__get_checkable_types__()
+
+        if self.__has_complex_params__:
+            for key, idx, expected in self.__complex_pos_params:
+                if idx < len(args):
+                    obj = args[idx]
+                elif key in kwargs:
+                    obj = kwargs[key]
+                else:
+                    obj = self.__fn_defaults__.get(key)
+                self.__check_type__(obj, expected, key)
+
+            for key, expected in self.__complex_kwonly_params:
+                if key in kwargs:
+                    obj = kwargs[key]
+                else:
+                    obj = self.__fn_defaults__.get(key)
+                self.__check_type__(obj, expected, key)
+        else:
+            if self.__single_simple_pos__ is not None:
+                key, idx, types_tuple = self.__single_simple_pos__
+                if idx < len(args):
+                    obj = args[idx]
+                elif key in kwargs:
+                    obj = kwargs[key]
+                else:
+                    obj = self.__fn_defaults__.get(key)
+                if not isinstance(obj, types_tuple):
+                    self.__check_type__(obj, self.__checkable_types__[key], key)
+            elif self.__has_simple_params__:
+                for key, idx, types_tuple in self.__simple_pos_params:
+                    if idx < len(args):
+                        obj = args[idx]
+                    elif key in kwargs:
+                        obj = kwargs[key]
+                    else:
+                        obj = self.__fn_defaults__.get(key)
+                    if not isinstance(obj, types_tuple):
+                        self.__check_type__(obj, self.__checkable_types__[key], key)
+
+                for key, types_tuple in self.__simple_kwonly_params:
+                    if key in kwargs:
+                        obj = kwargs[key]
+                    else:
+                        obj = self.__fn_defaults__.get(key)
+                    if not isinstance(obj, types_tuple):
+                        self.__check_type__(obj, self.__checkable_types__[key], key)
+
         return_value = self.__fn__(*args, **kwargs)
-        # If a return type was passed, validate the returned object
+
         if self.__return_type__ is not None:
             if self.__simple_return_type__ is not None:
                 if not isinstance(return_value, self.__simple_return_type__):
@@ -459,8 +488,7 @@ class FunctionMethodEnforcer:
                 self.__flat_subtypes__[subtype_id] = None
         flat_keys = self.__flat_subtypes__[subtype_id]
         if flat_keys is not None:
-            values = {type(v) for v in obj}
-            if values.issubset(flat_keys):
+            if set(map(type, obj)).issubset(flat_keys):
                 return True
         return False
 
@@ -483,11 +511,24 @@ class FunctionMethodEnforcer:
             is_present = obj_type in expected
         else:
             obj_type = type(obj)
+            expected_id = id(expected)
+            keys_tuple = self.__keys_tuples__.get(expected_id)
+            if keys_tuple is None:
+                keys_tuple = tuple(k for k in expected.keys() if k != "__extra__")
+                self.__keys_tuples__[expected_id] = keys_tuple
             is_present = obj_type in expected or isinstance(
-                obj, tuple(expected.keys())
+                obj, keys_tuple
             )
 
         if not is_present:
+            # Resolve key dynamically if it is a tuple (lazy f-string alternative)
+            if isinstance(key, tuple):
+                def flatten_key(k):
+                    if isinstance(k, tuple):
+                        return "".join(flatten_key(x) for x in k)
+                    return str(k)
+                key = flatten_key(key)
+
             # Allow for literals to be used to bypass type checks if present
             literal = extra.get("__literal__", ()) if extra is not None else ()
             if literal:
@@ -508,77 +549,116 @@ class FunctionMethodEnforcer:
             # Recursive validation
             elif obj_type == list:
                 if self.__iterable_sample_pct__ < 100:
-                    for idx in self.__get_sample_indices__(len(obj)):
-                        self.__check_type__(obj[idx], subtype, f"{key}[{idx}]")
+                    if self.__iterable_sample_pct__ == 0:
+                        if len(obj) > 0:
+                            self.__check_type__(obj[0], subtype, (key, '[0]'))
+                    else:
+                        for idx in self.__get_sample_indices__(len(obj)):
+                            self.__check_type__(obj[idx], subtype, (key, '[', idx, ']'))
                 # If the subtype does not contain iterables with typing, we can validate the items directly.
                 elif not self.__quick_check__(subtype, obj):
                     for idx, item in enumerate(obj):
-                        self.__check_type__(item, subtype, f"{key}[{idx}]")
+                        self.__check_type__(item, subtype, (key, '[', idx, ']'))
             elif obj_type == dict:
                 key_type, val_type = subtype
                 if self.__iterable_sample_pct__ < 100:
-                    sampled_keys = self.__get_sample_keys__(list(obj.keys()))
-                    if not self.__quick_check__(key_type, sampled_keys):
-                        for dk in sampled_keys:
+                    if self.__iterable_sample_pct__ == 0:
+                        if len(obj) > 0:
+                            dk = next(iter(obj))
                             self.__check_type__(
-                                dk, key_type, f"{key}.key[{repr(dk)}]"
+                                dk, key_type, (key, '.key[', repr(dk), ']')
                             )
-                    if not self.__quick_check__(
-                        val_type, [obj[dk] for dk in sampled_keys]
-                    ):
-                        for dk in sampled_keys:
                             self.__check_type__(
-                                obj[dk], val_type, f"{key}[{repr(dk)}]"
+                                obj[dk], val_type, (key, '[', repr(dk), ']')
                             )
+                    else:
+                        sampled_keys = self.__get_sample_keys__(list(obj.keys()))
+                        if not self.__quick_check__(key_type, sampled_keys):
+                            for dk in sampled_keys:
+                                self.__check_type__(
+                                    dk, key_type, (key, '.key[', repr(dk), ']')
+                                )
+                        if not self.__quick_check__(
+                            val_type, [obj[dk] for dk in sampled_keys]
+                        ):
+                            for dk in sampled_keys:
+                                self.__check_type__(
+                                    obj[dk], val_type, (key, '[', repr(dk), ']')
+                                )
                 else:
                     if not self.__quick_check__(key_type, obj.keys()):
-                        for key in obj.keys():
+                        for dk in obj.keys():
                             self.__check_type__(
-                                key, key_type, f"{key}.key[{repr(key)}]"
+                                dk, key_type, (key, '.key[', repr(dk), ']')
                             )
                     if not self.__quick_check__(val_type, obj.values()):
-                        for key, value in obj.items():
+                        for dk, value in obj.items():
                             self.__check_type__(
-                                value, val_type, f"{key}[{repr(key)}]"
+                                value, val_type, (key, '[', repr(dk), ']')
                             )
             elif obj_type == tuple:
                 expected_args, is_ellipsis = subtype
                 if is_ellipsis:
                     if self.__iterable_sample_pct__ < 100:
-                        for idx in self.__get_sample_indices__(len(obj)):
-                            self.__check_type__(
-                                obj[idx], expected_args, f"{key}[{idx}]"
-                            )
+                        if self.__iterable_sample_pct__ == 0:
+                            if len(obj) > 0:
+                                self.__check_type__(
+                                    obj[0], expected_args, (key, '[0]')
+                                )
+                        else:
+                            for idx in self.__get_sample_indices__(len(obj)):
+                                self.__check_type__(
+                                    obj[idx], expected_args, (key, '[', idx, ']')
+                                )
                     elif not self.__quick_check__(expected_args, obj):
                         for idx, item in enumerate(obj):
                             self.__check_type__(
-                                item, expected_args, f"{key}[{idx}]"
+                                item, expected_args, (key, '[', idx, ']')
                             )
                 else:
                     if len(obj) != len(expected_args):
+                        if isinstance(key, tuple):
+                            def flatten_key(k):
+                                if isinstance(k, tuple):
+                                    return "".join(flatten_key(x) for x in k)
+                                return str(k)
+                            key = flatten_key(key)
                         self.__exception__(
                             f"Tuple length mismatch for `{key}`. Expected length {len(expected_args)}, got {len(obj)}"
                         )
                     for idx, (item, ex) in enumerate(zip(obj, expected_args)):
-                        self.__check_type__(item, ex, f"{key}[{idx}]")
+                        self.__check_type__(item, ex, (key, '[', idx, ']'))
             elif obj_type == set:
                 if self.__iterable_sample_pct__ < 100:
-                    obj_list = list(obj)
-                    for idx in self.__get_sample_indices__(len(obj_list)):
-                        item = obj_list[idx]
-                        self.__check_type__(
-                            item, subtype, f"{key}[{repr(item)}]"
-                        )
+                    if self.__iterable_sample_pct__ == 0:
+                        if len(obj) > 0:
+                            item = next(iter(obj))
+                            self.__check_type__(
+                                item, subtype, (key, '[', repr(item), ']')
+                            )
+                    else:
+                        obj_list = list(obj)
+                        for idx in self.__get_sample_indices__(len(obj_list)):
+                            item = obj_list[idx]
+                            self.__check_type__(
+                                item, subtype, (key, '[', repr(item), ']')
+                            )
                 elif not self.__quick_check__(subtype, obj):
                     for item in obj:
                         self.__check_type__(
-                            item, subtype, f"{key}[{repr(item)}]"
+                            item, subtype, (key, '[', repr(item), ']')
                         )
 
         # Validate constraints if any are present
         if extra is not None:
             constraints = extra.get("__constraints__", ())
             for constraint in constraints:
+                if isinstance(key, tuple):
+                    def flatten_key(k):
+                        if isinstance(k, tuple):
+                            return "".join(flatten_key(x) for x in k)
+                        return str(k)
+                    key = flatten_key(key)
                 constraint_validation_output = constraint.__validate__(key, obj)
                 if constraint_validation_output is not True:
                     self.__exception__(
