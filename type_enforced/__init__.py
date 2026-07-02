@@ -416,4 +416,5 @@ For development, we use [uv](https://docs.astral.sh/uv/) to manage dependencies 
 
 Dev dependencies are in `[project.optional-dependencies] dev` in `pyproject.toml`. Install with `uv sync --extra dev`.
 """
+
 from .enforcer import Enforcer, FunctionMethodEnforcer
