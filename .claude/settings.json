@@ -12,7 +12,10 @@
       "Write(./test/**)",
       "Read(./README.md)",
       "Edit(./README.md)",
-      "Write(./README.md)"
+      "Write(./README.md)",
+      "Bash(uv run utils/*.py)",
+      "Bash(uv run nox*)",
+      "Bash(uv run pytest*)"
     ],
     "deny": [
       "Read(.env)",

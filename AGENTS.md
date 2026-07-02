@@ -36,20 +36,15 @@ publish.sh           # PyPI publishing script — DO NOT RUN
 
 ---
 
-## Development Commands
+## Skills
 
-| Command | What it does |
+| Skill | Use when |
 |---|---|
-| `uv run nox` | Run tests across Python 3.11, 3.12, 3.13, 3.14 |
-| `uv run nox -s tests-3.14` | Run tests on a single Python version |
-| `uv run pytest` | Run tests in the local venv only |
-| `uv run pytest -v` | Run tests with verbose output |
-| `uv run python utils/prettify.py` | Format with autoflake + black |
-| `uv run python utils/benchmark.py` | Run performance benchmarks |
-
-Dev dependencies are declared in `[project.optional-dependencies] dev` in `pyproject.toml`. Install them with `uv sync --extra dev`.
-
-**Docs**: **DO NOT generate docs** unless you are the maintainer doing a release. Docs are regenerated and versioned at release time only.
+| [test](.claude/skills/test/SKILL.md) | Running the test suite via `nox` (all supported Python versions) or `pytest` (local venv) |
+| [add-test](.claude/skills/add-test/SKILL.md) | Adding or extending a `test_fn_*.py` / `test_class_*.py` test |
+| [lint](.claude/skills/lint/SKILL.md) | Formatting `type_enforced/` and `test/` with autoflake + black |
+| [release](.claude/skills/release/SKILL.md) | Owner-only — explains why to stop and flag instead of executing a release |
+| [benchmark](.claude/skills/benchmark/SKILL.md) | Running the benchmark suite and comparing results with previous benchmarks |
 
 ---
 
@@ -123,57 +118,14 @@ dict[str, int]   → {dict: ({str: None}, {int: None})}
 
 ---
 
-## Test Structure
-
-Tests use pytest, collected by nox across Python 3.11–3.14. All files matching `*.py` in `test/`.
-
-**Naming conventions:**
-- `test_fn_*.py` — tests for function/method enforcement
-- `test_class_*.py` — tests for class-level enforcement
-- `utils/benchmark.py` — performance comparison (not a pass/fail test)
-
-**Test pattern:**
-```python
-import pytest
-import type_enforced
-
-@type_enforced.Enforcer
-def my_fn(a: int) -> None:
-    pass
-
-def test_my_fn():
-    my_fn(1)                          # valid input — no exception expected
-
-    with pytest.raises(TypeError):
-        my_fn("a")                    # invalid input — TypeError expected
-
-    with pytest.raises(TypeError, match="Type mismatch"):
-        my_fn(1.5)                    # check message when it matters
-```
-
-When adding a new feature, add a corresponding `test_fn_*.py` or `test_class_*.py` file. Tests are picked up automatically by pytest.
-
----
-
 ## Coding Conventions
 
 - **Line length**: 80 characters (black config in `pyproject.toml`)
 - **Python version**: 3.11+ (use `str | None` union syntax, not `Optional[str]`)
-- **Formatting**: Always run `uv run python utils/prettify.py` before committing
 - **No external dependencies**: Runtime code must stay pure Python with zero imports outside stdlib
 - **No unnecessary abstractions**: Don't create shared helpers unless the same logic appears 3+ times
 - **Lazy evaluation**: Type hints are parsed once and cached — keep `__get_checkable_types__` fast
 - **DO NOT generate docs**: Only the maintainer generates docs at release time
-
----
-
-## Release Checklist (owner only — do not execute)
-
-1. Bump `version` in `pyproject.toml` and `setup.cfg` (must match)
-2. Run `uv run python utils/prettify.py`
-3. Run `uv run nox` — all sessions must pass
-4. Run `uv run python utils/docs.py` to regenerate docs
-5. Publish via `publish.sh`
 
 ---
 
