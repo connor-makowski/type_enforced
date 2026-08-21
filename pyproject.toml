@@ -36,9 +36,9 @@ dev = [
     "nox-uv>=0.8.0",
     "pdoc>=15.0.1",
     "twine>=6.1.0",
-    "pydantic==2.13.2",
+    "pydantic==2.13.4",
     "beartype==0.22.9",
-    "typeguard==4.5.1",
+    "typeguard==4.6.0",
 ]
 
 [project.urls]

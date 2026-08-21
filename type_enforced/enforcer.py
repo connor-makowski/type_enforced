@@ -464,12 +464,378 @@ class FunctionMethodEnforcer:
                 f"A non function/method was passed to Enforcer. See the stack trace above for more information."
             )
 
+    def _build_fast_param_check(self, p_name, expected, env):
+        """
+        Generates clean check code lines for an individual parameter.
+        """
+        env[f"_exp_{p_name}"] = expected
+        env[f"_key_{p_name}"] = p_name
+
+        # 1. Simple scalar types: int, str, int | float, etc.
+        is_simple = (
+            "__extra__" not in expected
+            and all(v is None for v in expected.values())
+            and all(isinstance(k, type) for k in expected.keys())
+        )
+        if is_simple:
+            type_keys = tuple(expected.keys())
+            env[f"_types_{p_name}"] = type_keys
+            for i, t in enumerate(type_keys):
+                env[f"_t_{p_name}_{i}"] = t
+            conds = " and ".join(
+                f"t is not _t_{p_name}_{i}" for i in range(len(type_keys))
+            )
+            return [
+                f"    t = type({p_name})",
+                f"    if ({conds}) and not isinstance({p_name}, _types_{p_name}):",
+                f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+            ]
+
+        # 2. Homogeneous list[Type]
+        is_simple_list = (
+            "__extra__" not in expected
+            and list in expected
+            and len(expected) == 1
+            and isinstance(expected[list], dict)
+            and "__extra__" not in expected[list]
+            and all(v is None for v in expected[list].values())
+            and all(isinstance(k, type) for k in expected[list].keys())
+        )
+        if is_simple_list:
+            elem_types = tuple(expected[list].keys())
+            env[f"_elem_types_{p_name}"] = elem_types
+            env[f"_el_set_{p_name}"] = frozenset(elem_types)
+            for i, t in enumerate(elem_types):
+                env[f"_t_el_{p_name}_{i}"] = t
+            elem_conds = " and ".join(
+                f"t_el is not _t_el_{p_name}_{i}"
+                for i in range(len(elem_types))
+            )
+            if self.__iterable_sample_pct__ == 0:
+                return [
+                    f"    if type({p_name}) is not list:",
+                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"    elif len({p_name}) > 0:",
+                    f"        _el = {p_name}[0]",
+                    f"        t_el = type(_el)",
+                    f"        if ({elem_conds}) and not isinstance(_el, _elem_types_{p_name}):",
+                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                ]
+            elif self.__iterable_sample_pct__ == 100:
+                return [
+                    f"    if type({p_name}) is not list:",
+                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"    else:",
+                    f"        _n = len({p_name})",
+                    f"        if _n <= 10:",
+                    f"            for _el in {p_name}:",
+                    f"                t_el = type(_el)",
+                    f"                if ({elem_conds}) and not isinstance(_el, _elem_types_{p_name}):",
+                    f"                    self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"                    break",
+                    f"        else:",
+                    f"            if not set(map(type, {p_name})).issubset(_el_set_{p_name}):",
+                    f"                self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                ]
+
+        # 3. Homogeneous dict[KeyType, ValType]
+        is_simple_dict = (
+            "__extra__" not in expected
+            and dict in expected
+            and len(expected) == 1
+            and isinstance(expected[dict], tuple)
+            and len(expected[dict]) == 2
+            and isinstance(expected[dict][0], dict)
+            and "__extra__" not in expected[dict][0]
+            and all(v is None for v in expected[dict][0].values())
+            and all(isinstance(k, type) for k in expected[dict][0].keys())
+            and isinstance(expected[dict][1], dict)
+            and "__extra__" not in expected[dict][1]
+            and all(v is None for v in expected[dict][1].values())
+            and all(isinstance(k, type) for k in expected[dict][1].keys())
+        )
+        if is_simple_dict:
+            k_types = tuple(expected[dict][0].keys())
+            v_types = tuple(expected[dict][1].keys())
+            env[f"_k_types_{p_name}"] = k_types
+            env[f"_v_types_{p_name}"] = v_types
+            env[f"_k_set_{p_name}"] = frozenset(k_types)
+            env[f"_v_set_{p_name}"] = frozenset(v_types)
+            for i, t in enumerate(k_types):
+                env[f"_tk_{p_name}_{i}"] = t
+            for i, t in enumerate(v_types):
+                env[f"_tv_{p_name}_{i}"] = t
+            k_conds = " and ".join(
+                f"type(_dk) is not _tk_{p_name}_{i}"
+                for i in range(len(k_types))
+            )
+            v_conds = " and ".join(
+                f"type(_dv) is not _tv_{p_name}_{i}"
+                for i in range(len(v_types))
+            )
+            val_check = f"(({k_conds}) and not isinstance(_dk, _k_types_{p_name})) or (({v_conds}) and not isinstance(_dv, _v_types_{p_name}))"
+            if self.__iterable_sample_pct__ == 0:
+                return [
+                    f"    if type({p_name}) is not dict:",
+                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"    elif len({p_name}) > 0:",
+                    f"        _dk = next(iter({p_name}))",
+                    f"        _dv = {p_name}[_dk]",
+                    f"        if {val_check}:",
+                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                ]
+            elif self.__iterable_sample_pct__ == 100:
+                return [
+                    f"    if type({p_name}) is not dict:",
+                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"    else:",
+                    f"        _n = len({p_name})",
+                    f"        if _n <= 10:",
+                    f"            for _dk, _dv in {p_name}.items():",
+                    f"                if {val_check}:",
+                    f"                    self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"                    break",
+                    f"        else:",
+                    f"            if not (set(map(type, {p_name})) <= _k_set_{p_name} and set(map(type, {p_name}.values())) <= _v_set_{p_name}):",
+                    f"                self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                ]
+
+        # 4. Homogeneous list[dict[KeyType, ValType]]
+        is_list_of_dict = (
+            "__extra__" not in expected
+            and list in expected
+            and len(expected) == 1
+            and isinstance(expected[list], dict)
+            and "__extra__" not in expected[list]
+            and dict in expected[list]
+            and len(expected[list]) == 1
+            and isinstance(expected[list][dict], tuple)
+            and len(expected[list][dict]) == 2
+            and isinstance(expected[list][dict][0], dict)
+            and "__extra__" not in expected[list][dict][0]
+            and all(v is None for v in expected[list][dict][0].values())
+            and all(isinstance(k, type) for k in expected[list][dict][0].keys())
+            and isinstance(expected[list][dict][1], dict)
+            and "__extra__" not in expected[list][dict][1]
+            and all(v is None for v in expected[list][dict][1].values())
+            and all(isinstance(k, type) for k in expected[list][dict][1].keys())
+        )
+        if is_list_of_dict:
+            sub_k_types = tuple(expected[list][dict][0].keys())
+            sub_v_types = tuple(expected[list][dict][1].keys())
+            env[f"_ld_k_types_{p_name}"] = sub_k_types
+            env[f"_ld_v_types_{p_name}"] = sub_v_types
+            env[f"_ld_k_set_{p_name}"] = frozenset(sub_k_types)
+            env[f"_ld_v_set_{p_name}"] = frozenset(sub_v_types)
+            for i, t in enumerate(sub_k_types):
+                env[f"_ld_tk_{p_name}_{i}"] = t
+            for i, t in enumerate(sub_v_types):
+                env[f"_ld_tv_{p_name}_{i}"] = t
+            k_conds = " and ".join(
+                f"tk is not _ld_tk_{p_name}_{i}"
+                for i in range(len(sub_k_types))
+            )
+            v_conds = " and ".join(
+                f"tv is not _ld_tv_{p_name}_{i}"
+                for i in range(len(sub_v_types))
+            )
+            val_check = f"(({k_conds}) and not isinstance(_dk, _ld_k_types_{p_name})) or (({v_conds}) and not isinstance(_dv, _ld_v_types_{p_name}))"
+            if self.__iterable_sample_pct__ == 0:
+                return [
+                    f"    if type({p_name}) is not list:",
+                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"    elif len({p_name}) > 0:",
+                    f"        _d = {p_name}[0]",
+                    f"        if type(_d) is not dict:",
+                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"        elif len(_d) > 0:",
+                    f"            _dk = next(iter(_d))",
+                    f"            _dv = _d[_dk]",
+                    f"            tk, tv = type(_dk), type(_dv)",
+                    f"            if {val_check}:",
+                    f"                self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                ]
+            elif self.__iterable_sample_pct__ == 100:
+                return [
+                    f"    if type({p_name}) is not list:",
+                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                    f"    else:",
+                    f"        _seen = set()",
+                    f"        _invalid = False",
+                    f"        for _d in {p_name}:",
+                    f"            _did = id(_d)",
+                    f"            if _did in _seen:",
+                    f"                continue",
+                    f"            if type(_d) is not dict:",
+                    f"                _invalid = True",
+                    f"                break",
+                    f"            _dn = len(_d)",
+                    f"            if _dn <= 10:",
+                    f"                for _dk, _dv in _d.items():",
+                    f"                    tk, tv = type(_dk), type(_dv)",
+                    f"                    if {val_check}:",
+                    f"                        _invalid = True",
+                    f"                        break",
+                    f"                if _invalid:",
+                    f"                    break",
+                    f"            else:",
+                    f"                if not set(map(type, _d)).issubset(_ld_k_set_{p_name}) or not set(map(type, _d.values())).issubset(_ld_v_set_{p_name}):",
+                    f"                    _invalid = True",
+                    f"                    break",
+                    f"            _seen.add(_did)",
+                    f"        if _invalid:",
+                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
+                ]
+
+        # 5. Default general check
+        return [
+            f"    self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})"
+        ]
+
+    def _build_fast_return_check(self, env):
+        """
+        Generates check code lines for function return value.
+        """
+        if self.__return_type__ is None:
+            return []
+
+        env["_exp_return"] = self.__return_type__
+        if self.__simple_return_type__ is not None:
+            env["_types_return"] = self.__simple_return_type__
+            for i, t in enumerate(self.__simple_return_type__):
+                env[f"_t_ret_{i}"] = t
+            conds = " and ".join(
+                f"t_ret is not _t_ret_{i}"
+                for i in range(len(self.__simple_return_type__))
+            )
+            return [
+                "    t_ret = type(res)",
+                f"    if ({conds}) and not isinstance(res, _types_return):",
+                "        self.__check_type__(res, _exp_return, 'return')",
+            ]
+        else:
+            return ["    self.__check_type__(res, _exp_return, 'return')"]
+
+    def __generate_fast_call__(self):
+        """
+        Dynamically generates and compiles a specialized __call__ method for this
+        enforcer instance's signature and type annotations to eliminate dispatch overhead.
+        """
+        try:
+            import inspect
+
+            sig = inspect.signature(self.__fn__)
+            param_decls = ["self"]
+            call_args = []
+            env = {
+                "FunctionMethodEnforcer": FunctionMethodEnforcer,
+                "isinstance": isinstance,
+                "type": type,
+                "NoneType": _NoneType,
+                "len": len,
+                "set": set,
+                "map": map,
+                "next": next,
+                "iter": iter,
+                "id": id,
+                "list": list,
+                "dict": dict,
+            }
+
+            has_pos_only = any(
+                p.kind == inspect.Parameter.POSITIONAL_ONLY
+                for p in sig.parameters.values()
+            )
+            has_kw_only = any(
+                p.kind == inspect.Parameter.KEYWORD_ONLY
+                for p in sig.parameters.values()
+            )
+            has_var_pos = any(
+                p.kind == inspect.Parameter.VAR_POSITIONAL
+                for p in sig.parameters.values()
+            )
+
+            # Positional-only params
+            for p in sig.parameters.values():
+                if p.kind == inspect.Parameter.POSITIONAL_ONLY:
+                    if p.default is not inspect.Parameter.empty:
+                        env[f"_d_{p.name}"] = p.default
+                        param_decls.append(f"{p.name}=_d_{p.name}")
+                    else:
+                        param_decls.append(p.name)
+                    call_args.append(p.name)
+            if has_pos_only:
+                param_decls.append("/")
+
+            # Positional-or-keyword params
+            for p in sig.parameters.values():
+                if p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                    if p.default is not inspect.Parameter.empty:
+                        env[f"_d_{p.name}"] = p.default
+                        param_decls.append(f"{p.name}=_d_{p.name}")
+                    else:
+                        param_decls.append(p.name)
+                    call_args.append(p.name)
+
+            if has_kw_only and not has_var_pos:
+                param_decls.append("*")
+
+            # Var positional (*args), keyword-only, and var keywords (**kwargs)
+            for p in sig.parameters.values():
+                if p.kind == inspect.Parameter.VAR_POSITIONAL:
+                    param_decls.append(f"*{p.name}")
+                    call_args.append(f"*{p.name}")
+                elif p.kind == inspect.Parameter.KEYWORD_ONLY:
+                    if p.default is not inspect.Parameter.empty:
+                        env[f"_d_{p.name}"] = p.default
+                        param_decls.append(f"{p.name}=_d_{p.name}")
+                    else:
+                        param_decls.append(p.name)
+                    call_args.append(f"{p.name}={p.name}")
+                elif p.kind == inspect.Parameter.VAR_KEYWORD:
+                    param_decls.append(f"**{p.name}")
+                    call_args.append(f"**{p.name}")
+
+            sig_str = ", ".join(param_decls)
+            call_str = ", ".join(call_args)
+
+            lines = [f"def __call__({sig_str}):"]
+
+            # Parameter checks
+            for p_name in sig.parameters:
+                if p_name in ("self", "cls"):
+                    continue
+                expected = self.__checkable_types__.get(p_name)
+                if expected is not None:
+                    lines.extend(
+                        self._build_fast_param_check(p_name, expected, env)
+                    )
+
+            # Function call
+            lines.append(f"    res = self.__fn__({call_str})")
+
+            # Return value check
+            lines.extend(self._build_fast_return_check(env))
+            lines.append("    return res")
+
+            code_wrapper = (
+                f"class _SpecializedEnforcer(FunctionMethodEnforcer):\n"
+                f"    __slots__ = ()\n"
+                f"{chr(10).join('    ' + l for l in lines)}\n"
+            )
+            exec(code_wrapper, env)
+            self.__class__ = env["_SpecializedEnforcer"]
+        except Exception:
+            pass
+
     def __call__(self, *args, **kwargs):
         """
         This method is used to validate the passed inputs and return the output of the wrapped function or method.
         """
         if not self.__types_parsed__:
             self.__get_checkable_types__()
+            self.__generate_fast_call__()
+            return self(*args, **kwargs)
 
         if self.__has_complex_params__:
             for key, idx, expected in self.__complex_pos_params:
@@ -540,13 +906,35 @@ class FunctionMethodEnforcer:
         if subtype_id not in self.__flat_subtypes__:
             # First call for this subtype: compute and cache
             if all(v is None for v in subtype.values()):
-                self.__flat_subtypes__[subtype_id] = frozenset(subtype.keys())
+                keys_tuple = tuple(subtype.keys())
+                keys_set = frozenset(subtype.keys())
+                single_type = keys_tuple[0] if len(keys_tuple) == 1 else None
+                self.__flat_subtypes__[subtype_id] = (
+                    keys_set,
+                    keys_tuple,
+                    single_type,
+                )
             else:
                 self.__flat_subtypes__[subtype_id] = None
-        flat_keys = self.__flat_subtypes__[subtype_id]
-        if flat_keys is not None:
-            if set(map(type, obj)).issubset(flat_keys):
-                return True
+        cached = self.__flat_subtypes__[subtype_id]
+        if cached is not None:
+            flat_set, flat_tuple, single_type = cached
+            n = len(obj)
+            if n <= 10:
+                if single_type is not None:
+                    for x in obj:
+                        if type(x) is not single_type:
+                            return False
+                    return True
+                else:
+                    for x in obj:
+                        t = type(x)
+                        if t not in flat_set:
+                            return False
+                    return True
+            else:
+                if set(map(type, obj)).issubset(flat_set):
+                    return True
         return False
 
     def __check_type__(self, obj, expected, key):

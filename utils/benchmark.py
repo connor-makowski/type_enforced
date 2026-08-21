@@ -19,9 +19,11 @@ try:
     # --- Test data
     five_key_dict = {f"key{i}": i for i in range(5)}
     big_key_dict = {f"key{i}": i for i in range(1000)}
+    ten_thousand_key_dict = {f"key{i}": i for i in range(10000)}
 
     five_item_list = [1, 2.0, 3, 4.0, 5]
     big_item_list = [float(i) if i % 2 else i for i in range(1000)]
+    ten_thousand_item_list = [float(i) if i % 2 else i for i in range(10000)]
 
     # --- Benchmark and Validation test cases
     test_cases = {
@@ -36,6 +38,22 @@ try:
             big_key_dict,
             {"k1": 1, "k2": "two", "k3": 3},
         ),
+        "dict[str,int] (10000 keys)": (
+            ten_thousand_key_dict,
+            {"k1": 1, "k2": "two", "k3": 3},
+        ),
+        "list[int] (5 items)": (
+            [1, 2, 3, 4, 5],
+            [1, "two", 3, 4, 5],
+        ),
+        "list[int] (1000 items)": (
+            list(range(1000)),
+            [1, "two", 3, 4, 5] * 200,
+        ),
+        "list[int] (10000 items)": (
+            list(range(10000)),
+            [1, "two", 3, 4, 5] * 2000,
+        ),
         "list[Union[int,float]] (5 items)": (
             five_item_list,
             [1, "two", 3, 4, 5],
@@ -44,12 +62,20 @@ try:
             big_item_list,
             [1, "two", 3, 4, 5] * 200,
         ),
-        "list[dict[str,int]] (5 items)": (
-            [five_key_dict] * 5,
+        "list[Union[int,float]] (10000 items)": (
+            ten_thousand_item_list,
+            [1, "two", 3, 4, 5] * 2000,
+        ),
+        "list[dict[str,int]] (5 x 5 items)": (
+            [{f"key{i}": i for i in range(5)} for _ in range(5)],
             [{"k1": 1, "k2": "two", "k3": 3}],
         ),
-        "list[dict[str,int]] (100 items)": (
-            [big_key_dict] * 100,
+        "list[dict[str,int]] (100 x 10 items)": (
+            [{f"key{i}": i for i in range(10)} for _ in range(100)],
+            [{"k1": 1, "k2": "two", "k3": 3}],
+        ),
+        "list[dict[str,int]] (100 x 100 items)": (
+            [{f"key{i}": i for i in range(100)} for _ in range(100)],
             [{"k1": 1, "k2": "two", "k3": 3}],
         ),
     }
@@ -61,10 +87,16 @@ try:
         "str": str,
         "dict[str,int] (5 keys)": Dict[str, int],
         "dict[str,int] (1000 keys)": Dict[str, int],
+        "dict[str,int] (10000 keys)": Dict[str, int],
+        "list[int] (5 items)": List[int],
+        "list[int] (1000 items)": List[int],
+        "list[int] (10000 items)": List[int],
         "list[Union[int,float]] (5 items)": List[Union[int, float]],
         "list[Union[int,float]] (1000 items)": List[Union[int, float]],
-        "list[dict[str,int]] (5 items)": List[Dict[str, int]],
-        "list[dict[str,int]] (100 items)": List[Dict[str, int]],
+        "list[Union[int,float]] (10000 items)": List[Union[int, float]],
+        "list[dict[str,int]] (5 x 5 items)": List[Dict[str, int]],
+        "list[dict[str,int]] (100 x 10 items)": List[Dict[str, int]],
+        "list[dict[str,int]] (100 x 100 items)": List[Dict[str, int]],
     }
 
     # --- Timing helper
@@ -170,10 +202,10 @@ try:
         f"    - The validation is run {REPEATS} times to ensure type checking results are consistent."
     )
     print(
-        "\n| Type                        | type_enforced  | type_enforced (sample) | Pydantic       | Beartype       | Typeguard     |"
+        "\n| Type                        | type_enforced (100%) | type_enforced (sample) | Pydantic (100%) | Beartype (sample) | Typeguard (sample) |"
     )
     print(
-        "|:-----------------------------|:----------------|:--------------------------|:----------------|:----------------|:----------------|"
+        "|:-----------------------------|:----------------------|:------------------------|:-----------------|:-------------------|:--------------------|"
     )
 
     def green_text(text):
