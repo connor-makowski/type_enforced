@@ -17,13 +17,16 @@ It supports functions, methods, classes, dataclasses, and modules. It has zero e
 
 ```
 type_enforced/
-  __init__.py        # Package exports (Enforcer, FunctionMethodEnforcer) + README as docstring
+  __init__.py        # Package exports (Enforcer, FunctionMethodEnforcer, ModuleEnforcer) + README as docstring
   enforcer.py        # Core: Enforcer decorator, FunctionMethodEnforcer class
+  module.py          # Module-level enforcement: ModuleEnforcer class/function
   utils.py           # Utilities: Constraint, GenericConstraint, Partial, DeepMerge, WithSubclasses
 test/
   test_fn_*.py       # Function/method enforcement tests (23 files)
   test_class_*.py    # Class enforcement tests (15 files)
   test_class_12_utils/ # Helper for delayed binding test
+  test_module_*.py   # Module-level enforcement tests (3 files)
+  test_module_*_utils/ # Helpers for module enforcement tests
 utils/
   benchmark.py       # Performance benchmarks vs pydantic, beartype, typeguard
   prettify.py        # autoflake (unused imports) + black (line-length=80)
@@ -41,7 +44,7 @@ publish.sh           # PyPI publishing script — DO NOT RUN
 | Skill | Use when |
 |---|---|
 | [test](.claude/skills/test/SKILL.md) | Running the test suite via `nox` (all supported Python versions) or `pytest` (local venv) |
-| [add-test](.claude/skills/add-test/SKILL.md) | Adding or extending a `test_fn_*.py` / `test_class_*.py` test |
+| [add-test](.claude/skills/add-test/SKILL.md) | Adding or extending a `test_fn_*.py` / `test_class_*.py` / `test_module_*.py` test |
 | [lint](.claude/skills/lint/SKILL.md) | Formatting `type_enforced/` and `test/` with autoflake + black |
 | [release](.claude/skills/release/SKILL.md) | Owner-only — explains why to stop and flag instead of executing a release |
 | [benchmark](.claude/skills/benchmark/SKILL.md) | Running the benchmark suite and comparing results with previous benchmarks |
@@ -56,6 +59,9 @@ publish.sh           # PyPI publishing script — DO NOT RUN
 - `Enforcer` — public decorator (wrapped with `Partial` to allow `@Enforcer` or `@Enforcer()`). When applied to a class, recursively wraps all annotated methods. When applied to a function/method, returns a `FunctionMethodEnforcer`.
 - `FunctionMethodEnforcer` — wraps a single callable. Lazily parses type hints on first call, validates all annotated inputs and the return value.
 
+**`module.py`** — module enforcement:
+- `ModuleEnforcer` — wrapped with `Partial`. Enforces all functions and classes in a module (top-of-file lazy proxy, bottom-of-file immediate, or on imported module). Supports `submodules=True` (default) for package trees while isolating external imports.
+
 **`utils.py`** — supporting utilities:
 - `Partial` — enables decorators to be called with or without parentheses
 - `DeepMerge` — recursively merges dicts; used to unify union types into one validation dict
@@ -66,12 +72,20 @@ publish.sh           # PyPI publishing script — DO NOT RUN
 ### Enforcer Parameters
 
 ```python
-@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True)
+@type_enforced.Enforcer(
+    enabled=True,
+    strict=True,
+    clean_traceback=True,
+    iterable_sample_pct=100,
+    only_typed=False,
+)
 ```
 
 - `enabled` (True): Set `False` to disable a specific function/method/class. Method-level takes precedence over class-level.
 - `strict` (True): Set `False` to warn instead of raise on type mismatch.
 - `clean_traceback` (True): Strips type_enforced internal frames from tracebacks.
+- `iterable_sample_pct` (100): Percentage (0-100) of items to validate when checking typed iterables.
+- `only_typed` (False): Set `True` to raise an exception on untyped function/method parameters or return values.
 
 ### How Type Checking Works
 

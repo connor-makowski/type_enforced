@@ -14,11 +14,16 @@ from type_enforced.utils import (
     iterable_types,
     merge_type_dicts,
 )
-import sys, traceback, random
+import sys
+import traceback
+import random
 from pathlib import Path
 
 _NoneType = type(None)
 _package_path = Path(__file__).parent.resolve()
+# Code object flags for variable positional (*args) and variable keyword (**kwargs) parameters
+_CO_VARARGS = 0x04
+_CO_VARKEYWORDS = 0x08
 
 
 class FunctionMethodEnforcer:
@@ -27,6 +32,7 @@ class FunctionMethodEnforcer:
         "__strict__",
         "__clean_traceback__",
         "__iterable_sample_pct__",
+        "__only_typed__",
         "__fn_defaults__",
         "__fn_varnames__",
         "__types_parsed__",
@@ -55,6 +61,7 @@ class FunctionMethodEnforcer:
         __strict__=False,
         __clean_traceback__=True,
         __iterable_sample_pct__=100,
+        __only_typed__=False,
     ):
         """
         Initialize a FunctionMethodEnforcer class object as a wrapper for a passed function `__fn__`.
@@ -83,19 +90,55 @@ class FunctionMethodEnforcer:
                     plus a random sample of the remaining items up to the specified percentage.
                 - Type: int | float
                 - Default: 100
+            - `__only_typed__`:
+                - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.
+                - Type: bool
+                - Default: False
         """
         update_wrapper(self, __fn__)
         self.__fn__ = __fn__
         self.__strict__ = __strict__
         self.__clean_traceback__ = __clean_traceback__
         self.__iterable_sample_pct__ = __iterable_sample_pct__
+        self.__only_typed__ = __only_typed__
         self.__types_parsed__ = False
         self.__flat_subtypes__ = {}
         self.__keys_tuples__ = {}
         # Validate that the passed function or method is a method or function
         self.__check_method_function__()
+        # Check only_typed if enabled
+        if self.__only_typed__:
+            self.__check_only_typed__()
         # Get input defaults for the function or method
         self.__get_defaults__()
+
+    def __check_only_typed__(self):
+        """
+        Validate that all parameters and return of the wrapped function/method have type annotations.
+        """
+        type_hints = get_type_hints(self.__fn__)
+        code = self.__fn__.__code__
+        total_args = code.co_argcount + code.co_kwonlyargcount
+        param_names = list(code.co_varnames[:total_args])
+        # If the function accepts *args, include its variable name
+        if code.co_flags & _CO_VARARGS:
+            param_names.append(code.co_varnames[total_args])
+            total_args += 1
+        # If the function accepts **kwargs, include its variable name
+        if code.co_flags & _CO_VARKEYWORDS:
+            param_names.append(code.co_varnames[total_args])
+
+        for name in param_names:
+            if name in ("self", "cls"):
+                continue
+            if name not in type_hints:
+                self.__exception__(
+                    f"Untyped variable `{name}` found in function/method `{self.__fn__.__qualname__}`."
+                )
+        if "return" not in type_hints:
+            self.__exception__(
+                f"Untyped return value found in function/method `{self.__fn__.__qualname__}`."
+            )
 
     def __get_defaults__(self):
         """
@@ -699,22 +742,18 @@ def Enforcer(
     strict=True,
     clean_traceback=True,
     iterable_sample_pct=100,
+    only_typed=False,
 ):
     """
-    A wrapper to enforce types within a function or method given argument annotations.
+    A wrapper to enforce types within a function, method, or class.
 
-    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If a function or method that is passed does not have any annotations, it is not converted into a `FunctionMethodEnforcer` class as no validation is possible.
-
-    If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
-
-    - Methods with `__call__`
-    - Methods wrapped with `staticmethod` (if python >= 3.10)
-    - Methods wrapped with `classmethod` (if python >= 3.10)
+    Each wrapped callable is converted into a `FunctionMethodEnforcer` object.
+    When applied to a class, all methods are wrapped individually.
 
     Requires:
 
     - `clsFnMethod`:
-        - What: The class, function or method that should have input types enforced
+        - What: The class, function, or method that should have types enforced.
         - Type: function | method | class
 
     Optional:
@@ -726,8 +765,7 @@ def Enforcer(
     - `strict`:
         - What: A boolean to enable or disable exceptions. If True, exceptions will be raised when type checking fails. If False, exceptions will not be raised but instead a warning will be printed to the console.
         - Type: bool
-        - Default: False
-        - Note: Type hints that are wrapped with the type enforcer and are invalid will still raise an exception.
+        - Default: True
     - `clean_traceback`:
         - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.
         - If True, modifies the excepthook temporarily such that only the relevant stack (not in the type_enforced package) is shown.
@@ -740,13 +778,17 @@ def Enforcer(
             additional items are randomly sampled so that the total checked is at least 3.
         - Type: int | float
         - Default: 100
+    - `only_typed`:
+        - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.
+        - Type: bool
+        - Default: False
 
 
     Example Use:
     ```
     >>> import type_enforced
     >>> @type_enforced.Enforcer
-    ... def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
+    ... def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     ...     pass
     ...
     >>> my_fn(a=1, b=2, c=3)
@@ -754,13 +796,8 @@ def Enforcer(
     >>> my_fn(a='a', b=2, c=3)
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-      File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 85, in __call__
-        self.__check_type__(assigned_vars.get(key), value, key)
-      File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 107, in __check_type__
-        self.__exception__(
-      File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 34, in __exception__
-        raise Exception(f"({self.__fn__.__qualname__}): {message}")
-    Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
+      ...
+    TypeError: TypeEnforced Exception (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` with value `a` instead.
     ```
     """
     if not hasattr(clsFnMethod, "__type_enforced_enabled__"):
@@ -774,10 +811,10 @@ def Enforcer(
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
-        # Only apply the enforcer if type_hints are present
+        # Only apply the enforcer if type_hints are present, unless only_typed is True
         # Add try except clause to better handle forward refs.
         try:
-            if get_type_hints(clsFnMethod) == {}:
+            if not only_typed and get_type_hints(clsFnMethod) == {}:
                 return clsFnMethod
         except:
             pass
@@ -788,6 +825,7 @@ def Enforcer(
                     __strict__=strict,
                     __clean_traceback__=clean_traceback,
                     __iterable_sample_pct__=iterable_sample_pct,
+                    __only_typed__=only_typed,
                 )
             )
         elif isinstance(clsFnMethod, classmethod):
@@ -797,6 +835,7 @@ def Enforcer(
                     __strict__=strict,
                     __clean_traceback__=clean_traceback,
                     __iterable_sample_pct__=iterable_sample_pct,
+                    __only_typed__=only_typed,
                 )
             )
         else:
@@ -805,6 +844,7 @@ def Enforcer(
                 __strict__=strict,
                 __clean_traceback__=clean_traceback,
                 __iterable_sample_pct__=iterable_sample_pct,
+                __only_typed__=only_typed,
             )
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
@@ -826,6 +866,7 @@ def Enforcer(
                         strict=strict,
                         clean_traceback=clean_traceback,
                         iterable_sample_pct=iterable_sample_pct,
+                        only_typed=only_typed,
                     ),
                 )
         return clsFnMethod

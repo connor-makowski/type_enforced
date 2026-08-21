@@ -3,9 +3,32 @@
 [![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.08832/status.svg)](https://doi.org/10.21105/joss.08832)
-[![PyPI Downloads](https://static.pepy.tech/badge/type_enforced/month)](https://pepy.tech/project/type_enforced)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/type-enforced?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=ORANGE&left_text=Downloads)](https://pepy.tech/projects/type-enforced)
 
 A pure python runtime type enforcer for type annotations. Enforce types in python functions and methods.
+
+## Why type_enforced?
+
+`type_enforced` hits the sweet spot between speed and correctness that other runtime type checkers miss.
+
+- **Near-beartype speed for simple types**: within ~25% for scalars and unions.
+- **Fully correct for complex nested types**: validates every item in structures like `list[dict[str, int]]` or a `dict[str, int]` with thousands of keys. 
+    - `Beartype` and `Typeguard` sample or skip nested items and miss real type errors.
+- **3–4× faster than Pydantic on complex types**: with the same correctness guarantees.
+- **Pure Python, zero runtime dependencies**: one decorator, works anywhere Python 3.11+ runs.
+
+### Performance at a glance
+
+Timings are averages over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (see [full benchmarks](benchmark.md)).
+
+| Type | type_enforced | beartype | Pydantic | Typeguard |
+|:-----|:-------------:|:--------:|:--------:|:---------:|
+| `int` | 0.35 µs | 0.28 µs | 1.30 µs | 2.39 µs |
+| `Union[int, float]` | 0.32 µs | 0.29 µs | 1.42 µs | 5.36 µs |
+| `dict[str, int]` (1 000 keys) | **27.82 µs** | 0.43 µs ⚠ | 79.77 µs | 4.88 µs ⚠ |
+| `list[dict[str, int]]` (100 items) | **2 794 µs** | 0.56 µs ⚠ | 10 194 µs | 7.28 µs ⚠ |
+
+> Beartype and Typeguard's fast times on complex types reflect incomplete validation — they don't check all items. Among checkers that are fully correct, type_enforced is **3–4× faster than Pydantic**.
 
 # Setup
 
@@ -55,17 +78,6 @@ You can pass union types to validate one of multiple types. For example, you cou
 Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For example, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
 
 Variables without an annotation for type are not enforced.
-
-## Why use Type Enforced?
-
-- `type_enforced` is a pure python type enforcer that does not require any special compiler or preprocessor to work.
-- `type_enforced` uses the standard python typing hints and enforces them at runtime.
-    - This means that you can use it in any python environment (3.11+) without any special setup.
-- `type_enforced` is designed to be lightweight and easy to use, making it a great choice for both small and large projects.
-- `type_enforced` supports complex (nested) typing hints, union types, and many of the standard python typing functions.
-- `type_enforced` is designed to be fast and efficient, with minimal overhead.
-- `type_enforced` offers the fastest performance for enforcing large objects of complex types
-    - Note: See the [benchmarks](https://github.com/connor-makowski/type_enforced/blob/main/benchmark.md) for more information on the performance of each type checker.
 
 ## Supported Type Checking Features:
 
@@ -246,6 +258,34 @@ class my_class:
         pass
 ```
 
+## Module Use
+
+You can enforce typing for all functions and classes in an entire module by calling `type_enforced.ModuleEnforcer()` in the module file:
+
+```py
+import type_enforced
+
+type_enforced.ModuleEnforcer()
+
+def my_fn(a: int, b: int) -> int:
+    return a + b
+
+class MyClass:
+    def greet(self, name: str) -> str:
+        return f"Hello {name}"
+```
+
+You can also enforce an imported module object:
+
+```py
+import my_module
+import type_enforced
+
+type_enforced.ModuleEnforcer(my_module)
+```
+
+Note: `submodules=True` by default, which recursively enforces all sub-packages/sub-modules belonging to the same package namespace (e.g. `mypkg.subpackage`), while never enforcing external libraries or imports outside that package namespace. Set `submodules=False` to only enforce the current module.
+
 ## Validate with Constraints
 Type enforcer can enforce constraints for passed variables. These constraints are validated after any type checks are made.
 
@@ -418,3 +458,4 @@ Dev dependencies are in `[project.optional-dependencies] dev` in `pyproject.toml
 """
 
 from .enforcer import Enforcer, FunctionMethodEnforcer
+from .module import ModuleEnforcer
