@@ -44,7 +44,7 @@ def generate_docs(version):
 
 # Build __init__.py from README
 readme = (root / "README.md").read_text()
-type_enforced.write_text(f'"""\n{readme}\n"""\n\nfrom .enforcer import Enforcer, FunctionMethodEnforcer\n')
+type_enforced.write_text(f'"""\n{readme}\n"""\n\nfrom .enforcer import Enforcer, FunctionMethodEnforcer\nfrom .module import ModuleEnforcer\n')
 
 generate_docs("./")
 generate_docs(VERSION)

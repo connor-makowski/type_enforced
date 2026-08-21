@@ -246,6 +246,34 @@ class my_class:
         pass
 ```
 
+## Module Use
+
+You can enforce typing for all functions and classes in an entire module by calling `type_enforced.ModuleEnforcer()` in the module file:
+
+```py
+import type_enforced
+
+type_enforced.ModuleEnforcer()
+
+def my_fn(a: int, b: int) -> int:
+    return a + b
+
+class MyClass:
+    def greet(self, name: str) -> str:
+        return f"Hello {name}"
+```
+
+You can also enforce an imported module object:
+
+```py
+import my_module
+import type_enforced
+
+type_enforced.ModuleEnforcer(my_module)
+```
+
+Note: `submodules=True` by default, which recursively enforces all sub-packages/sub-modules belonging to the same package namespace (e.g. `mypkg.subpackage`), while never enforcing external libraries or imports outside that package namespace. Set `submodules=False` to only enforce the current module.
+
 ## Validate with Constraints
 Type enforcer can enforce constraints for passed variables. These constraints are validated after any type checks are made.
 
@@ -417,4 +445,8 @@ For development, we use [uv](https://docs.astral.sh/uv/) to manage dependencies 
 Dev dependencies are in `[project.optional-dependencies] dev` in `pyproject.toml`. Install with `uv sync --extra dev`.
 """
 
-from .enforcer import Enforcer, FunctionMethodEnforcer
+from .enforcer import (
+    Enforcer,
+    FunctionMethodEnforcer,
+)
+from .module import ModuleEnforcer

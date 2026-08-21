@@ -14,7 +14,9 @@ from type_enforced.utils import (
     iterable_types,
     merge_type_dicts,
 )
-import sys, traceback, random
+import sys
+import traceback
+import random
 from pathlib import Path
 
 _NoneType = type(None)
@@ -701,20 +703,15 @@ def Enforcer(
     iterable_sample_pct=100,
 ):
     """
-    A wrapper to enforce types within a function or method given argument annotations.
+    A wrapper to enforce types within a function, method, or class.
 
-    Each wrapped item is converted into a special `FunctionMethodEnforcer` class object that validates the passed parameters for the function or method when it is called. If a function or method that is passed does not have any annotations, it is not converted into a `FunctionMethodEnforcer` class as no validation is possible.
-
-    If wrapping a class, all methods in the class that meet any of the following criteria will be wrapped individually:
-
-    - Methods with `__call__`
-    - Methods wrapped with `staticmethod` (if python >= 3.10)
-    - Methods wrapped with `classmethod` (if python >= 3.10)
+    Each wrapped callable is converted into a `FunctionMethodEnforcer` object.
+    When applied to a class, all methods are wrapped individually.
 
     Requires:
 
     - `clsFnMethod`:
-        - What: The class, function or method that should have input types enforced
+        - What: The class, function, or method that should have types enforced.
         - Type: function | method | class
 
     Optional:
@@ -726,8 +723,7 @@ def Enforcer(
     - `strict`:
         - What: A boolean to enable or disable exceptions. If True, exceptions will be raised when type checking fails. If False, exceptions will not be raised but instead a warning will be printed to the console.
         - Type: bool
-        - Default: False
-        - Note: Type hints that are wrapped with the type enforcer and are invalid will still raise an exception.
+        - Default: True
     - `clean_traceback`:
         - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.
         - If True, modifies the excepthook temporarily such that only the relevant stack (not in the type_enforced package) is shown.
@@ -746,7 +742,7 @@ def Enforcer(
     ```
     >>> import type_enforced
     >>> @type_enforced.Enforcer
-    ... def my_fn(a: int , b: [int, str] =2, c: int =3) -> None:
+    ... def my_fn(a: int , b: int | str =2, c: int =3) -> None:
     ...     pass
     ...
     >>> my_fn(a=1, b=2, c=3)
@@ -754,13 +750,8 @@ def Enforcer(
     >>> my_fn(a='a', b=2, c=3)
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-      File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 85, in __call__
-        self.__check_type__(assigned_vars.get(key), value, key)
-      File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 107, in __check_type__
-        self.__exception__(
-      File "/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py", line 34, in __exception__
-        raise Exception(f"({self.__fn__.__qualname__}): {message}")
-    Exception: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` instead.
+      ...
+    TypeError: TypeEnforced Exception (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` with value `a` instead.
     ```
     """
     if not hasattr(clsFnMethod, "__type_enforced_enabled__"):

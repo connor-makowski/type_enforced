@@ -7,3 +7,4 @@
 .venv/
 .nox/
 build/
+.pytest_cache/
