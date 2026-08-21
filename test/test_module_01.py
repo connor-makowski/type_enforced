@@ -55,3 +55,55 @@ def fn(x: int) -> int:
     assert m.fn(2) == 4
     with pytest.raises(TypeError, match="Type mismatch"):
         m.fn("2")
+
+
+def test_module_01_only_typed():
+    import types
+
+    # Module with untyped variable fails when only_typed=True
+    m1 = types.ModuleType("mod_untyped")
+    exec(
+        """
+def bad_fn(a, b: int) -> int:
+    return b
+""",
+        m1.__dict__,
+    )
+    with pytest.raises(TypeError, match="Untyped variable `a`"):
+        type_enforced.ModuleEnforcer(m1, only_typed=True)
+
+    # Fully typed module passes when only_typed=True
+    m2 = types.ModuleType("mod_typed")
+    exec(
+        """
+def good_fn(a: int, b: int) -> int:
+    return a + b
+""",
+        m2.__dict__,
+    )
+    type_enforced.ModuleEnforcer(m2, only_typed=True)
+    assert m2.good_fn(1, 2) == 3
+    with pytest.raises(TypeError, match="Type mismatch"):
+        m2.good_fn("1", 2)
+
+
+def test_module_01_disabled():
+    import types
+
+    m = types.ModuleType("mod_disabled")
+    exec(
+        """
+def untyped_fn(a, b):
+    return a + b
+
+def typed_fn(x: int) -> int:
+    return x * 2
+""",
+        m.__dict__,
+    )
+
+    # When enabled=False, enforcement is skipped even with only_typed=True
+    type_enforced.ModuleEnforcer(m, enabled=False, only_typed=True)
+
+    assert m.untyped_fn(1, 2) == 3
+    assert m.typed_fn("not_an_int") == "not_an_intnot_an_int"

@@ -40,6 +40,7 @@ def ModuleEnforcer(
     clean_traceback=True,
     iterable_sample_pct=100,
     submodules=True,
+    only_typed=False,
 ):
     """
     Enforce types on all functions and classes defined in a module.
@@ -78,6 +79,10 @@ def ModuleEnforcer(
             same package namespace.
         - Type: bool
         - Default: True
+    - `only_typed`:
+        - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.
+        - Type: bool
+        - Default: False
     """
     from type_enforced.enforcer import Enforcer
 
@@ -105,6 +110,7 @@ def ModuleEnforcer(
                     strict=strict,
                     clean_traceback=clean_traceback,
                     iterable_sample_pct=iterable_sample_pct,
+                    only_typed=only_typed,
                 )
                 setattr(target_module, key, wrapped)
             elif submodules and isinstance(value, ModuleType):
@@ -116,6 +122,7 @@ def ModuleEnforcer(
                         clean_traceback=clean_traceback,
                         iterable_sample_pct=iterable_sample_pct,
                         submodules=submodules,
+                        only_typed=only_typed,
                     )
 
         if submodules:
@@ -133,6 +140,7 @@ def ModuleEnforcer(
                         clean_traceback=clean_traceback,
                         iterable_sample_pct=iterable_sample_pct,
                         submodules=submodules,
+                        only_typed=only_typed,
                     )
 
     # Immediately enforce any functions/classes already present
@@ -162,6 +170,7 @@ def ModuleEnforcer(
                         clean_traceback=clean_traceback,
                         iterable_sample_pct=iterable_sample_pct,
                         submodules=submodules,
+                        only_typed=only_typed,
                     )
             return attr
 

@@ -72,12 +72,20 @@ publish.sh           # PyPI publishing script — DO NOT RUN
 ### Enforcer Parameters
 
 ```python
-@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True)
+@type_enforced.Enforcer(
+    enabled=True,
+    strict=True,
+    clean_traceback=True,
+    iterable_sample_pct=100,
+    only_typed=False,
+)
 ```
 
 - `enabled` (True): Set `False` to disable a specific function/method/class. Method-level takes precedence over class-level.
 - `strict` (True): Set `False` to warn instead of raise on type mismatch.
 - `clean_traceback` (True): Strips type_enforced internal frames from tracebacks.
+- `iterable_sample_pct` (100): Percentage (0-100) of items to validate when checking typed iterables.
+- `only_typed` (False): Set `True` to raise an exception on untyped function/method parameters or return values.
 
 ### How Type Checking Works
 
