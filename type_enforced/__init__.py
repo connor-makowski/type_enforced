@@ -12,7 +12,7 @@ A pure python runtime type enforcer for type annotations. Enforce types in pytho
 `type_enforced` hits the sweet spot between speed and correctness that other runtime type checkers miss.
 
 - **Near-beartype speed for simple types**: within ~25% for scalars and unions.
-- **Fully correct for complex nested types**: validates every item in structures like `list[dict[str, int]]` or a `dict[str, int]` with thousands of keys. 
+- **Fully correct for complex nested types**: validates every item in structures like `list[dict[str, int]]` or a `dict[str, int]` with thousands of keys.
     - `Beartype` and `Typeguard` sample or skip nested items and miss real type errors.
 - **3–4× faster than Pydantic on complex types**: with the same correctness guarantees.
 - **Pure Python, zero runtime dependencies**: one decorator, works anywhere Python 3.11+ runs.
@@ -256,6 +256,33 @@ class my_class:
     @type_enforced.Enforcer(enabled=False)
     def my_other_fn(self, a: int) -> None:
         pass
+```
+
+## Only Typed
+
+You can require that all parameters and return values have type annotations by setting `only_typed=True` (defaults to `False`). If any parameter or return value is missing a type annotation, an exception will be raised upon decoration:
+
+```py
+import type_enforced
+
+@type_enforced.Enforcer(only_typed=True)
+def my_fn(a: int, b: str) -> str:
+    return f"{a}: {b}"
+
+# Missing type hint on parameter `a` or return value raises TypeError:
+@type_enforced.Enforcer(only_typed=True)
+def bad_fn(a, b: int) -> int:
+    return b
+# TypeError: TypeEnforced Exception (bad_fn): Untyped variable `a` found in function/method `bad_fn`.
+```
+
+`only_typed=True` can also be used on classes or with `ModuleEnforcer`:
+
+```py
+@type_enforced.Enforcer(only_typed=True)
+class MyClass:
+    def greet(self, name: str) -> str:
+        return f"Hello {name}"
 ```
 
 ## Module Use

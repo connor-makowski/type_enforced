@@ -257,6 +257,33 @@ class my_class:
         pass
 ```
 
+## Only Typed
+
+You can require that all parameters and return values have type annotations by setting `only_typed=True` (defaults to `False`). If any parameter or return value is missing a type annotation, an exception will be raised upon decoration:
+
+```py
+import type_enforced
+
+@type_enforced.Enforcer(only_typed=True)
+def my_fn(a: int, b: str) -> str:
+    return f"{a}: {b}"
+
+# Missing type hint on parameter `a` or return value raises TypeError:
+@type_enforced.Enforcer(only_typed=True)
+def bad_fn(a, b: int) -> int:
+    return b
+# TypeError: TypeEnforced Exception (bad_fn): Untyped variable `a` found in function/method `bad_fn`.
+```
+
+`only_typed=True` can also be used on classes or with `ModuleEnforcer`:
+
+```py
+@type_enforced.Enforcer(only_typed=True)
+class MyClass:
+    def greet(self, name: str) -> str:
+        return f"Hello {name}"
+```
+
 ## Module Use
 
 You can enforce typing for all functions and classes in an entire module by calling `type_enforced.ModuleEnforcer()` in the module file:
