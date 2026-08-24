@@ -1,24 +1,5 @@
+import ast
 import types
-
-
-def bind_parameter_names(func, param_names, defaults=None):
-    """
-    Given a template function with signature (self, a, b, ...) and target param_names,
-    returns a new FunctionType with parameter names updated to (self, *param_names).
-    """
-    code = func.__code__
-    n_params = len(param_names)
-    new_varnames = (
-        ("self",) + tuple(param_names) + code.co_varnames[1 + n_params :]
-    )
-    new_code = code.replace(co_varnames=new_varnames)
-    return types.FunctionType(
-        new_code,
-        func.__globals__,
-        "__call__",
-        defaults,
-        func.__closure__,
-    )
 
 
 def create_specialized_class(base_cls, fn_qualname, call_method):
@@ -36,2009 +17,969 @@ def create_specialized_class(base_cls, fn_qualname, call_method):
     )
 
 
-# --- Type Inspection Helpers ---
 def is_simple_type(exp):
+    """
+    Returns True if exp is a scalar or union of scalar types (e.g. {int: None, str: None}).
+    """
     return (
-        exp is not None
+        isinstance(exp, dict)
         and "__extra__" not in exp
         and all(v is None for v in exp.values())
         and all(isinstance(k, type) for k in exp.keys())
     )
 
 
-def is_simple_list(exp):
-    return (
-        isinstance(exp, dict)
-        and len(exp) == 1
-        and list in exp
-        and isinstance(exp[list], dict)
-        and is_simple_type(exp[list])
-    )
+def can_specialize_type(exp):
+    """
+    Recursively determines if an expected type expression can be specialized via AST.
+    Supports scalars, unions, lists, dicts, sets, and tuples to arbitrary nesting depths.
+    """
+    if exp is None or is_simple_type(exp):
+        return True
+    if not isinstance(exp, dict) or len(exp) != 1 or "__extra__" in exp:
+        return False
+    k = next(iter(exp))
+    v = exp[k]
+    if k in (list, set):
+        return can_specialize_type(v)
+    if k is dict:
+        return (
+            isinstance(v, tuple)
+            and len(v) == 2
+            and can_specialize_type(v[0])
+            and can_specialize_type(v[1])
+        )
+    if k is tuple:
+        if isinstance(v, tuple) and len(v) == 2:
+            if v[1] is True:
+                return can_specialize_type(v[0])
+            elif v[1] is False and isinstance(v[0], tuple):
+                return all(can_specialize_type(item) for item in v[0])
+    return False
 
 
-def is_simple_dict(exp):
-    return (
-        isinstance(exp, dict)
-        and len(exp) == 1
-        and dict in exp
-        and isinstance(exp[dict], tuple)
-        and len(exp[dict]) == 2
-        and is_simple_type(exp[dict][0])
-        and is_simple_type(exp[dict][1])
-    )
+def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
+    """
+    Generates AST statements for checking a simple scalar or union of scalar types.
+    """
+    tt = tuple(exp.keys())
+    fn_globals[f"{prefix}_types"] = tt
+    fn_globals[f"{prefix}_t0"] = tt[0]
 
+    var_class = ast.Attribute(value=var_expr, attr="__class__", ctx=ast.Load())
 
-def is_simple_set(exp):
-    return (
-        isinstance(exp, dict)
-        and len(exp) == 1
-        and set in exp
-        and isinstance(exp[set], dict)
-        and is_simple_type(exp[set])
-    )
-
-
-def is_simple_var_tuple(exp):
-    return (
-        isinstance(exp, dict)
-        and len(exp) == 1
-        and tuple in exp
-        and isinstance(exp[tuple], tuple)
-        and len(exp[tuple]) == 2
-        and exp[tuple][1] is True
-        and is_simple_type(exp[tuple][0])
-    )
-
-
-def is_simple_list_of_dict(exp):
-    return (
-        isinstance(exp, dict)
-        and len(exp) == 1
-        and list in exp
-        and isinstance(exp[list], dict)
-        and is_simple_dict(exp[list])
-    )
-
-
-def is_simple_list_of_list(exp):
-    return (
-        isinstance(exp, dict)
-        and len(exp) == 1
-        and list in exp
-        and isinstance(exp[list], dict)
-        and is_simple_list(exp[list])
-    )
-
-
-def is_simple_dict_of_list(exp):
-    return (
-        isinstance(exp, dict)
-        and len(exp) == 1
-        and dict in exp
-        and isinstance(exp[dict], tuple)
-        and len(exp[dict]) == 2
-        and is_simple_type(exp[dict][0])
-        and is_simple_list(exp[dict][1])
-    )
-
-
-# --- Zero Arg Builders ---
-def build_zero_arg(
-    fn,
-    check_type_fn,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
-):
-    if ret_mode == 0:
-
-        def template(self):
-            return fn()
-
-        return template
-    elif ret_mode == 1:
-
-        def template(self):
-            res = fn()
-            if res is None:
-                return res
-            check_type_fn(self, res, ret_exp, "return")
-            return res
-
-        return template
+    if len(tt) == 1:
+        test = ast.BoolOp(
+            op=ast.And(),
+            values=[
+                ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=f"{prefix}_t0", ctx=ast.Load())],
+                ),
+                ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Call(
+                        func=ast.Name(id="isinstance", ctx=ast.Load()),
+                        args=[
+                            var_expr,
+                            ast.Name(id=f"{prefix}_types", ctx=ast.Load()),
+                        ],
+                        keywords=[],
+                    ),
+                ),
+            ],
+        )
+    elif len(tt) == 2:
+        fn_globals[f"{prefix}_t1"] = tt[1]
+        test = ast.BoolOp(
+            op=ast.And(),
+            values=[
+                ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=f"{prefix}_t0", ctx=ast.Load())],
+                ),
+                ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=f"{prefix}_t1", ctx=ast.Load())],
+                ),
+                ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Call(
+                        func=ast.Name(id="isinstance", ctx=ast.Load()),
+                        args=[
+                            var_expr,
+                            ast.Name(id=f"{prefix}_types", ctx=ast.Load()),
+                        ],
+                        keywords=[],
+                    ),
+                ),
+            ],
+        )
     else:
+        test = ast.UnaryOp(
+            op=ast.Not(),
+            operand=ast.Call(
+                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                args=[
+                    var_expr,
+                    ast.Name(id=f"{prefix}_types", ctx=ast.Load()),
+                ],
+                keywords=[],
+            ),
+        )
 
-        def template(self):
-            res = fn()
-            if (
-                type(res) is ret_t0
-                or type(res) is ret_t1
-                or isinstance(res, ret_types)
-            ):
-                return res
-            check_type_fn(self, res, ret_exp, "return")
-            return res
-
-        return template
+    return [ast.If(test=test, body=[fail_call], orelse=[])]
 
 
-# --- Simple N-Arg Builders ---
-def build_simple_n_arg(
-    fn,
-    param_names,
-    defaults,
-    check_type_fn,
-    p_t0s,
-    p_t1s,
-    p_types,
-    p_exps,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
+def generate_type_check_ast(
+    var_expr, exp, fail_call, fn_globals, prefix, sample_pct, is_loop=False
 ):
-    n = len(param_names)
-
-    if n == 1:
-        p0_name = param_names[0]
-        p0_t0 = p_t0s[0]
-        p0_t1 = p_t1s[0]
-        p0_types = p_types[0]
-        p0_exp = p_exps[0]
-
-        if p0_t0 is None:
-            if ret_mode == 0:
-
-                def template(self, a):
-                    return fn(a)
-
-            elif ret_mode == 1:
-
-                def template(self, a):
-                    res = fn(a)
-                    if res is None:
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-            else:
-
-                def template(self, a):
-                    res = fn(a)
-                    if (
-                        type(res) is ret_t0
-                        or type(res) is ret_t1
-                        or isinstance(res, ret_types)
-                    ):
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-        elif p0_t1 is None:
-            if ret_mode == 0:
-
-                def template(self, a):
-                    if type(a) is not p0_t0 and not isinstance(a, p0_types):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    return fn(a)
-
-            elif ret_mode == 1:
-
-                def template(self, a):
-                    if type(a) is not p0_t0 and not isinstance(a, p0_types):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    res = fn(a)
-                    if res is None:
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-            else:
-
-                def template(self, a):
-                    if type(a) is not p0_t0 and not isinstance(a, p0_types):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    res = fn(a)
-                    if (
-                        type(res) is ret_t0
-                        or type(res) is ret_t1
-                        or isinstance(res, ret_types)
-                    ):
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-        else:
-            if ret_mode == 0:
-
-                def template(self, a):
-                    t = type(a)
-                    if (
-                        t is not p0_t0
-                        and t is not p0_t1
-                        and not isinstance(a, p0_types)
-                    ):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    return fn(a)
-
-            elif ret_mode == 1:
-
-                def template(self, a):
-                    t = type(a)
-                    if (
-                        t is not p0_t0
-                        and t is not p0_t1
-                        and not isinstance(a, p0_types)
-                    ):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    res = fn(a)
-                    if res is None:
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-            else:
-
-                def template(self, a):
-                    t = type(a)
-                    if (
-                        t is not p0_t0
-                        and t is not p0_t1
-                        and not isinstance(a, p0_types)
-                    ):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    res = fn(a)
-                    if (
-                        type(res) is ret_t0
-                        or type(res) is ret_t1
-                        or isinstance(res, ret_types)
-                    ):
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-        return bind_parameter_names(template, param_names, defaults)
-
-    elif n == 2:
-        p0_name, p1_name = param_names
-        p0_t0, p1_t0 = p_t0s
-        p0_t1, p1_t1 = p_t1s
-        p0_types, p1_types = p_types
-        p0_exp, p1_exp = p_exps
-
-        # Method case: param 0 is untyped (e.g. self)
-        if p0_t0 is None and p1_t0 is not None:
-            if p1_t1 is None:
-                if ret_mode == 0:
-
-                    def template(self, a, b):
-                        if type(b) is not p1_t0 and not isinstance(b, p1_types):
-                            check_type_fn(self, b, p1_exp, p1_name)
-                        return fn(a, b)
-
-                elif ret_mode == 1:
-
-                    def template(self, a, b):
-                        if type(b) is not p1_t0 and not isinstance(b, p1_types):
-                            check_type_fn(self, b, p1_exp, p1_name)
-                        res = fn(a, b)
-                        if res is None:
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-                else:
-
-                    def template(self, a, b):
-                        if type(b) is not p1_t0 and not isinstance(b, p1_types):
-                            check_type_fn(self, b, p1_exp, p1_name)
-                        res = fn(a, b)
-                        if (
-                            type(res) is ret_t0
-                            or type(res) is ret_t1
-                            or isinstance(res, ret_types)
-                        ):
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-            else:
-                if ret_mode == 0:
-
-                    def template(self, a, b):
-                        t = type(b)
-                        if (
-                            t is not p1_t0
-                            and t is not p1_t1
-                            and not isinstance(b, p1_types)
-                        ):
-                            check_type_fn(self, b, p1_exp, p1_name)
-                        return fn(a, b)
-
-                elif ret_mode == 1:
-
-                    def template(self, a, b):
-                        t = type(b)
-                        if (
-                            t is not p1_t0
-                            and t is not p1_t1
-                            and not isinstance(b, p1_types)
-                        ):
-                            check_type_fn(self, b, p1_exp, p1_name)
-                        res = fn(a, b)
-                        if res is None:
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-                else:
-
-                    def template(self, a, b):
-                        t = type(b)
-                        if (
-                            t is not p1_t0
-                            and t is not p1_t1
-                            and not isinstance(b, p1_types)
-                        ):
-                            check_type_fn(self, b, p1_exp, p1_name)
-                        res = fn(a, b)
-                        if (
-                            type(res) is ret_t0
-                            or type(res) is ret_t1
-                            or isinstance(res, ret_types)
-                        ):
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-        elif p0_t0 is None and p1_t0 is None:
-            if ret_mode == 0:
-
-                def template(self, a, b):
-                    return fn(a, b)
-
-            elif ret_mode == 1:
-
-                def template(self, a, b):
-                    res = fn(a, b)
-                    if res is None:
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-            else:
-
-                def template(self, a, b):
-                    res = fn(a, b)
-                    if (
-                        type(res) is ret_t0
-                        or type(res) is ret_t1
-                        or isinstance(res, ret_types)
-                    ):
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-        elif p0_t0 is not None and p1_t0 is None:
-            if p0_t1 is None:
-                if ret_mode == 0:
-
-                    def template(self, a, b):
-                        if type(a) is not p0_t0 and not isinstance(a, p0_types):
-                            check_type_fn(self, a, p0_exp, p0_name)
-                        return fn(a, b)
-
-                elif ret_mode == 1:
-
-                    def template(self, a, b):
-                        if type(a) is not p0_t0 and not isinstance(a, p0_types):
-                            check_type_fn(self, a, p0_exp, p0_name)
-                        res = fn(a, b)
-                        if res is None:
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-                else:
-
-                    def template(self, a, b):
-                        if type(a) is not p0_t0 and not isinstance(a, p0_types):
-                            check_type_fn(self, a, p0_exp, p0_name)
-                        res = fn(a, b)
-                        if (
-                            type(res) is ret_t0
-                            or type(res) is ret_t1
-                            or isinstance(res, ret_types)
-                        ):
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-            else:
-                if ret_mode == 0:
-
-                    def template(self, a, b):
-                        t = type(a)
-                        if (
-                            t is not p0_t0
-                            and t is not p0_t1
-                            and not isinstance(a, p0_types)
-                        ):
-                            check_type_fn(self, a, p0_exp, p0_name)
-                        return fn(a, b)
-
-                elif ret_mode == 1:
-
-                    def template(self, a, b):
-                        t = type(a)
-                        if (
-                            t is not p0_t0
-                            and t is not p0_t1
-                            and not isinstance(a, p0_types)
-                        ):
-                            check_type_fn(self, a, p0_exp, p0_name)
-                        res = fn(a, b)
-                        if res is None:
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-                else:
-
-                    def template(self, a, b):
-                        t = type(a)
-                        if (
-                            t is not p0_t0
-                            and t is not p0_t1
-                            and not isinstance(a, p0_types)
-                        ):
-                            check_type_fn(self, a, p0_exp, p0_name)
-                        res = fn(a, b)
-                        if (
-                            type(res) is ret_t0
-                            or type(res) is ret_t1
-                            or isinstance(res, ret_types)
-                        ):
-                            return res
-                        check_type_fn(self, res, ret_exp, "return")
-                        return res
-
-        else:
-            # Both typed
-            if ret_mode == 0:
-
-                def template(self, a, b):
-                    if (
-                        type(a) is not p0_t0
-                        and type(a) is not p0_t1
-                        and not isinstance(a, p0_types)
-                    ):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    if (
-                        type(b) is not p1_t0
-                        and type(b) is not p1_t1
-                        and not isinstance(b, p1_types)
-                    ):
-                        check_type_fn(self, b, p1_exp, p1_name)
-                    return fn(a, b)
-
-            elif ret_mode == 1:
-
-                def template(self, a, b):
-                    if (
-                        type(a) is not p0_t0
-                        and type(a) is not p0_t1
-                        and not isinstance(a, p0_types)
-                    ):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    if (
-                        type(b) is not p1_t0
-                        and type(b) is not p1_t1
-                        and not isinstance(b, p1_types)
-                    ):
-                        check_type_fn(self, b, p1_exp, p1_name)
-                    res = fn(a, b)
-                    if res is None:
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-            else:
-
-                def template(self, a, b):
-                    if (
-                        type(a) is not p0_t0
-                        and type(a) is not p0_t1
-                        and not isinstance(a, p0_types)
-                    ):
-                        check_type_fn(self, a, p0_exp, p0_name)
-                    if (
-                        type(b) is not p1_t0
-                        and type(b) is not p1_t1
-                        and not isinstance(b, p1_types)
-                    ):
-                        check_type_fn(self, b, p1_exp, p1_name)
-                    res = fn(a, b)
-                    if (
-                        type(res) is ret_t0
-                        or type(res) is ret_t1
-                        or isinstance(res, ret_types)
-                    ):
-                        return res
-                    check_type_fn(self, res, ret_exp, "return")
-                    return res
-
-        return bind_parameter_names(template, param_names, defaults)
-
-    elif n == 3:
-        p0_name, p1_name, p2_name = param_names
-        p0_t0, p1_t0, p2_t0 = p_t0s
-        p0_t1, p1_t1, p2_t1 = p_t1s
-        p0_types, p1_types, p2_types = p_types
-        p0_exp, p1_exp, p2_exp = p_exps
-
-        if ret_mode == 0:
-
-            def template(self, a, b, c):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                return fn(a, b, c)
-
-        elif ret_mode == 1:
-
-            def template(self, a, b, c):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                res = fn(a, b, c)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a, b, c):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                res = fn(a, b, c)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        return bind_parameter_names(template, param_names, defaults)
-
-    elif n == 4:
-        p0_name, p1_name, p2_name, p3_name = param_names
-        p0_t0, p1_t0, p2_t0, p3_t0 = p_t0s
-        p0_t1, p1_t1, p2_t1, p3_t1 = p_t1s
-        p0_types, p1_types, p2_types, p3_types = p_types
-        p0_exp, p1_exp, p2_exp, p3_exp = p_exps
-
-        if ret_mode == 0:
-
-            def template(self, a, b, c, d):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                if p3_t0 is not None and (
-                    type(d) is not p3_t0
-                    and type(d) is not p3_t1
-                    and not isinstance(d, p3_types)
-                ):
-                    check_type_fn(self, d, p3_exp, p3_name)
-                return fn(a, b, c, d)
-
-        elif ret_mode == 1:
-
-            def template(self, a, b, c, d):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                if p3_t0 is not None and (
-                    type(d) is not p3_t0
-                    and type(d) is not p3_t1
-                    and not isinstance(d, p3_types)
-                ):
-                    check_type_fn(self, d, p3_exp, p3_name)
-                res = fn(a, b, c, d)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a, b, c, d):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                if p3_t0 is not None and (
-                    type(d) is not p3_t0
-                    and type(d) is not p3_t1
-                    and not isinstance(d, p3_types)
-                ):
-                    check_type_fn(self, d, p3_exp, p3_name)
-                res = fn(a, b, c, d)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        return bind_parameter_names(template, param_names, defaults)
-
-    elif n == 5:
-        p0_name, p1_name, p2_name, p3_name, p4_name = param_names
-        p0_t0, p1_t0, p2_t0, p3_t0, p4_t0 = p_t0s
-        p0_t1, p1_t1, p2_t1, p3_t1, p4_t1 = p_t1s
-        p0_types, p1_types, p2_types, p3_types, p4_types = p_types
-        p0_exp, p1_exp, p2_exp, p3_exp, p4_exp = p_exps
-
-        if ret_mode == 0:
-
-            def template(self, a, b, c, d, e):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                if p3_t0 is not None and (
-                    type(d) is not p3_t0
-                    and type(d) is not p3_t1
-                    and not isinstance(d, p3_types)
-                ):
-                    check_type_fn(self, d, p3_exp, p3_name)
-                if p4_t0 is not None and (
-                    type(e) is not p4_t0
-                    and type(e) is not p4_t1
-                    and not isinstance(e, p4_types)
-                ):
-                    check_type_fn(self, e, p4_exp, p4_name)
-                return fn(a, b, c, d, e)
-
-        elif ret_mode == 1:
-
-            def template(self, a, b, c, d, e):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                if p3_t0 is not None and (
-                    type(d) is not p3_t0
-                    and type(d) is not p3_t1
-                    and not isinstance(d, p3_types)
-                ):
-                    check_type_fn(self, d, p3_exp, p3_name)
-                if p4_t0 is not None and (
-                    type(e) is not p4_t0
-                    and type(e) is not p4_t1
-                    and not isinstance(e, p4_types)
-                ):
-                    check_type_fn(self, e, p4_exp, p4_name)
-                res = fn(a, b, c, d, e)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a, b, c, d, e):
-                if p0_t0 is not None and (
-                    type(a) is not p0_t0
-                    and type(a) is not p0_t1
-                    and not isinstance(a, p0_types)
-                ):
-                    check_type_fn(self, a, p0_exp, p0_name)
-                if p1_t0 is not None and (
-                    type(b) is not p1_t0
-                    and type(b) is not p1_t1
-                    and not isinstance(b, p1_types)
-                ):
-                    check_type_fn(self, b, p1_exp, p1_name)
-                if p2_t0 is not None and (
-                    type(c) is not p2_t0
-                    and type(c) is not p2_t1
-                    and not isinstance(c, p2_types)
-                ):
-                    check_type_fn(self, c, p2_exp, p2_name)
-                if p3_t0 is not None and (
-                    type(d) is not p3_t0
-                    and type(d) is not p3_t1
-                    and not isinstance(d, p3_types)
-                ):
-                    check_type_fn(self, d, p3_exp, p3_name)
-                if p4_t0 is not None and (
-                    type(e) is not p4_t0
-                    and type(e) is not p4_t1
-                    and not isinstance(e, p4_types)
-                ):
-                    check_type_fn(self, e, p4_exp, p4_name)
-                res = fn(a, b, c, d, e)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        return bind_parameter_names(template, param_names, defaults)
-
-    else:
-        active_checkers = []
-        for i in range(n):
-            if p_t0s[i] is not None:
-                active_checkers.append(
-                    (
-                        i,
-                        param_names[i],
-                        p_t0s[i],
-                        p_t1s[i],
-                        p_types[i],
-                        p_exps[i],
+    """
+    Recursively generates AST check statements for an arbitrary type expression.
+    Handles scalars, unions, lists, dicts, sets, and tuples at any nesting level.
+    """
+    if exp is None:
+        return []
+
+    if is_simple_type(exp):
+        return _generate_scalar_check(
+            var_expr, exp, fail_call, fn_globals, prefix
+        )
+
+    fail_stmt = fail_call
+    loop_fail = (
+        ast.If(
+            test=ast.Constant(value=True),
+            body=[fail_call, ast.Break()],
+            orelse=[],
+        )
+        if is_loop
+        else fail_call
+    )
+
+    k = next(iter(exp))
+    v = exp[k]
+
+    if k in (list, set):
+        type_name = k.__name__
+        sub_exp = v
+        elem_is_simple = is_simple_type(sub_exp)
+
+        # Outer type check
+        outer_class_test = ast.Compare(
+            left=ast.Attribute(
+                value=var_expr, attr="__class__", ctx=ast.Load()
+            ),
+            ops=[ast.IsNot()],
+            comparators=[ast.Name(id=type_name, ctx=ast.Load())],
+        )
+        outer_isinstance_test = ast.UnaryOp(
+            op=ast.Not(),
+            operand=ast.Call(
+                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                args=[var_expr, ast.Name(id=type_name, ctx=ast.Load())],
+                keywords=[],
+            ),
+        )
+        outer_type_guard = ast.If(
+            test=ast.BoolOp(
+                op=ast.And(), values=[outer_class_test, outer_isinstance_test]
+            ),
+            body=[fail_stmt],
+            orelse=[],
+        )
+
+        loop_var_id = f"{prefix}_el"
+        loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
+        sub_checks = generate_type_check_ast(
+            loop_var_expr,
+            sub_exp,
+            fail_stmt,
+            fn_globals,
+            f"{prefix}_el",
+            sample_pct,
+            is_loop=True,
+        )
+
+        if sample_pct == 0:
+            content_check = ast.If(
+                test=var_expr,
+                body=[
+                    ast.For(
+                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                        iter=var_expr,
+                        body=sub_checks + [ast.Break()],
+                        orelse=[],
                     )
+                ],
+                orelse=[],
+            )
+        elif sample_pct == 100:
+            if elem_is_simple:
+                elem_set = frozenset(sub_exp.keys())
+                fn_globals[f"{prefix}_elem_set"] = elem_set
+
+                for_loop = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks,
+                    orelse=[],
                 )
-        active_tuple = tuple(active_checkers)
-
-        if ret_mode == 0:
-
-            def template(self, *args):
-                for i, pn, t0, t1, tt, exp in active_tuple:
-                    a = args[i]
-                    if (
-                        type(a) is not t0
-                        and type(a) is not t1
-                        and not isinstance(a, tt)
-                    ):
-                        check_type_fn(self, a, exp, pn)
-                return fn(*args)
-
-        elif ret_mode == 1:
-
-            def template(self, *args):
-                for i, pn, t0, t1, tt, exp in active_tuple:
-                    a = args[i]
-                    if (
-                        type(a) is not t0
-                        and type(a) is not t1
-                        and not isinstance(a, tt)
-                    ):
-                        check_type_fn(self, a, exp, pn)
-                res = fn(*args)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
+                set_check = ast.If(
+                    test=ast.UnaryOp(
+                        op=ast.Not(),
+                        operand=ast.Compare(
+                            left=ast.Call(
+                                func=ast.Name(id="set", ctx=ast.Load()),
+                                args=[
+                                    ast.Call(
+                                        func=ast.Name(id="map", ctx=ast.Load()),
+                                        args=[
+                                            ast.Name(id="type", ctx=ast.Load()),
+                                            var_expr,
+                                        ],
+                                        keywords=[],
+                                    )
+                                ],
+                                keywords=[],
+                            ),
+                            ops=[ast.LtE()],
+                            comparators=[
+                                ast.Name(
+                                    id=f"{prefix}_elem_set", ctx=ast.Load()
+                                )
+                            ],
+                        ),
+                    ),
+                    body=[fail_stmt],
+                    orelse=[],
+                )
+                content_check = ast.If(
+                    test=ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.LtE()],
+                        comparators=[ast.Constant(value=50)],
+                    ),
+                    body=[for_loop],
+                    orelse=[set_check],
+                )
+            else:
+                content_check = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks,
+                    orelse=[],
+                )
         else:
+            if k is list:
+                idx_var_id = f"{prefix}_idx"
+                content_check = ast.For(
+                    target=ast.Name(id=idx_var_id, ctx=ast.Store()),
+                    iter=ast.Call(
+                        func=ast.Name(id="_get_sample_indices", ctx=ast.Load()),
+                        args=[
+                            ast.Name(id="__enf_self__", ctx=ast.Load()),
+                            ast.Call(
+                                func=ast.Name(id="len", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                        ],
+                        keywords=[],
+                    ),
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=var_expr,
+                                slice=ast.Name(id=idx_var_id, ctx=ast.Load()),
+                                ctx=ast.Load(),
+                            ),
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+            else:
+                idx_var_id = f"{prefix}_idx"
+                indices_set_id = f"{prefix}_indices"
+                init_indices = ast.Assign(
+                    targets=[ast.Name(id=indices_set_id, ctx=ast.Store())],
+                    value=ast.Call(
+                        func=ast.Name(id="set", ctx=ast.Load()),
+                        args=[
+                            ast.Call(
+                                func=ast.Name(
+                                    id="_get_sample_indices", ctx=ast.Load()
+                                ),
+                                args=[
+                                    ast.Name(id="__enf_self__", ctx=ast.Load()),
+                                    ast.Call(
+                                        func=ast.Name(id="len", ctx=ast.Load()),
+                                        args=[var_expr],
+                                        keywords=[],
+                                    ),
+                                ],
+                                keywords=[],
+                            )
+                        ],
+                        keywords=[],
+                    ),
+                )
+                content_check = ast.For(
+                    target=ast.Tuple(
+                        elts=[
+                            ast.Name(id=idx_var_id, ctx=ast.Store()),
+                            ast.Name(id=loop_var_id, ctx=ast.Store()),
+                        ],
+                        ctx=ast.Store(),
+                    ),
+                    iter=ast.Call(
+                        func=ast.Name(id="enumerate", ctx=ast.Load()),
+                        args=[var_expr],
+                        keywords=[],
+                    ),
+                    body=[
+                        ast.If(
+                            test=ast.Compare(
+                                left=ast.Name(id=idx_var_id, ctx=ast.Load()),
+                                ops=[ast.In()],
+                                comparators=[
+                                    ast.Name(id=indices_set_id, ctx=ast.Load())
+                                ],
+                            ),
+                            body=sub_checks,
+                            orelse=[],
+                        )
+                    ],
+                    orelse=[],
+                )
+                return [outer_type_guard, init_indices, content_check]
 
-            def template(self, *args):
-                for i, pn, t0, t1, tt, exp in active_tuple:
-                    a = args[i]
-                    if (
-                        type(a) is not t0
-                        and type(a) is not t1
-                        and not isinstance(a, tt)
-                    ):
-                        check_type_fn(self, a, exp, pn)
-                res = fn(*args)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
+        return [outer_type_guard, content_check]
 
-        return template
+    if k is dict:
+        k_exp, v_exp = v
+        kv_is_simple = is_simple_type(k_exp) and is_simple_type(v_exp)
+
+        # Outer dict check
+        outer_class_test = ast.Compare(
+            left=ast.Attribute(
+                value=var_expr, attr="__class__", ctx=ast.Load()
+            ),
+            ops=[ast.IsNot()],
+            comparators=[ast.Name(id="dict", ctx=ast.Load())],
+        )
+        outer_isinstance_test = ast.UnaryOp(
+            op=ast.Not(),
+            operand=ast.Call(
+                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                args=[var_expr, ast.Name(id="dict", ctx=ast.Load())],
+                keywords=[],
+            ),
+        )
+        outer_type_guard = ast.If(
+            test=ast.BoolOp(
+                op=ast.And(), values=[outer_class_test, outer_isinstance_test]
+            ),
+            body=[fail_stmt],
+            orelse=[],
+        )
+
+        k_var_id = f"{prefix}_k"
+        v_var_id = f"{prefix}_v"
+        k_var_expr = ast.Name(id=k_var_id, ctx=ast.Load())
+        v_var_expr = ast.Name(id=v_var_id, ctx=ast.Load())
+
+        k_checks = generate_type_check_ast(
+            k_var_expr,
+            k_exp,
+            fail_stmt,
+            fn_globals,
+            f"{prefix}_k",
+            sample_pct,
+            is_loop=True,
+        )
+        v_checks = generate_type_check_ast(
+            v_var_expr,
+            v_exp,
+            fail_stmt,
+            fn_globals,
+            f"{prefix}_v",
+            sample_pct,
+            is_loop=True,
+        )
+
+        assign_val = ast.Assign(
+            targets=[ast.Name(id=v_var_id, ctx=ast.Store())],
+            value=ast.Subscript(
+                value=var_expr, slice=k_var_expr, ctx=ast.Load()
+            ),
+        )
+        dict_loop_body = k_checks + [assign_val] + v_checks
+
+        if sample_pct == 0:
+            content_check = ast.If(
+                test=var_expr,
+                body=[
+                    ast.For(
+                        target=ast.Name(id=k_var_id, ctx=ast.Store()),
+                        iter=var_expr,
+                        body=dict_loop_body + [ast.Break()],
+                        orelse=[],
+                    )
+                ],
+                orelse=[],
+            )
+        elif sample_pct == 100:
+            if kv_is_simple:
+                k_set = frozenset(k_exp.keys())
+                v_set = frozenset(v_exp.keys())
+                fn_globals[f"{prefix}_k_set"] = k_set
+                fn_globals[f"{prefix}_v_set"] = v_set
+
+                for_loop = ast.For(
+                    target=ast.Name(id=k_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=dict_loop_body,
+                    orelse=[],
+                )
+                set_check = ast.If(
+                    test=ast.UnaryOp(
+                        op=ast.Not(),
+                        operand=ast.BoolOp(
+                            op=ast.And(),
+                            values=[
+                                ast.Compare(
+                                    left=ast.Call(
+                                        func=ast.Name(id="set", ctx=ast.Load()),
+                                        args=[
+                                            ast.Call(
+                                                func=ast.Name(
+                                                    id="map", ctx=ast.Load()
+                                                ),
+                                                args=[
+                                                    ast.Name(
+                                                        id="type",
+                                                        ctx=ast.Load(),
+                                                    ),
+                                                    var_expr,
+                                                ],
+                                                keywords=[],
+                                            )
+                                        ],
+                                        keywords=[],
+                                    ),
+                                    ops=[ast.LtE()],
+                                    comparators=[
+                                        ast.Name(
+                                            id=f"{prefix}_k_set",
+                                            ctx=ast.Load(),
+                                        )
+                                    ],
+                                ),
+                                ast.Compare(
+                                    left=ast.Call(
+                                        func=ast.Name(id="set", ctx=ast.Load()),
+                                        args=[
+                                            ast.Call(
+                                                func=ast.Name(
+                                                    id="map", ctx=ast.Load()
+                                                ),
+                                                args=[
+                                                    ast.Name(
+                                                        id="type",
+                                                        ctx=ast.Load(),
+                                                    ),
+                                                    ast.Call(
+                                                        func=ast.Attribute(
+                                                            value=var_expr,
+                                                            attr="values",
+                                                            ctx=ast.Load(),
+                                                        ),
+                                                        args=[],
+                                                        keywords=[],
+                                                    ),
+                                                ],
+                                                keywords=[],
+                                            )
+                                        ],
+                                        keywords=[],
+                                    ),
+                                    ops=[ast.LtE()],
+                                    comparators=[
+                                        ast.Name(
+                                            id=f"{prefix}_v_set",
+                                            ctx=ast.Load(),
+                                        )
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ),
+                    body=[fail_stmt],
+                    orelse=[],
+                )
+                content_check = ast.If(
+                    test=ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.LtE()],
+                        comparators=[ast.Constant(value=50)],
+                    ),
+                    body=[for_loop],
+                    orelse=[set_check],
+                )
+            else:
+                content_check = ast.For(
+                    target=ast.Name(id=k_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=dict_loop_body,
+                    orelse=[],
+                )
+        else:
+            content_check = ast.For(
+                target=ast.Name(id=k_var_id, ctx=ast.Store()),
+                iter=ast.Call(
+                    func=ast.Name(id="_get_sample_keys", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="__enf_self__", ctx=ast.Load()),
+                        var_expr,
+                    ],
+                    keywords=[],
+                ),
+                body=dict_loop_body,
+                orelse=[],
+            )
+
+        return [outer_type_guard, content_check]
+
+    if k is tuple:
+        if isinstance(v, tuple) and len(v) == 2 and v[1] is True:
+            # Variable-length tuple[T, ...]
+            sub_exp = v[0]
+            elem_is_simple = is_simple_type(sub_exp)
+
+            outer_class_test = ast.Compare(
+                left=ast.Attribute(
+                    value=var_expr, attr="__class__", ctx=ast.Load()
+                ),
+                ops=[ast.IsNot()],
+                comparators=[ast.Name(id="tuple", ctx=ast.Load())],
+            )
+            outer_isinstance_test = ast.UnaryOp(
+                op=ast.Not(),
+                operand=ast.Call(
+                    func=ast.Name(id="isinstance", ctx=ast.Load()),
+                    args=[var_expr, ast.Name(id="tuple", ctx=ast.Load())],
+                    keywords=[],
+                ),
+            )
+            outer_type_guard = ast.If(
+                test=ast.BoolOp(
+                    op=ast.And(),
+                    values=[outer_class_test, outer_isinstance_test],
+                ),
+                body=[fail_stmt],
+                orelse=[],
+            )
+
+            loop_var_id = f"{prefix}_el"
+            loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
+            sub_checks = generate_type_check_ast(
+                loop_var_expr,
+                sub_exp,
+                fail_stmt,
+                fn_globals,
+                f"{prefix}_el",
+                sample_pct,
+                is_loop=True,
+            )
+
+            if sample_pct == 0:
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.For(
+                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                            iter=var_expr,
+                            body=sub_checks + [ast.Break()],
+                            orelse=[],
+                        )
+                    ],
+                    orelse=[],
+                )
+            elif sample_pct == 100:
+                if elem_is_simple:
+                    elem_set = frozenset(sub_exp.keys())
+                    fn_globals[f"{prefix}_elem_set"] = elem_set
+
+                    for_loop = ast.For(
+                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                        iter=var_expr,
+                        body=sub_checks,
+                        orelse=[],
+                    )
+                    set_check = ast.If(
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=ast.Compare(
+                                left=ast.Call(
+                                    func=ast.Name(id="set", ctx=ast.Load()),
+                                    args=[
+                                        ast.Call(
+                                            func=ast.Name(
+                                                id="map", ctx=ast.Load()
+                                            ),
+                                            args=[
+                                                ast.Name(
+                                                    id="type", ctx=ast.Load()
+                                                ),
+                                                var_expr,
+                                            ],
+                                            keywords=[],
+                                        )
+                                    ],
+                                    keywords=[],
+                                ),
+                                ops=[ast.LtE()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_elem_set",
+                                        ctx=ast.Load(),
+                                    )
+                                ],
+                            ),
+                        ),
+                        body=[fail_stmt],
+                        orelse=[],
+                    )
+                    content_check = ast.If(
+                        test=ast.Compare(
+                            left=ast.Call(
+                                func=ast.Name(id="len", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                            ops=[ast.LtE()],
+                            comparators=[ast.Constant(value=50)],
+                        ),
+                        body=[for_loop],
+                        orelse=[set_check],
+                    )
+                else:
+                    content_check = ast.For(
+                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                        iter=var_expr,
+                        body=sub_checks,
+                        orelse=[],
+                    )
+            else:
+                idx_var_id = f"{prefix}_idx"
+                content_check = ast.For(
+                    target=ast.Name(id=idx_var_id, ctx=ast.Store()),
+                    iter=ast.Call(
+                        func=ast.Name(id="_get_sample_indices", ctx=ast.Load()),
+                        args=[
+                            ast.Name(id="__enf_self__", ctx=ast.Load()),
+                            ast.Call(
+                                func=ast.Name(id="len", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                        ],
+                        keywords=[],
+                    ),
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=var_expr,
+                                slice=ast.Name(id=idx_var_id, ctx=ast.Load()),
+                                ctx=ast.Load(),
+                            ),
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+
+            return [outer_type_guard, content_check]
+
+        elif (
+            isinstance(v, tuple)
+            and len(v) == 2
+            and v[1] is False
+            and isinstance(v[0], tuple)
+        ):
+            # Fixed-length tuple[T1, T2, ...]
+            elem_exps = v[0]
+            expected_len = len(elem_exps)
+            outer_test = ast.BoolOp(
+                op=ast.Or(),
+                values=[
+                    ast.Compare(
+                        left=ast.Attribute(
+                            value=var_expr, attr="__class__", ctx=ast.Load()
+                        ),
+                        ops=[ast.IsNot()],
+                        comparators=[ast.Name(id="tuple", ctx=ast.Load())],
+                    ),
+                    ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.NotEq()],
+                        comparators=[ast.Constant(value=expected_len)],
+                    ),
+                ],
+            )
+            outer_type_guard = ast.If(
+                test=outer_test, body=[fail_stmt], orelse=[]
+            )
+
+            elem_checks = []
+            for j, item_exp in enumerate(elem_exps):
+                t_var_id = f"{prefix}_t{j}"
+                t_var_expr = ast.Name(id=t_var_id, ctx=ast.Load())
+                elem_assign = ast.Assign(
+                    targets=[ast.Name(id=t_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=j),
+                        ctx=ast.Load(),
+                    ),
+                )
+                t_checks = generate_type_check_ast(
+                    t_var_expr,
+                    item_exp,
+                    fail_stmt,
+                    fn_globals,
+                    f"{prefix}_t{j}",
+                    sample_pct,
+                )
+                elem_checks.extend([elem_assign] + t_checks)
+
+            return [outer_type_guard] + elem_checks
+
+    return [fail_stmt]
 
 
-# --- Simple List 1-Arg Builders ---
-def build_list_1arg(
+def build_specialized_call(
     fn,
     param_names,
     defaults,
+    param_exps,
     check_type_fn,
-    p_exp,
-    elem_t0,
-    elem_t1,
-    elem_types,
-    elem_set,
     sample_pct,
     get_sample_indices_fn,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
-    has_self=False,
-):
-    param_name = param_names[-1]
-    if sample_pct == 100:
-        if elem_t1 is None:
-
-            def check_list(self, a):
-                if type(a) is list:
-                    n = len(a)
-                    if n <= 20:
-                        for el in a:
-                            if type(el) is not elem_t0 and not isinstance(
-                                el, elem_types
-                            ):
-                                check_type_fn(self, a, p_exp, param_name)
-                                break
-                    else:
-                        if not set(map(type, a)) <= elem_set:
-                            check_type_fn(self, a, p_exp, param_name)
-                else:
-                    check_type_fn(self, a, p_exp, param_name)
-
-        else:
-
-            def check_list(self, a):
-                if type(a) is list:
-                    n = len(a)
-                    if n <= 20:
-                        for el in a:
-                            t = type(el)
-                            if (
-                                t is not elem_t0
-                                and t is not elem_t1
-                                and not isinstance(el, elem_types)
-                            ):
-                                check_type_fn(self, a, p_exp, param_name)
-                                break
-                    else:
-                        if not set(map(type, a)) <= elem_set:
-                            check_type_fn(self, a, p_exp, param_name)
-                else:
-                    check_type_fn(self, a, p_exp, param_name)
-
-    elif sample_pct == 0:
-        if elem_t1 is None:
-
-            def check_list(self, a):
-                if type(a) is list:
-                    if (
-                        a
-                        and type(a[0]) is not elem_t0
-                        and not isinstance(a[0], elem_types)
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-                else:
-                    check_type_fn(self, a, p_exp, param_name)
-
-        else:
-
-            def check_list(self, a):
-                if type(a) is list:
-                    if a:
-                        t = type(a[0])
-                        if (
-                            t is not elem_t0
-                            and t is not elem_t1
-                            and not isinstance(a[0], elem_types)
-                        ):
-                            check_type_fn(self, a, p_exp, param_name)
-                else:
-                    check_type_fn(self, a, p_exp, param_name)
-
-    else:
-
-        def check_list(self, a):
-            if type(a) is list:
-                for idx in get_sample_indices_fn(self, len(a)):
-                    el = a[idx]
-                    t = type(el)
-                    if (
-                        t is not elem_t0
-                        and t is not elem_t1
-                        and not isinstance(el, elem_types)
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-                        break
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    if not has_self:
-        if ret_mode == 0:
-
-            def template(self, a):
-                check_list(self, a)
-                return fn(a)
-
-        elif ret_mode == 1:
-
-            def template(self, a):
-                check_list(self, a)
-                res = fn(a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a):
-                check_list(self, a)
-                res = fn(a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    else:
-        if ret_mode == 0:
-
-            def template(self, s, a):
-                check_list(self, a)
-                return fn(s, a)
-
-        elif ret_mode == 1:
-
-            def template(self, s, a):
-                check_list(self, a)
-                res = fn(s, a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, s, a):
-                check_list(self, a)
-                res = fn(s, a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    return bind_parameter_names(template, param_names, defaults)
-
-
-# --- Simple Dict 1-Arg Builders ---
-def build_dict_1arg(
-    fn,
-    param_names,
-    defaults,
-    check_type_fn,
-    p_exp,
-    k_t0,
-    k_t1,
-    k_types,
-    k_set,
-    v_t0,
-    v_t1,
-    v_types,
-    v_set,
-    sample_pct,
     get_sample_keys_fn,
     ret_mode,
     ret_t0=None,
     ret_t1=None,
     ret_types=None,
     ret_exp=None,
-    has_self=False,
 ):
-    param_name = param_names[-1]
-    if sample_pct == 100:
+    """
+    Generates a specialized __call__ method using dynamic AST compilation.
+    Supports any arity N >= 0 with any scalar or nested container parameters.
+    Zero eval() or exec().
+    """
+    fn_globals = {
+        "_fn": fn,
+        "_check_fn": check_type_fn,
+        "isinstance": isinstance,
+        "len": len,
+        "set": set,
+        "map": map,
+        "type": type,
+        "list": list,
+        "dict": dict,
+        "tuple": tuple,
+        "enumerate": enumerate,
+        "_get_sample_indices": get_sample_indices_fn,
+        "_get_sample_keys": get_sample_keys_fn,
+    }
 
-        def check_dict(self, a):
-            if type(a) is dict:
-                n = len(a)
-                if n <= 20:
-                    for dk in a:
-                        dv = a[dk]
-                        if (
-                            type(dk) is not k_t0
-                            and type(dk) is not k_t1
-                            and not isinstance(dk, k_types)
-                        ) or (
-                            type(dv) is not v_t0
-                            and type(dv) is not v_t1
-                            and not isinstance(dv, v_types)
-                        ):
-                            check_type_fn(self, a, p_exp, param_name)
-                            break
-                else:
-                    if not (
-                        set(map(type, a)) <= k_set
-                        and set(map(type, a.values())) <= v_set
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
+    args = [ast.arg(arg="__enf_self__")] + [
+        ast.arg(arg=name) for name in param_names
+    ]
+    body = []
 
-    elif sample_pct == 0:
+    for i, (name, exp) in enumerate(zip(param_names, param_exps)):
+        if exp is None:
+            continue
 
-        def check_dict(self, a):
-            if type(a) is dict:
-                if a:
-                    for dk in a:
-                        if type(dk) is not k_t0 or type(a[dk]) is not v_t0:
-                            if (
-                                type(dk) is not k_t0
-                                and type(dk) is not k_t1
-                                and not isinstance(dk, k_types)
-                            ) or (
-                                type(a[dk]) is not v_t0
-                                and type(a[dk]) is not v_t1
-                                and not isinstance(a[dk], v_types)
-                            ):
-                                check_type_fn(self, a, p_exp, param_name)
-                        break
-            else:
-                check_type_fn(self, a, p_exp, param_name)
+        fn_globals[f"_param_exp_{i}"] = exp
+        fail_call = ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id="_check_fn", ctx=ast.Load()),
+                args=[
+                    ast.Name(id="__enf_self__", ctx=ast.Load()),
+                    ast.Name(id=name, ctx=ast.Load()),
+                    ast.Name(id=f"_param_exp_{i}", ctx=ast.Load()),
+                    ast.Constant(value=name),
+                ],
+                keywords=[],
+            )
+        )
 
+        var_expr = ast.Name(id=name, ctx=ast.Load())
+        param_checks = generate_type_check_ast(
+            var_expr,
+            exp,
+            fail_call,
+            fn_globals,
+            f"_p{i}",
+            sample_pct,
+        )
+        body.extend(param_checks)
+
+    call_args = [ast.Name(id=name, ctx=ast.Load()) for name in param_names]
+    fn_call = ast.Call(
+        func=ast.Name(id="_fn", ctx=ast.Load()), args=call_args, keywords=[]
+    )
+
+    if ret_mode == 0:
+        body.append(ast.Return(value=fn_call))
+    elif ret_mode == 1:
+        fn_globals["_ret_exp"] = ret_exp
+        body.append(
+            ast.Assign(
+                targets=[ast.Name(id="__enf_res__", ctx=ast.Store())],
+                value=fn_call,
+            )
+        )
+        body.append(
+            ast.If(
+                test=ast.Compare(
+                    left=ast.Name(id="__enf_res__", ctx=ast.Load()),
+                    ops=[ast.Is()],
+                    comparators=[ast.Constant(value=None)],
+                ),
+                body=[
+                    ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+                ],
+                orelse=[],
+            )
+        )
+        body.append(
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id="_check_fn", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="__enf_self__", ctx=ast.Load()),
+                        ast.Name(id="__enf_res__", ctx=ast.Load()),
+                        ast.Name(id="_ret_exp", ctx=ast.Load()),
+                        ast.Constant(value="return"),
+                    ],
+                    keywords=[],
+                )
+            )
+        )
+        body.append(
+            ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+        )
     else:
-
-        def check_dict(self, a):
-            if type(a) is dict:
-                for dk in get_sample_keys_fn(self, list(a.keys())):
-                    dv = a[dk]
-                    if (
-                        type(dk) is not k_t0
-                        and type(dk) is not k_t1
-                        and not isinstance(dk, k_types)
-                    ) or (
-                        type(dv) is not v_t0
-                        and type(dv) is not v_t1
-                        and not isinstance(dv, v_types)
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-                        break
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    if not has_self:
-        if ret_mode == 0:
-
-            def template(self, a):
-                check_dict(self, a)
-                return fn(a)
-
-        elif ret_mode == 1:
-
-            def template(self, a):
-                check_dict(self, a)
-                res = fn(a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a):
-                check_dict(self, a)
-                res = fn(a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    else:
-        if ret_mode == 0:
-
-            def template(self, s, a):
-                check_dict(self, a)
-                return fn(s, a)
-
-        elif ret_mode == 1:
-
-            def template(self, s, a):
-                check_dict(self, a)
-                res = fn(s, a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, s, a):
-                check_dict(self, a)
-                res = fn(s, a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    return bind_parameter_names(template, param_names, defaults)
-
-
-# --- Simple Set 1-Arg Builders ---
-def build_set_1arg(
-    fn,
-    param_names,
-    defaults,
-    check_type_fn,
-    p_exp,
-    elem_t0,
-    elem_t1,
-    elem_types,
-    elem_set,
-    sample_pct,
-    get_sample_indices_fn,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
-    has_self=False,
-):
-    param_name = param_names[-1]
-    if sample_pct == 100:
-
-        def check_set(self, a):
-            if type(a) is set:
-                n = len(a)
-                if n <= 20:
-                    for el in a:
-                        t = type(el)
-                        if (
-                            t is not elem_t0
-                            and t is not elem_t1
-                            and not isinstance(el, elem_types)
-                        ):
-                            check_type_fn(self, a, p_exp, param_name)
-                            break
-                else:
-                    if not set(map(type, a)) <= elem_set:
-                        check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    elif sample_pct == 0:
-
-        def check_set(self, a):
-            if type(a) is set:
-                if a:
-                    el = next(iter(a))
-                    t = type(el)
-                    if (
-                        t is not elem_t0
-                        and t is not elem_t1
-                        and not isinstance(el, elem_types)
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    else:
-
-        def check_set(self, a):
-            if type(a) is set:
-                a_list = list(a)
-                for idx in get_sample_indices_fn(self, len(a_list)):
-                    el = a_list[idx]
-                    t = type(el)
-                    if (
-                        t is not elem_t0
-                        and t is not elem_t1
-                        and not isinstance(el, elem_types)
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-                        break
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    if not has_self:
-        if ret_mode == 0:
-
-            def template(self, a):
-                check_set(self, a)
-                return fn(a)
-
-        elif ret_mode == 1:
-
-            def template(self, a):
-                check_set(self, a)
-                res = fn(a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a):
-                check_set(self, a)
-                res = fn(a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    else:
-        if ret_mode == 0:
-
-            def template(self, s, a):
-                check_set(self, a)
-                return fn(s, a)
-
-        elif ret_mode == 1:
-
-            def template(self, s, a):
-                check_set(self, a)
-                res = fn(s, a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, s, a):
-                check_set(self, a)
-                res = fn(s, a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    return bind_parameter_names(template, param_names, defaults)
-
-
-# --- Simple Var Tuple 1-Arg Builders ---
-def build_var_tuple_1arg(
-    fn,
-    param_names,
-    defaults,
-    check_type_fn,
-    p_exp,
-    elem_t0,
-    elem_t1,
-    elem_types,
-    elem_set,
-    sample_pct,
-    get_sample_indices_fn,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
-    has_self=False,
-):
-    param_name = param_names[-1]
-    if sample_pct == 100:
-
-        def check_tuple(self, a):
-            if type(a) is tuple:
-                n = len(a)
-                if n <= 20:
-                    for el in a:
-                        t = type(el)
-                        if (
-                            t is not elem_t0
-                            and t is not elem_t1
-                            and not isinstance(el, elem_types)
-                        ):
-                            check_type_fn(self, a, p_exp, param_name)
-                            break
-                else:
-                    if not set(map(type, a)) <= elem_set:
-                        check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    elif sample_pct == 0:
-
-        def check_tuple(self, a):
-            if type(a) is tuple:
-                if a:
-                    t = type(a[0])
-                    if (
-                        t is not elem_t0
-                        and t is not elem_t1
-                        and not isinstance(a[0], elem_types)
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    else:
-
-        def check_tuple(self, a):
-            if type(a) is tuple:
-                for idx in get_sample_indices_fn(self, len(a)):
-                    el = a[idx]
-                    t = type(el)
-                    if (
-                        t is not elem_t0
-                        and t is not elem_t1
-                        and not isinstance(el, elem_types)
-                    ):
-                        check_type_fn(self, a, p_exp, param_name)
-                        break
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    if not has_self:
-        if ret_mode == 0:
-
-            def template(self, a):
-                check_tuple(self, a)
-                return fn(a)
-
-        elif ret_mode == 1:
-
-            def template(self, a):
-                check_tuple(self, a)
-                res = fn(a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a):
-                check_tuple(self, a)
-                res = fn(a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    else:
-        if ret_mode == 0:
-
-            def template(self, s, a):
-                check_tuple(self, a)
-                return fn(s, a)
-
-        elif ret_mode == 1:
-
-            def template(self, s, a):
-                check_tuple(self, a)
-                res = fn(s, a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, s, a):
-                check_tuple(self, a)
-                res = fn(s, a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    return bind_parameter_names(template, param_names, defaults)
-
-
-# --- Simple List of Dict 1-Arg Builders ---
-def build_list_of_dict_1arg(
-    fn,
-    param_names,
-    defaults,
-    check_type_fn,
-    p_exp,
-    sub_k_t0,
-    sub_k_t1,
-    sub_k_types,
-    sub_k_set,
-    sub_v_t0,
-    sub_v_t1,
-    sub_v_types,
-    sub_v_set,
-    sample_pct,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
-    has_self=False,
-):
-    param_name = param_names[-1]
-    if sample_pct == 100:
-
-        def check_list_of_dict(self, a):
-            if type(a) is list:
-                invalid = False
-                for d in a:
-                    if type(d) is not dict:
-                        invalid = True
-                        break
-                    if len(d) <= 20:
-                        for dk in d:
-                            dv = d[dk]
-                            if (
-                                type(dk) is not sub_k_t0
-                                and type(dk) is not sub_k_t1
-                                and not isinstance(dk, sub_k_types)
-                            ) or (
-                                type(dv) is not sub_v_t0
-                                and type(dv) is not sub_v_t1
-                                and not isinstance(dv, sub_v_types)
-                            ):
-                                invalid = True
-                                break
-                        if invalid:
-                            break
-                    else:
-                        if not (
-                            set(map(type, d)) <= sub_k_set
-                            and set(map(type, d.values())) <= sub_v_set
-                        ):
-                            invalid = True
-                            break
-                if invalid:
-                    check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    elif sample_pct == 0:
-
-        def check_list_of_dict(self, a):
-            if type(a) is list:
-                if a:
-                    d = a[0]
-                    if type(d) is dict:
-                        if d:
-                            for dk in d:
-                                if (
-                                    type(dk) is not sub_k_t0
-                                    or type(d[dk]) is not sub_v_t0
-                                ):
-                                    if (
-                                        type(dk) is not sub_k_t0
-                                        and type(dk) is not sub_k_t1
-                                        and not isinstance(dk, sub_k_types)
-                                    ) or (
-                                        type(d[dk]) is not sub_v_t0
-                                        and type(d[dk]) is not sub_v_t1
-                                        and not isinstance(d[dk], sub_v_types)
-                                    ):
-                                        check_type_fn(
-                                            self, a, p_exp, param_name
-                                        )
-                                break
-                    else:
-                        check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    else:
-
-        def check_list_of_dict(self, a):
-            if type(a) is not list:
-                check_type_fn(self, a, p_exp, param_name)
-
-    if not has_self:
-        if ret_mode == 0:
-
-            def template(self, a):
-                check_list_of_dict(self, a)
-                return fn(a)
-
-        elif ret_mode == 1:
-
-            def template(self, a):
-                check_list_of_dict(self, a)
-                res = fn(a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a):
-                check_list_of_dict(self, a)
-                res = fn(a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    else:
-        if ret_mode == 0:
-
-            def template(self, s, a):
-                check_list_of_dict(self, a)
-                return fn(s, a)
-
-        elif ret_mode == 1:
-
-            def template(self, s, a):
-                check_list_of_dict(self, a)
-                res = fn(s, a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, s, a):
-                check_list_of_dict(self, a)
-                res = fn(s, a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    return bind_parameter_names(template, param_names, defaults)
-
-
-# --- Simple List of List 1-Arg Builders ---
-def build_list_of_list_1arg(
-    fn,
-    param_names,
-    defaults,
-    check_type_fn,
-    p_exp,
-    elem_t0,
-    elem_t1,
-    elem_types,
-    elem_set,
-    sample_pct,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
-    has_self=False,
-):
-    param_name = param_names[-1]
-    if sample_pct == 100:
-
-        def check_list_of_list(self, a):
-            if type(a) is list:
-                invalid = False
-                for sub_l in a:
-                    if type(sub_l) is not list:
-                        invalid = True
-                        break
-                    if len(sub_l) <= 20:
-                        for el in sub_l:
-                            t = type(el)
-                            if (
-                                t is not elem_t0
-                                and t is not elem_t1
-                                and not isinstance(el, elem_types)
-                            ):
-                                invalid = True
-                                break
-                        if invalid:
-                            break
-                    else:
-                        if not set(map(type, sub_l)) <= elem_set:
-                            invalid = True
-                            break
-                if invalid:
-                    check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    elif sample_pct == 0:
-
-        def check_list_of_list(self, a):
-            if type(a) is list:
-                if a:
-                    sub_l = a[0]
-                    if type(sub_l) is list:
-                        if sub_l:
-                            t = type(sub_l[0])
-                            if (
-                                t is not elem_t0
-                                and t is not elem_t1
-                                and not isinstance(sub_l[0], elem_types)
-                            ):
-                                check_type_fn(self, a, p_exp, param_name)
-                    else:
-                        check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    else:
-
-        def check_list_of_list(self, a):
-            if type(a) is not list:
-                check_type_fn(self, a, p_exp, param_name)
-
-    if not has_self:
-        if ret_mode == 0:
-
-            def template(self, a):
-                check_list_of_list(self, a)
-                return fn(a)
-
-        elif ret_mode == 1:
-
-            def template(self, a):
-                check_list_of_list(self, a)
-                res = fn(a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a):
-                check_list_of_list(self, a)
-                res = fn(a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    else:
-        if ret_mode == 0:
-
-            def template(self, s, a):
-                check_list_of_list(self, a)
-                return fn(s, a)
-
-        elif ret_mode == 1:
-
-            def template(self, s, a):
-                check_list_of_list(self, a)
-                res = fn(s, a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, s, a):
-                check_list_of_list(self, a)
-                res = fn(s, a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    return bind_parameter_names(template, param_names, defaults)
-
-
-# --- Simple Dict of List 1-Arg Builders ---
-def build_dict_of_list_1arg(
-    fn,
-    param_names,
-    defaults,
-    check_type_fn,
-    p_exp,
-    k_t0,
-    k_t1,
-    k_types,
-    k_set,
-    v_elem_t0,
-    v_elem_t1,
-    v_elem_types,
-    v_elem_set,
-    sample_pct,
-    ret_mode,
-    ret_t0=None,
-    ret_t1=None,
-    ret_types=None,
-    ret_exp=None,
-    has_self=False,
-):
-    param_name = param_names[-1]
-    if sample_pct == 100:
-
-        def check_dict_of_list(self, a):
-            if type(a) is dict:
-                invalid = False
-                for dk in a:
-                    dv = a[dk]
-                    if (
-                        type(dk) is not k_t0
-                        and type(dk) is not k_t1
-                        and not isinstance(dk, k_types)
-                    ):
-                        invalid = True
-                        break
-                    if type(dv) is not list:
-                        invalid = True
-                        break
-                    if len(dv) <= 20:
-                        for el in dv:
-                            t = type(el)
-                            if (
-                                t is not v_elem_t0
-                                and t is not v_elem_t1
-                                and not isinstance(el, v_elem_types)
-                            ):
-                                invalid = True
-                                break
-                        if invalid:
-                            break
-                    else:
-                        if not set(map(type, dv)) <= v_elem_set:
-                            invalid = True
-                            break
-                if invalid:
-                    check_type_fn(self, a, p_exp, param_name)
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    elif sample_pct == 0:
-
-        def check_dict_of_list(self, a):
-            if type(a) is dict:
-                if a:
-                    for dk in a:
-                        if (
-                            type(dk) is not k_t0
-                            and type(dk) is not k_t1
-                            and not isinstance(dk, k_types)
-                        ):
-                            check_type_fn(self, a, p_exp, param_name)
-                            break
-                        dv = a[dk]
-                        if type(dv) is list:
-                            if dv:
-                                t = type(dv[0])
-                                if (
-                                    t is not v_elem_t0
-                                    and t is not v_elem_t1
-                                    and not isinstance(dv[0], v_elem_types)
-                                ):
-                                    check_type_fn(self, a, p_exp, param_name)
-                        else:
-                            check_type_fn(self, a, p_exp, param_name)
-                        break
-            else:
-                check_type_fn(self, a, p_exp, param_name)
-
-    else:
-
-        def check_dict_of_list(self, a):
-            if type(a) is not dict:
-                check_type_fn(self, a, p_exp, param_name)
-
-    if not has_self:
-        if ret_mode == 0:
-
-            def template(self, a):
-                check_dict_of_list(self, a)
-                return fn(a)
-
-        elif ret_mode == 1:
-
-            def template(self, a):
-                check_dict_of_list(self, a)
-                res = fn(a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, a):
-                check_dict_of_list(self, a)
-                res = fn(a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    else:
-        if ret_mode == 0:
-
-            def template(self, s, a):
-                check_dict_of_list(self, a)
-                return fn(s, a)
-
-        elif ret_mode == 1:
-
-            def template(self, s, a):
-                check_dict_of_list(self, a)
-                res = fn(s, a)
-                if res is None:
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-        else:
-
-            def template(self, s, a):
-                check_dict_of_list(self, a)
-                res = fn(s, a)
-                if (
-                    type(res) is ret_t0
-                    or type(res) is ret_t1
-                    or isinstance(res, ret_types)
-                ):
-                    return res
-                check_type_fn(self, res, ret_exp, "return")
-                return res
-
-    return bind_parameter_names(template, param_names, defaults)
+        fn_globals["_ret_t0"] = ret_t0
+        fn_globals["_ret_t1"] = ret_t1
+        fn_globals["_ret_types"] = ret_types
+        fn_globals["_ret_exp"] = ret_exp
+
+        body.append(
+            ast.Assign(
+                targets=[ast.Name(id="__enf_res__", ctx=ast.Store())],
+                value=fn_call,
+            )
+        )
+        ret_class = ast.Attribute(
+            value=ast.Name(id="__enf_res__", ctx=ast.Load()),
+            attr="__class__",
+            ctx=ast.Load(),
+        )
+        ret_check_test = ast.BoolOp(
+            op=ast.Or(),
+            values=[
+                ast.Compare(
+                    left=ret_class,
+                    ops=[ast.Is()],
+                    comparators=[ast.Name(id="_ret_t0", ctx=ast.Load())],
+                ),
+                ast.Compare(
+                    left=ret_class,
+                    ops=[ast.Is()],
+                    comparators=[ast.Name(id="_ret_t1", ctx=ast.Load())],
+                ),
+                ast.Call(
+                    func=ast.Name(id="isinstance", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="__enf_res__", ctx=ast.Load()),
+                        ast.Name(id="_ret_types", ctx=ast.Load()),
+                    ],
+                    keywords=[],
+                ),
+            ],
+        )
+        body.append(
+            ast.If(
+                test=ret_check_test,
+                body=[
+                    ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+                ],
+                orelse=[],
+            )
+        )
+        body.append(
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id="_check_fn", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="__enf_self__", ctx=ast.Load()),
+                        ast.Name(id="__enf_res__", ctx=ast.Load()),
+                        ast.Name(id="_ret_exp", ctx=ast.Load()),
+                        ast.Constant(value="return"),
+                    ],
+                    keywords=[],
+                )
+            )
+        )
+        body.append(
+            ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+        )
+
+    fn_def = ast.FunctionDef(
+        name="__call__",
+        args=ast.arguments(
+            posonlyargs=[],
+            args=args,
+            kwonlyargs=[],
+            kw_defaults=[],
+            defaults=[],
+        ),
+        body=body,
+        decorator_list=[],
+    )
+    module = ast.Module(body=[fn_def], type_ignores=[])
+    ast.fix_missing_locations(module)
+    code_mod = compile(module, "<type_enforced_specialized>", "exec")
+    func_code = [
+        c
+        for c in code_mod.co_consts
+        if isinstance(c, types.CodeType) and c.co_name == "__call__"
+    ][0]
+
+    return types.FunctionType(
+        func_code, fn_globals, name="__call__", argdefs=defaults
+    )

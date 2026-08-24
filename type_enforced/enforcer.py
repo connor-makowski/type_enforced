@@ -16,23 +16,9 @@ from type_enforced.utils import (
 )
 from type_enforced.specialized import (
     create_specialized_class,
-    build_zero_arg,
-    build_simple_n_arg,
-    build_list_1arg,
-    build_dict_1arg,
-    build_set_1arg,
-    build_var_tuple_1arg,
-    build_list_of_dict_1arg,
-    build_list_of_list_1arg,
-    build_dict_of_list_1arg,
+    build_specialized_call,
+    can_specialize_type,
     is_simple_type,
-    is_simple_list,
-    is_simple_dict,
-    is_simple_set,
-    is_simple_var_tuple,
-    is_simple_list_of_dict,
-    is_simple_list_of_list,
-    is_simple_dict_of_list,
 )
 import sys
 import traceback
@@ -215,9 +201,15 @@ class FunctionMethodEnforcer:
         the remaining keys up to the iterable_sample_pct percentage.
         Only called when self.__iterable_sample_pct__ < 100.
         """
-        if len(keys) == 0:
+        if isinstance(keys, dict):
+            if not keys:
+                return []
+            if self.__iterable_sample_pct__ == 0 or len(keys) == 1:
+                return [next(iter(keys))]
+            keys = list(keys.keys())
+        elif len(keys) == 0:
             return []
-        if self.__iterable_sample_pct__ == 0 or len(keys) == 1:
+        elif self.__iterable_sample_pct__ == 0 or len(keys) == 1:
             return [keys[0]]
         n = max(1, int(len(keys) * self.__iterable_sample_pct__ / 100))
         if n >= len(keys):
@@ -534,339 +526,38 @@ class FunctionMethodEnforcer:
         defaults = self.__fn_defaults_tuple__
         check_fn = FunctionMethodEnforcer.__check_type__
 
-        if argcount == 0:
-            call_method = build_zero_arg(
-                self.__fn__,
-                check_fn,
-                ret_mode,
-                ret_t0,
-                ret_t1,
-                ret_types,
-                ret_exp,
-            )
+        param_names = []
+        param_exps = []
+        for i in range(argcount):
+            pn = self.__fn_varnames__[i]
+            exp = self.__checkable_types__.get(pn)
+            if not can_specialize_type(exp):
+                return
+            param_names.append(pn)
+            param_exps.append(exp)
+
+        call_method = build_specialized_call(
+            self.__fn__,
+            tuple(param_names),
+            defaults,
+            param_exps,
+            check_fn,
+            self.__iterable_sample_pct__,
+            FunctionMethodEnforcer.__get_sample_indices__,
+            FunctionMethodEnforcer.__get_sample_keys__,
+            ret_mode,
+            ret_t0,
+            ret_t1,
+            ret_types,
+            ret_exp,
+        )
+        if call_method is not None:
             self.__class__ = create_specialized_class(
                 FunctionMethodEnforcer,
                 self.__fn__.__qualname__,
                 call_method,
             )
             return
-
-        # 1-argument container functions / methods (standalone or method with 1 untyped param)
-        has_self = False
-        target_exp = None
-        target_param_names = None
-
-        if argcount == 1:
-            pn = self.__fn_varnames__[0]
-            target_exp = self.__checkable_types__.get(pn)
-            target_param_names = (pn,)
-            has_self = False
-        elif argcount == 2:
-            p0 = self.__fn_varnames__[0]
-            p1 = self.__fn_varnames__[1]
-            if p0 not in self.__checkable_types__:
-                target_exp = self.__checkable_types__.get(p1)
-                target_param_names = (p0, p1)
-                has_self = True
-
-        if target_exp is not None:
-            # 1. Homogeneous list[Type]
-            if is_simple_list(target_exp):
-                elem_types = tuple(target_exp[list].keys())
-                elem_t0 = elem_types[0]
-                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
-                elem_set = frozenset(elem_types)
-                call_method = build_list_1arg(
-                    self.__fn__,
-                    target_param_names,
-                    defaults,
-                    check_fn,
-                    target_exp,
-                    elem_t0,
-                    elem_t1,
-                    elem_types,
-                    elem_set,
-                    self.__iterable_sample_pct__,
-                    FunctionMethodEnforcer.__get_sample_indices__,
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                    has_self=has_self,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
-
-            # 2. Homogeneous dict[KeyType, ValType]
-            if is_simple_dict(target_exp):
-                k_types = tuple(target_exp[dict][0].keys())
-                v_types = tuple(target_exp[dict][1].keys())
-                k_t0 = k_types[0]
-                k_t1 = k_types[1] if len(k_types) > 1 else None
-                k_set = frozenset(k_types)
-                v_t0 = v_types[0]
-                v_t1 = v_types[1] if len(v_types) > 1 else None
-                v_set = frozenset(v_types)
-                call_method = build_dict_1arg(
-                    self.__fn__,
-                    target_param_names,
-                    defaults,
-                    check_fn,
-                    target_exp,
-                    k_t0,
-                    k_t1,
-                    k_types,
-                    k_set,
-                    v_t0,
-                    v_t1,
-                    v_types,
-                    v_set,
-                    self.__iterable_sample_pct__,
-                    FunctionMethodEnforcer.__get_sample_keys__,
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                    has_self=has_self,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
-
-            # 3. Homogeneous set[Type]
-            if is_simple_set(target_exp):
-                elem_types = tuple(target_exp[set].keys())
-                elem_t0 = elem_types[0]
-                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
-                elem_set = frozenset(elem_types)
-                call_method = build_set_1arg(
-                    self.__fn__,
-                    target_param_names,
-                    defaults,
-                    check_fn,
-                    target_exp,
-                    elem_t0,
-                    elem_t1,
-                    elem_types,
-                    elem_set,
-                    self.__iterable_sample_pct__,
-                    FunctionMethodEnforcer.__get_sample_indices__,
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                    has_self=has_self,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
-
-            # 4. Homogeneous tuple[Type, ...]
-            if is_simple_var_tuple(target_exp):
-                elem_types = tuple(target_exp[tuple][0].keys())
-                elem_t0 = elem_types[0]
-                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
-                elem_set = frozenset(elem_types)
-                call_method = build_var_tuple_1arg(
-                    self.__fn__,
-                    target_param_names,
-                    defaults,
-                    check_fn,
-                    target_exp,
-                    elem_t0,
-                    elem_t1,
-                    elem_types,
-                    elem_set,
-                    self.__iterable_sample_pct__,
-                    FunctionMethodEnforcer.__get_sample_indices__,
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                    has_self=has_self,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
-
-            # 5. Homogeneous list[dict[KeyType, ValType]]
-            if is_simple_list_of_dict(target_exp):
-                sub_dict = target_exp[list][dict]
-                k_types = tuple(sub_dict[0].keys())
-                v_types = tuple(sub_dict[1].keys())
-                sub_k_t0 = k_types[0]
-                sub_k_t1 = k_types[1] if len(k_types) > 1 else None
-                sub_k_set = frozenset(k_types)
-                sub_v_t0 = v_types[0]
-                sub_v_t1 = v_types[1] if len(v_types) > 1 else None
-                sub_v_set = frozenset(v_types)
-                call_method = build_list_of_dict_1arg(
-                    self.__fn__,
-                    target_param_names,
-                    defaults,
-                    check_fn,
-                    target_exp,
-                    sub_k_t0,
-                    sub_k_t1,
-                    k_types,
-                    sub_k_set,
-                    sub_v_t0,
-                    sub_v_t1,
-                    v_types,
-                    sub_v_set,
-                    self.__iterable_sample_pct__,
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                    has_self=has_self,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
-
-            # 6. Homogeneous list[list[Type]]
-            if is_simple_list_of_list(target_exp):
-                elem_types = tuple(target_exp[list][list].keys())
-                elem_t0 = elem_types[0]
-                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
-                elem_set = frozenset(elem_types)
-                call_method = build_list_of_list_1arg(
-                    self.__fn__,
-                    target_param_names,
-                    defaults,
-                    check_fn,
-                    target_exp,
-                    elem_t0,
-                    elem_t1,
-                    elem_types,
-                    elem_set,
-                    self.__iterable_sample_pct__,
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                    has_self=has_self,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
-
-            # 7. Homogeneous dict[KeyType, list[ValType]]
-            if is_simple_dict_of_list(target_exp):
-                k_types = tuple(target_exp[dict][0].keys())
-                v_list_exp = target_exp[dict][1]
-                v_elem_types = tuple(v_list_exp[list].keys())
-                k_t0 = k_types[0]
-                k_t1 = k_types[1] if len(k_types) > 1 else None
-                k_set = frozenset(k_types)
-                v_elem_t0 = v_elem_types[0]
-                v_elem_t1 = v_elem_types[1] if len(v_elem_types) > 1 else None
-                v_elem_set = frozenset(v_elem_types)
-                call_method = build_dict_of_list_1arg(
-                    self.__fn__,
-                    target_param_names,
-                    defaults,
-                    check_fn,
-                    target_exp,
-                    k_t0,
-                    k_t1,
-                    k_types,
-                    k_set,
-                    v_elem_t0,
-                    v_elem_t1,
-                    v_elem_types,
-                    v_elem_set,
-                    self.__iterable_sample_pct__,
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                    has_self=has_self,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
-
-        # Simple scalar N-arg functions / methods (any N >= 1, mixed typed/untyped)
-        if not self.__has_complex_params__ and argcount >= 1:
-            all_simple = True
-            p_names = []
-            p_exps = []
-            p_types = []
-            p_t0s = []
-            p_t1s = []
-            for i in range(argcount):
-                pn = self.__fn_varnames__[i]
-                exp = self.__checkable_types__.get(pn)
-                if exp is None:
-                    p_names.append(pn)
-                    p_exps.append(None)
-                    p_types.append(None)
-                    p_t0s.append(None)
-                    p_t1s.append(None)
-                elif is_simple_type(exp):
-                    tt = tuple(exp.keys())
-                    p_names.append(pn)
-                    p_exps.append(exp)
-                    p_types.append(tt)
-                    p_t0s.append(tt[0])
-                    p_t1s.append(tt[1] if len(tt) > 1 else None)
-                else:
-                    all_simple = False
-                    break
-
-            if all_simple:
-                call_method = build_simple_n_arg(
-                    self.__fn__,
-                    tuple(p_names),
-                    defaults,
-                    check_fn,
-                    tuple(p_t0s),
-                    tuple(p_t1s),
-                    tuple(p_types),
-                    tuple(p_exps),
-                    ret_mode,
-                    ret_t0,
-                    ret_t1,
-                    ret_types,
-                    ret_exp,
-                )
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    call_method,
-                )
-                return
 
     def __call__(self, *args, **kwargs):
         """
