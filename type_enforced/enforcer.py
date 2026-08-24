@@ -14,16 +14,36 @@ from type_enforced.utils import (
     iterable_types,
     merge_type_dicts,
 )
+from type_enforced.specialized import (
+    create_specialized_class,
+    build_zero_arg,
+    build_simple_n_arg,
+    build_list_1arg,
+    build_dict_1arg,
+    build_set_1arg,
+    build_var_tuple_1arg,
+    build_list_of_dict_1arg,
+    build_list_of_list_1arg,
+    build_dict_of_list_1arg,
+    is_simple_type,
+    is_simple_list,
+    is_simple_dict,
+    is_simple_set,
+    is_simple_var_tuple,
+    is_simple_list_of_dict,
+    is_simple_list_of_list,
+    is_simple_dict_of_list,
+)
 import sys
 import traceback
 import random
 from pathlib import Path
 
-_NoneType = type(None)
-_package_path = Path(__file__).parent.resolve()
-# Code object flags for variable positional (*args) and variable keyword (**kwargs) parameters
-_CO_VARARGS = 0x04
-_CO_VARKEYWORDS = 0x08
+__NoneType__ = type(None)
+__package_path__ = Path(__file__).parent.resolve()
+__CO_VARARGS__ = 0x04
+__CO_VARKEYWORDS__ = 0x08
+__NO_DEFAULT__ = object()
 
 
 class FunctionMethodEnforcer:
@@ -34,17 +54,20 @@ class FunctionMethodEnforcer:
         "__iterable_sample_pct__",
         "__only_typed__",
         "__fn_defaults__",
+        "__fn_defaults_tuple__",
         "__fn_varnames__",
         "__types_parsed__",
         "__checkable_types__",
         "__return_type__",
         "__simple_return_type__",
+        "__simple_return_t0__",
+        "__has_none_return__",
         "__flat_subtypes__",
         "__keys_tuples__",
-        "__simple_pos_params",
-        "__simple_kwonly_params",
-        "__complex_pos_params",
-        "__complex_kwonly_params",
+        "__simple_pos_params__",
+        "__simple_kwonly_params__",
+        "__complex_pos_params__",
+        "__complex_kwonly_params__",
         "__has_complex_params__",
         "__has_simple_params__",
         "__single_simple_pos__",
@@ -121,11 +144,11 @@ class FunctionMethodEnforcer:
         total_args = code.co_argcount + code.co_kwonlyargcount
         param_names = list(code.co_varnames[:total_args])
         # If the function accepts *args, include its variable name
-        if code.co_flags & _CO_VARARGS:
+        if code.co_flags & __CO_VARARGS__:
             param_names.append(code.co_varnames[total_args])
             total_args += 1
         # If the function accepts **kwargs, include its variable name
-        if code.co_flags & _CO_VARKEYWORDS:
+        if code.co_flags & __CO_VARKEYWORDS__:
             param_names.append(code.co_varnames[total_args])
 
         for name in param_names:
@@ -146,6 +169,7 @@ class FunctionMethodEnforcer:
         Also caches the function's variable names for use in `__call__`.
         """
         self.__fn_varnames__ = self.__fn__.__code__.co_varnames
+        self.__fn_defaults_tuple__ = self.__fn__.__defaults__
         self.__fn_defaults__ = {}
         if self.__fn__.__defaults__ is not None:
             # Get the names of all provided default values for args
@@ -212,10 +236,10 @@ class FunctionMethodEnforcer:
             self.__return_type__ = self.__checkable_types__.pop("return", None)
 
             # Pre-classify parameters into simple vs complex positional/keyword-only list configurations
-            self.__simple_pos_params = []
-            self.__simple_kwonly_params = []
-            self.__complex_pos_params = []
-            self.__complex_kwonly_params = []
+            self.__simple_pos_params__ = []
+            self.__simple_kwonly_params__ = []
+            self.__complex_pos_params__ = []
+            self.__complex_kwonly_params__ = []
 
             co_argcount = self.__fn__.__code__.co_argcount
             co_kwonlyargcount = self.__fn__.__code__.co_kwonlyargcount
@@ -236,29 +260,34 @@ class FunctionMethodEnforcer:
 
                 if is_simple:
                     types_tuple = tuple(expected.keys())
+                    t0 = types_tuple[0]
                     if is_pos:
-                        self.__simple_pos_params.append((key, idx, types_tuple))
+                        self.__simple_pos_params__.append(
+                            (key, idx, types_tuple, t0)
+                        )
                     else:
-                        self.__simple_kwonly_params.append((key, types_tuple))
+                        self.__simple_kwonly_params__.append(
+                            (key, types_tuple, t0)
+                        )
                 else:
                     if is_pos:
-                        self.__complex_pos_params.append((key, idx, expected))
+                        self.__complex_pos_params__.append((key, idx, expected))
                     else:
-                        self.__complex_kwonly_params.append((key, expected))
+                        self.__complex_kwonly_params__.append((key, expected))
 
             self.__has_complex_params__ = bool(
-                self.__complex_pos_params or self.__complex_kwonly_params
+                self.__complex_pos_params__ or self.__complex_kwonly_params__
             )
             self.__has_simple_params__ = bool(
-                self.__simple_pos_params or self.__simple_kwonly_params
+                self.__simple_pos_params__ or self.__simple_kwonly_params__
             )
 
             if (
                 not self.__has_complex_params__
-                and len(self.__simple_pos_params) == 1
-                and not self.__simple_kwonly_params
+                and len(self.__simple_pos_params__) == 1
+                and not self.__simple_kwonly_params__
             ):
-                self.__single_simple_pos__ = self.__simple_pos_params[0]
+                self.__single_simple_pos__ = self.__simple_pos_params__[0]
             else:
                 self.__single_simple_pos__ = None
 
@@ -271,8 +300,10 @@ class FunctionMethodEnforcer:
                 )
             ):
                 self.__simple_return_type__ = tuple(self.__return_type__.keys())
+                self.__simple_return_t0__ = self.__simple_return_type__[0]
             else:
                 self.__simple_return_type__ = None
+                self.__simple_return_t0__ = None
             self.__types_parsed__ = True
 
     def __get_checkable_type__(self, annotation):
@@ -280,9 +311,8 @@ class FunctionMethodEnforcer:
         Parses a type annotation and returns a nested dict structure
         representing the checkable type(s) for validation.
         """
-
         if annotation is None:
-            return {_NoneType: None}
+            return {__NoneType__: None}
 
         # Handle `int | str` syntax (Python 3.10+) and Unions
         if (
@@ -392,7 +422,7 @@ class FunctionMethodEnforcer:
         if isinstance(annotation, type):
             return {annotation: None}
 
-        # Hanldle typing.Type (for uninitialized classes)
+        # Handle typing.Type (for uninitialized classes)
         if origin is type and len(args) == 1:
             return {annotation: None}
 
@@ -422,7 +452,7 @@ class FunctionMethodEnforcer:
         if self.__strict__ or raise_exception:
             msg = f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
             if self.__clean_traceback__:
-                package_path = _package_path
+                package_path = __package_path__
                 frame = sys._getframe()
                 relevant_tb_count = 0
                 while frame is not None:
@@ -464,369 +494,379 @@ class FunctionMethodEnforcer:
                 f"A non function/method was passed to Enforcer. See the stack trace above for more information."
             )
 
-    def _build_fast_param_check(self, p_name, expected, env):
+    def __specialize__(self):
         """
-        Generates clean check code lines for an individual parameter.
+        Dynamically constructs and binds a specialized subclass based on the function's signature
+        and type annotations to achieve maximum validation performance without code generation.
         """
-        env[f"_exp_{p_name}"] = expected
-        env[f"_key_{p_name}"] = p_name
+        code = self.__fn__.__code__
+        argcount = code.co_argcount
+        kwonlyargcount = code.co_kwonlyargcount
+        flags = code.co_flags
+        has_varargs = bool(flags & __CO_VARARGS__)
+        has_varkw = bool(flags & __CO_VARKEYWORDS__)
 
-        # 1. Simple scalar types: int, str, int | float, etc.
-        is_simple = (
-            "__extra__" not in expected
-            and all(v is None for v in expected.values())
-            and all(isinstance(k, type) for k in expected.keys())
-        )
-        if is_simple:
-            type_keys = tuple(expected.keys())
-            env[f"_types_{p_name}"] = type_keys
-            for i, t in enumerate(type_keys):
-                env[f"_t_{p_name}_{i}"] = t
-            conds = " and ".join(
-                f"t is not _t_{p_name}_{i}" for i in range(len(type_keys))
+        if has_varargs or has_varkw or kwonlyargcount > 0:
+            return
+
+        ret_mode = 0
+        ret_t0 = None
+        ret_t1 = None
+        ret_types = None
+        ret_exp = None
+
+        if self.__return_type__ is not None:
+            ret_exp = self.__return_type__
+            if (
+                len(self.__return_type__) == 1
+                and __NoneType__ in self.__return_type__
+                and self.__return_type__[__NoneType__] is None
+            ):
+                ret_mode = 1
+            elif is_simple_type(self.__return_type__):
+                ret_mode = 2
+                ret_types = tuple(self.__return_type__.keys())
+                ret_t0 = ret_types[0]
+                ret_t1 = ret_types[1] if len(ret_types) > 1 else None
+            else:
+                return
+
+        defaults = self.__fn_defaults_tuple__
+        check_fn = FunctionMethodEnforcer.__check_type__
+
+        if argcount == 0:
+            call_method = build_zero_arg(
+                self.__fn__,
+                check_fn,
+                ret_mode,
+                ret_t0,
+                ret_t1,
+                ret_types,
+                ret_exp,
             )
-            return [
-                f"    t = type({p_name})",
-                f"    if ({conds}) and not isinstance({p_name}, _types_{p_name}):",
-                f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-            ]
-
-        # 2. Homogeneous list[Type]
-        is_simple_list = (
-            "__extra__" not in expected
-            and list in expected
-            and len(expected) == 1
-            and isinstance(expected[list], dict)
-            and "__extra__" not in expected[list]
-            and all(v is None for v in expected[list].values())
-            and all(isinstance(k, type) for k in expected[list].keys())
-        )
-        if is_simple_list:
-            elem_types = tuple(expected[list].keys())
-            env[f"_elem_types_{p_name}"] = elem_types
-            env[f"_el_set_{p_name}"] = frozenset(elem_types)
-            for i, t in enumerate(elem_types):
-                env[f"_t_el_{p_name}_{i}"] = t
-            elem_conds = " and ".join(
-                f"t_el is not _t_el_{p_name}_{i}"
-                for i in range(len(elem_types))
+            self.__class__ = create_specialized_class(
+                FunctionMethodEnforcer,
+                self.__fn__.__qualname__,
+                call_method,
             )
-            if self.__iterable_sample_pct__ == 0:
-                return [
-                    f"    if type({p_name}) is not list:",
-                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"    elif len({p_name}) > 0:",
-                    f"        _el = {p_name}[0]",
-                    f"        t_el = type(_el)",
-                    f"        if ({elem_conds}) and not isinstance(_el, _elem_types_{p_name}):",
-                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                ]
-            elif self.__iterable_sample_pct__ == 100:
-                return [
-                    f"    if type({p_name}) is not list:",
-                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"    else:",
-                    f"        _n = len({p_name})",
-                    f"        if _n <= 10:",
-                    f"            for _el in {p_name}:",
-                    f"                t_el = type(_el)",
-                    f"                if ({elem_conds}) and not isinstance(_el, _elem_types_{p_name}):",
-                    f"                    self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"                    break",
-                    f"        else:",
-                    f"            if not set(map(type, {p_name})).issubset(_el_set_{p_name}):",
-                    f"                self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                ]
+            return
 
-        # 3. Homogeneous dict[KeyType, ValType]
-        is_simple_dict = (
-            "__extra__" not in expected
-            and dict in expected
-            and len(expected) == 1
-            and isinstance(expected[dict], tuple)
-            and len(expected[dict]) == 2
-            and isinstance(expected[dict][0], dict)
-            and "__extra__" not in expected[dict][0]
-            and all(v is None for v in expected[dict][0].values())
-            and all(isinstance(k, type) for k in expected[dict][0].keys())
-            and isinstance(expected[dict][1], dict)
-            and "__extra__" not in expected[dict][1]
-            and all(v is None for v in expected[dict][1].values())
-            and all(isinstance(k, type) for k in expected[dict][1].keys())
-        )
-        if is_simple_dict:
-            k_types = tuple(expected[dict][0].keys())
-            v_types = tuple(expected[dict][1].keys())
-            env[f"_k_types_{p_name}"] = k_types
-            env[f"_v_types_{p_name}"] = v_types
-            env[f"_k_set_{p_name}"] = frozenset(k_types)
-            env[f"_v_set_{p_name}"] = frozenset(v_types)
-            for i, t in enumerate(k_types):
-                env[f"_tk_{p_name}_{i}"] = t
-            for i, t in enumerate(v_types):
-                env[f"_tv_{p_name}_{i}"] = t
-            k_conds = " and ".join(
-                f"type(_dk) is not _tk_{p_name}_{i}"
-                for i in range(len(k_types))
-            )
-            v_conds = " and ".join(
-                f"type(_dv) is not _tv_{p_name}_{i}"
-                for i in range(len(v_types))
-            )
-            val_check = f"(({k_conds}) and not isinstance(_dk, _k_types_{p_name})) or (({v_conds}) and not isinstance(_dv, _v_types_{p_name}))"
-            if self.__iterable_sample_pct__ == 0:
-                return [
-                    f"    if type({p_name}) is not dict:",
-                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"    elif len({p_name}) > 0:",
-                    f"        _dk = next(iter({p_name}))",
-                    f"        _dv = {p_name}[_dk]",
-                    f"        if {val_check}:",
-                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                ]
-            elif self.__iterable_sample_pct__ == 100:
-                return [
-                    f"    if type({p_name}) is not dict:",
-                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"    else:",
-                    f"        _n = len({p_name})",
-                    f"        if _n <= 10:",
-                    f"            for _dk, _dv in {p_name}.items():",
-                    f"                if {val_check}:",
-                    f"                    self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"                    break",
-                    f"        else:",
-                    f"            if not (set(map(type, {p_name})) <= _k_set_{p_name} and set(map(type, {p_name}.values())) <= _v_set_{p_name}):",
-                    f"                self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                ]
+        # 1-argument container functions / methods (standalone or method with 1 untyped param)
+        has_self = False
+        target_exp = None
+        target_param_names = None
 
-        # 4. Homogeneous list[dict[KeyType, ValType]]
-        is_list_of_dict = (
-            "__extra__" not in expected
-            and list in expected
-            and len(expected) == 1
-            and isinstance(expected[list], dict)
-            and "__extra__" not in expected[list]
-            and dict in expected[list]
-            and len(expected[list]) == 1
-            and isinstance(expected[list][dict], tuple)
-            and len(expected[list][dict]) == 2
-            and isinstance(expected[list][dict][0], dict)
-            and "__extra__" not in expected[list][dict][0]
-            and all(v is None for v in expected[list][dict][0].values())
-            and all(isinstance(k, type) for k in expected[list][dict][0].keys())
-            and isinstance(expected[list][dict][1], dict)
-            and "__extra__" not in expected[list][dict][1]
-            and all(v is None for v in expected[list][dict][1].values())
-            and all(isinstance(k, type) for k in expected[list][dict][1].keys())
-        )
-        if is_list_of_dict:
-            sub_k_types = tuple(expected[list][dict][0].keys())
-            sub_v_types = tuple(expected[list][dict][1].keys())
-            env[f"_ld_k_types_{p_name}"] = sub_k_types
-            env[f"_ld_v_types_{p_name}"] = sub_v_types
-            env[f"_ld_k_set_{p_name}"] = frozenset(sub_k_types)
-            env[f"_ld_v_set_{p_name}"] = frozenset(sub_v_types)
-            for i, t in enumerate(sub_k_types):
-                env[f"_ld_tk_{p_name}_{i}"] = t
-            for i, t in enumerate(sub_v_types):
-                env[f"_ld_tv_{p_name}_{i}"] = t
-            k_conds = " and ".join(
-                f"tk is not _ld_tk_{p_name}_{i}"
-                for i in range(len(sub_k_types))
-            )
-            v_conds = " and ".join(
-                f"tv is not _ld_tv_{p_name}_{i}"
-                for i in range(len(sub_v_types))
-            )
-            val_check = f"(({k_conds}) and not isinstance(_dk, _ld_k_types_{p_name})) or (({v_conds}) and not isinstance(_dv, _ld_v_types_{p_name}))"
-            if self.__iterable_sample_pct__ == 0:
-                return [
-                    f"    if type({p_name}) is not list:",
-                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"    elif len({p_name}) > 0:",
-                    f"        _d = {p_name}[0]",
-                    f"        if type(_d) is not dict:",
-                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"        elif len(_d) > 0:",
-                    f"            _dk = next(iter(_d))",
-                    f"            _dv = _d[_dk]",
-                    f"            tk, tv = type(_dk), type(_dv)",
-                    f"            if {val_check}:",
-                    f"                self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                ]
-            elif self.__iterable_sample_pct__ == 100:
-                return [
-                    f"    if type({p_name}) is not list:",
-                    f"        self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                    f"    else:",
-                    f"        _seen = set()",
-                    f"        _invalid = False",
-                    f"        for _d in {p_name}:",
-                    f"            _did = id(_d)",
-                    f"            if _did in _seen:",
-                    f"                continue",
-                    f"            if type(_d) is not dict:",
-                    f"                _invalid = True",
-                    f"                break",
-                    f"            _dn = len(_d)",
-                    f"            if _dn <= 10:",
-                    f"                for _dk, _dv in _d.items():",
-                    f"                    tk, tv = type(_dk), type(_dv)",
-                    f"                    if {val_check}:",
-                    f"                        _invalid = True",
-                    f"                        break",
-                    f"                if _invalid:",
-                    f"                    break",
-                    f"            else:",
-                    f"                if not set(map(type, _d)).issubset(_ld_k_set_{p_name}) or not set(map(type, _d.values())).issubset(_ld_v_set_{p_name}):",
-                    f"                    _invalid = True",
-                    f"                    break",
-                    f"            _seen.add(_did)",
-                    f"        if _invalid:",
-                    f"            self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})",
-                ]
+        if argcount == 1:
+            pn = self.__fn_varnames__[0]
+            target_exp = self.__checkable_types__.get(pn)
+            target_param_names = (pn,)
+            has_self = False
+        elif argcount == 2:
+            p0 = self.__fn_varnames__[0]
+            p1 = self.__fn_varnames__[1]
+            if p0 not in self.__checkable_types__:
+                target_exp = self.__checkable_types__.get(p1)
+                target_param_names = (p0, p1)
+                has_self = True
 
-        # 5. Default general check
-        return [
-            f"    self.__check_type__({p_name}, _exp_{p_name}, _key_{p_name})"
-        ]
+        if target_exp is not None:
+            # 1. Homogeneous list[Type]
+            if is_simple_list(target_exp):
+                elem_types = tuple(target_exp[list].keys())
+                elem_t0 = elem_types[0]
+                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
+                elem_set = frozenset(elem_types)
+                call_method = build_list_1arg(
+                    self.__fn__,
+                    target_param_names,
+                    defaults,
+                    check_fn,
+                    target_exp,
+                    elem_t0,
+                    elem_t1,
+                    elem_types,
+                    elem_set,
+                    self.__iterable_sample_pct__,
+                    FunctionMethodEnforcer.__get_sample_indices__,
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                    has_self=has_self,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
-    def _build_fast_return_check(self, env):
-        """
-        Generates check code lines for function return value.
-        """
-        if self.__return_type__ is None:
-            return []
+            # 2. Homogeneous dict[KeyType, ValType]
+            if is_simple_dict(target_exp):
+                k_types = tuple(target_exp[dict][0].keys())
+                v_types = tuple(target_exp[dict][1].keys())
+                k_t0 = k_types[0]
+                k_t1 = k_types[1] if len(k_types) > 1 else None
+                k_set = frozenset(k_types)
+                v_t0 = v_types[0]
+                v_t1 = v_types[1] if len(v_types) > 1 else None
+                v_set = frozenset(v_types)
+                call_method = build_dict_1arg(
+                    self.__fn__,
+                    target_param_names,
+                    defaults,
+                    check_fn,
+                    target_exp,
+                    k_t0,
+                    k_t1,
+                    k_types,
+                    k_set,
+                    v_t0,
+                    v_t1,
+                    v_types,
+                    v_set,
+                    self.__iterable_sample_pct__,
+                    FunctionMethodEnforcer.__get_sample_keys__,
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                    has_self=has_self,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
-        env["_exp_return"] = self.__return_type__
-        if self.__simple_return_type__ is not None:
-            env["_types_return"] = self.__simple_return_type__
-            for i, t in enumerate(self.__simple_return_type__):
-                env[f"_t_ret_{i}"] = t
-            conds = " and ".join(
-                f"t_ret is not _t_ret_{i}"
-                for i in range(len(self.__simple_return_type__))
-            )
-            return [
-                "    t_ret = type(res)",
-                f"    if ({conds}) and not isinstance(res, _types_return):",
-                "        self.__check_type__(res, _exp_return, 'return')",
-            ]
-        else:
-            return ["    self.__check_type__(res, _exp_return, 'return')"]
+            # 3. Homogeneous set[Type]
+            if is_simple_set(target_exp):
+                elem_types = tuple(target_exp[set].keys())
+                elem_t0 = elem_types[0]
+                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
+                elem_set = frozenset(elem_types)
+                call_method = build_set_1arg(
+                    self.__fn__,
+                    target_param_names,
+                    defaults,
+                    check_fn,
+                    target_exp,
+                    elem_t0,
+                    elem_t1,
+                    elem_types,
+                    elem_set,
+                    self.__iterable_sample_pct__,
+                    FunctionMethodEnforcer.__get_sample_indices__,
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                    has_self=has_self,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
-    def __generate_fast_call__(self):
-        """
-        Dynamically generates and compiles a specialized __call__ method for this
-        enforcer instance's signature and type annotations to eliminate dispatch overhead.
-        """
-        try:
-            import inspect
+            # 4. Homogeneous tuple[Type, ...]
+            if is_simple_var_tuple(target_exp):
+                elem_types = tuple(target_exp[tuple][0].keys())
+                elem_t0 = elem_types[0]
+                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
+                elem_set = frozenset(elem_types)
+                call_method = build_var_tuple_1arg(
+                    self.__fn__,
+                    target_param_names,
+                    defaults,
+                    check_fn,
+                    target_exp,
+                    elem_t0,
+                    elem_t1,
+                    elem_types,
+                    elem_set,
+                    self.__iterable_sample_pct__,
+                    FunctionMethodEnforcer.__get_sample_indices__,
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                    has_self=has_self,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
-            sig = inspect.signature(self.__fn__)
-            param_decls = ["self"]
-            call_args = []
-            env = {
-                "FunctionMethodEnforcer": FunctionMethodEnforcer,
-                "isinstance": isinstance,
-                "type": type,
-                "NoneType": _NoneType,
-                "len": len,
-                "set": set,
-                "map": map,
-                "next": next,
-                "iter": iter,
-                "id": id,
-                "list": list,
-                "dict": dict,
-            }
+            # 5. Homogeneous list[dict[KeyType, ValType]]
+            if is_simple_list_of_dict(target_exp):
+                sub_dict = target_exp[list][dict]
+                k_types = tuple(sub_dict[0].keys())
+                v_types = tuple(sub_dict[1].keys())
+                sub_k_t0 = k_types[0]
+                sub_k_t1 = k_types[1] if len(k_types) > 1 else None
+                sub_k_set = frozenset(k_types)
+                sub_v_t0 = v_types[0]
+                sub_v_t1 = v_types[1] if len(v_types) > 1 else None
+                sub_v_set = frozenset(v_types)
+                call_method = build_list_of_dict_1arg(
+                    self.__fn__,
+                    target_param_names,
+                    defaults,
+                    check_fn,
+                    target_exp,
+                    sub_k_t0,
+                    sub_k_t1,
+                    k_types,
+                    sub_k_set,
+                    sub_v_t0,
+                    sub_v_t1,
+                    v_types,
+                    sub_v_set,
+                    self.__iterable_sample_pct__,
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                    has_self=has_self,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
-            has_pos_only = any(
-                p.kind == inspect.Parameter.POSITIONAL_ONLY
-                for p in sig.parameters.values()
-            )
-            has_kw_only = any(
-                p.kind == inspect.Parameter.KEYWORD_ONLY
-                for p in sig.parameters.values()
-            )
-            has_var_pos = any(
-                p.kind == inspect.Parameter.VAR_POSITIONAL
-                for p in sig.parameters.values()
-            )
+            # 6. Homogeneous list[list[Type]]
+            if is_simple_list_of_list(target_exp):
+                elem_types = tuple(target_exp[list][list].keys())
+                elem_t0 = elem_types[0]
+                elem_t1 = elem_types[1] if len(elem_types) > 1 else None
+                elem_set = frozenset(elem_types)
+                call_method = build_list_of_list_1arg(
+                    self.__fn__,
+                    target_param_names,
+                    defaults,
+                    check_fn,
+                    target_exp,
+                    elem_t0,
+                    elem_t1,
+                    elem_types,
+                    elem_set,
+                    self.__iterable_sample_pct__,
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                    has_self=has_self,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
-            # Positional-only params
-            for p in sig.parameters.values():
-                if p.kind == inspect.Parameter.POSITIONAL_ONLY:
-                    if p.default is not inspect.Parameter.empty:
-                        env[f"_d_{p.name}"] = p.default
-                        param_decls.append(f"{p.name}=_d_{p.name}")
-                    else:
-                        param_decls.append(p.name)
-                    call_args.append(p.name)
-            if has_pos_only:
-                param_decls.append("/")
+            # 7. Homogeneous dict[KeyType, list[ValType]]
+            if is_simple_dict_of_list(target_exp):
+                k_types = tuple(target_exp[dict][0].keys())
+                v_list_exp = target_exp[dict][1]
+                v_elem_types = tuple(v_list_exp[list].keys())
+                k_t0 = k_types[0]
+                k_t1 = k_types[1] if len(k_types) > 1 else None
+                k_set = frozenset(k_types)
+                v_elem_t0 = v_elem_types[0]
+                v_elem_t1 = v_elem_types[1] if len(v_elem_types) > 1 else None
+                v_elem_set = frozenset(v_elem_types)
+                call_method = build_dict_of_list_1arg(
+                    self.__fn__,
+                    target_param_names,
+                    defaults,
+                    check_fn,
+                    target_exp,
+                    k_t0,
+                    k_t1,
+                    k_types,
+                    k_set,
+                    v_elem_t0,
+                    v_elem_t1,
+                    v_elem_types,
+                    v_elem_set,
+                    self.__iterable_sample_pct__,
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                    has_self=has_self,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
-            # Positional-or-keyword params
-            for p in sig.parameters.values():
-                if p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
-                    if p.default is not inspect.Parameter.empty:
-                        env[f"_d_{p.name}"] = p.default
-                        param_decls.append(f"{p.name}=_d_{p.name}")
-                    else:
-                        param_decls.append(p.name)
-                    call_args.append(p.name)
+        # Simple scalar N-arg functions / methods (any N >= 1, mixed typed/untyped)
+        if not self.__has_complex_params__ and argcount >= 1:
+            all_simple = True
+            p_names = []
+            p_exps = []
+            p_types = []
+            p_t0s = []
+            p_t1s = []
+            for i in range(argcount):
+                pn = self.__fn_varnames__[i]
+                exp = self.__checkable_types__.get(pn)
+                if exp is None:
+                    p_names.append(pn)
+                    p_exps.append(None)
+                    p_types.append(None)
+                    p_t0s.append(None)
+                    p_t1s.append(None)
+                elif is_simple_type(exp):
+                    tt = tuple(exp.keys())
+                    p_names.append(pn)
+                    p_exps.append(exp)
+                    p_types.append(tt)
+                    p_t0s.append(tt[0])
+                    p_t1s.append(tt[1] if len(tt) > 1 else None)
+                else:
+                    all_simple = False
+                    break
 
-            if has_kw_only and not has_var_pos:
-                param_decls.append("*")
-
-            # Var positional (*args), keyword-only, and var keywords (**kwargs)
-            for p in sig.parameters.values():
-                if p.kind == inspect.Parameter.VAR_POSITIONAL:
-                    param_decls.append(f"*{p.name}")
-                    call_args.append(f"*{p.name}")
-                elif p.kind == inspect.Parameter.KEYWORD_ONLY:
-                    if p.default is not inspect.Parameter.empty:
-                        env[f"_d_{p.name}"] = p.default
-                        param_decls.append(f"{p.name}=_d_{p.name}")
-                    else:
-                        param_decls.append(p.name)
-                    call_args.append(f"{p.name}={p.name}")
-                elif p.kind == inspect.Parameter.VAR_KEYWORD:
-                    param_decls.append(f"**{p.name}")
-                    call_args.append(f"**{p.name}")
-
-            sig_str = ", ".join(param_decls)
-            call_str = ", ".join(call_args)
-
-            lines = [f"def __call__({sig_str}):"]
-
-            # Parameter checks
-            for p_name in sig.parameters:
-                if p_name in ("self", "cls"):
-                    continue
-                expected = self.__checkable_types__.get(p_name)
-                if expected is not None:
-                    lines.extend(
-                        self._build_fast_param_check(p_name, expected, env)
-                    )
-
-            # Function call
-            lines.append(f"    res = self.__fn__({call_str})")
-
-            # Return value check
-            lines.extend(self._build_fast_return_check(env))
-            lines.append("    return res")
-
-            code_wrapper = (
-                f"class _SpecializedEnforcer(FunctionMethodEnforcer):\n"
-                f"    __slots__ = ()\n"
-                f"{chr(10).join('    ' + l for l in lines)}\n"
-            )
-            exec(code_wrapper, env)
-            self.__class__ = env["_SpecializedEnforcer"]
-        except Exception:
-            pass
+            if all_simple:
+                call_method = build_simple_n_arg(
+                    self.__fn__,
+                    tuple(p_names),
+                    defaults,
+                    check_fn,
+                    tuple(p_t0s),
+                    tuple(p_t1s),
+                    tuple(p_types),
+                    tuple(p_exps),
+                    ret_mode,
+                    ret_t0,
+                    ret_t1,
+                    ret_types,
+                    ret_exp,
+                )
+                self.__class__ = create_specialized_class(
+                    FunctionMethodEnforcer,
+                    self.__fn__.__qualname__,
+                    call_method,
+                )
+                return
 
     def __call__(self, *args, **kwargs):
         """
@@ -834,11 +874,11 @@ class FunctionMethodEnforcer:
         """
         if not self.__types_parsed__:
             self.__get_checkable_types__()
-            self.__generate_fast_call__()
+            self.__specialize__()
             return self(*args, **kwargs)
 
         if self.__has_complex_params__:
-            for key, idx, expected in self.__complex_pos_params:
+            for key, idx, expected in self.__complex_pos_params__:
                 if idx < len(args):
                     obj = args[idx]
                 elif key in kwargs:
@@ -847,51 +887,41 @@ class FunctionMethodEnforcer:
                     obj = self.__fn_defaults__.get(key)
                 self.__check_type__(obj, expected, key)
 
-            for key, expected in self.__complex_kwonly_params:
+            for key, expected in self.__complex_kwonly_params__:
                 if key in kwargs:
                     obj = kwargs[key]
                 else:
                     obj = self.__fn_defaults__.get(key)
                 self.__check_type__(obj, expected, key)
-        else:
-            if self.__single_simple_pos__ is not None:
-                key, idx, types_tuple = self.__single_simple_pos__
+
+        if self.__has_simple_params__:
+            for key, idx, types_tuple, t0 in self.__simple_pos_params__:
                 if idx < len(args):
                     obj = args[idx]
                 elif key in kwargs:
                     obj = kwargs[key]
                 else:
                     obj = self.__fn_defaults__.get(key)
-                if not isinstance(obj, types_tuple):
+                if type(obj) is not t0 and not isinstance(obj, types_tuple):
                     self.__check_type__(obj, self.__checkable_types__[key], key)
-            elif self.__has_simple_params__:
-                for key, idx, types_tuple in self.__simple_pos_params:
-                    if idx < len(args):
-                        obj = args[idx]
-                    elif key in kwargs:
-                        obj = kwargs[key]
-                    else:
-                        obj = self.__fn_defaults__.get(key)
-                    if not isinstance(obj, types_tuple):
-                        self.__check_type__(
-                            obj, self.__checkable_types__[key], key
-                        )
 
-                for key, types_tuple in self.__simple_kwonly_params:
-                    if key in kwargs:
-                        obj = kwargs[key]
-                    else:
-                        obj = self.__fn_defaults__.get(key)
-                    if not isinstance(obj, types_tuple):
-                        self.__check_type__(
-                            obj, self.__checkable_types__[key], key
-                        )
+            for key, types_tuple, t0 in self.__simple_kwonly_params__:
+                if key in kwargs:
+                    obj = kwargs[key]
+                else:
+                    obj = self.__fn_defaults__.get(key)
+                if type(obj) is not t0 and not isinstance(obj, types_tuple):
+                    self.__check_type__(obj, self.__checkable_types__[key], key)
 
         return_value = self.__fn__(*args, **kwargs)
 
         if self.__return_type__ is not None:
             if self.__simple_return_type__ is not None:
-                if not isinstance(return_value, self.__simple_return_type__):
+                if type(
+                    return_value
+                ) is not self.__simple_return_t0__ and not isinstance(
+                    return_value, self.__simple_return_type__
+                ):
                     self.__check_type__(
                         return_value, self.__return_type__, "return"
                     )
@@ -933,16 +963,16 @@ class FunctionMethodEnforcer:
                             return False
                     return True
             else:
-                if set(map(type, obj)).issubset(flat_set):
+                if set(map(type, obj)) <= flat_set:
                     return True
         return False
 
     def __check_type__(self, obj, expected, key):
         """
-        Raises an exception the type of a passed `obj` (parameter) is not in the list of supplied `acceptable_types` for the argument.
+        Raises an exception if the type of a passed `obj` (parameter) is not in the list of supplied `acceptable_types` for the argument.
         """
         # Special case for None
-        if obj is None and _NoneType in expected:
+        if obj is None and __NoneType__ in expected:
             return
         extra = expected.get("__extra__")
 
@@ -1078,8 +1108,10 @@ class FunctionMethodEnforcer:
                         self.__exception__(
                             f"Tuple length mismatch for `{key}`. Expected length {len(expected_args)}, got {len(obj)}"
                         )
-                    for idx, (item, ex) in enumerate(zip(obj, expected_args)):
-                        self.__check_type__(item, ex, (key, "[", idx, "]"))
+                    for idx in range(len(expected_args)):
+                        self.__check_type__(
+                            obj[idx], expected_args[idx], (key, "[", idx, "]")
+                        )
             elif obj_type == set:
                 if self.__iterable_sample_pct__ < 100:
                     if self.__iterable_sample_pct__ == 0:
