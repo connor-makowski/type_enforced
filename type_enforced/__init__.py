@@ -1,492 +1,442 @@
 """
-# Type Enforced
-[![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+# type_enforced
+
+[![PyPI version](https://img.shields.io/pypi/v/type_enforced.svg?color=blue)](https://pypi.org/project/type_enforced/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.08832/status.svg)](https://doi.org/10.21105/joss.08832)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/type-enforced?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=ORANGE&left_text=Downloads)](https://pepy.tech/projects/type-enforced)
 
-A pure python runtime type enforcer for type annotations. Enforce types in python functions and methods.
+Fast, pure-Python runtime type enforcement for Python 3.11+ type annotations. Zero dependencies and uncompromising performance.
+
+---
+
+## Quick Start
+
+```python
+import type_enforced
+
+@type_enforced.Enforcer
+def greet(name: str, repeat: int = 1) -> str:
+    return f"Hello {name}!" * repeat
+
+greet("Alice", 2)       # Returns "Hello Alice!Hello Alice!"
+greet("Alice", "twice")  # Raises TypeError at runtime!
+```
+
+---
 
 ## Why type_enforced?
 
-`type_enforced` is the fastest runtime type enforcer in Python while providing complete, uncompromising validation.
+Static type checkers (like `mypy` or `pyright`) catch errors during development, but offer zero protection at runtime against dynamic payloads, untyped API inputs, or user data.
 
-- **Fastest across the board**: Outperforms Beartype, Pydantic, and Typeguard in execution speed for scalar and sampled checks (see [benchmark results](benchmark.md)).
-- **Full validation with zero shortcuts**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys).
-    - `Beartype` and `Typeguard` only sample a single random item and miss errors in un-sampled elements.
-- **Up to 9× faster than Pydantic**: Delivers full, correct validation at a fraction of Pydantic's overhead (2–9× faster across all collection types).
-- **Configurable sampling for maximum performance**: Set `iterable_sample_pct=0` to validate sampled items (equivalent to how Beartype works) up to 2× faster than Beartype on all tested data structures (~0.18–0.35 µs).
-- **Pure Python, zero dependencies**: A single decorator with zero external packages, compatible everywhere Python 3.11+ runs.
+Existing runtime type checkers force an unnecessary compromise:
+- **Pydantic** provides thorough validation, but comes with heavy runtime overhead and steep execution slowdowns.
+- **Beartype & Typeguard** achieve high speed primarily by taking shortcuts. They sample a small number of elements in collections and miss invalid items in unsampled data.
 
-### Performance at a glance
+`type_enforced` eliminates this compromise:
 
-Timings are averages over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (see [full benchmarks](benchmark.md)).
+- **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
+- **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.
+- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype and Typeguard work. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 2× faster than Beartype.
+- **Pure Python, Zero Dependencies**: A lightweight decorator with zero external packages, C-extensions, or compilation steps. Compatible everywhere Python 3.11+ runs.
+- **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
+- **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
 
-| Type | type_enforced (100%) | type_enforced (sample) | beartype | Pydantic | Typeguard |
-|:-----|:--------------------:|:----------------------:|:--------:|:--------:|:---------:|
-| `int` | **0.21 µs** | **0.18 µs** | 0.27 µs | 1.37 µs | 2.43 µs |
-| `Union[int, float]` | **0.19 µs** | **0.18 µs** | 0.30 µs | 1.46 µs | 5.60 µs |
-| `str` | **0.18 µs** | **0.17 µs** | 0.28 µs | 1.23 µs | 2.51 µs |
-| `list[int]` (1 000 items) | **12.63 µs** | **0.22 µs ⚠** | 0.42 µs ⚠ | 22.31 µs | 3.84 µs ⚠ |
-| `dict[str, int]` (1 000 keys) | **27.34 µs** | **0.30 µs ⚠** | 0.43 µs ⚠ | 81.58 µs | 6.97 µs ⚠ |
-| `dict[str, int]` (10 000 keys) | **270.78 µs** | **0.31 µs ⚠** | 0.44 µs ⚠ | 873.62 µs | 5.07 µs ⚠ |
-| `list[dict[str, int]]` (100 x 10 items) | **60.26 µs** | **0.35 µs ⚠** | 0.55 µs ⚠ | 83.71 µs | 6.51 µs ⚠ |
-| `list[dict[str, int]]` (100 x 100 items) | **320.77 µs** | **0.35 µs ⚠** | 0.59 µs ⚠ | 785.22 µs | 6.33 µs ⚠ |
+### Performance at a Glance
 
-> Beartype and Typeguard's fast times on complex types reflect incomplete validation — they don't check all items. When full validation is required, type_enforced is **2–9× faster than Pydantic**. When sampled validation is desired, `type_enforced(iterable_sample_pct=0)` is **up to 2× faster than Beartype**.
+Timings are averages of a single validation over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (see [full benchmarks](benchmark.md)).
 
-# Setup
+| Type | Size | type_enforced (1 sample) | Beartype (1 sample) | Typeguard (1 sample) | type_enforced (100%) | Pydantic (100%) |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| `int` | — | **0.16 µs** | 0.28 µs | 2.46 µs | **0.19 µs** | 1.56 µs |
+| `Union[int, float]` | — | **0.17 µs** | 0.30 µs | 5.45 µs | **0.17 µs** | 1.52 µs |
+| `str` | — | **0.15 µs** | 0.27 µs | 2.37 µs | **0.16 µs** | 1.27 µs |
+| `list[int]` | 1 000 items | **0.18 µs ⚠** | 0.42 µs ⚠ | 3.85 µs ⚠ | **12.36 µs** | 22.40 µs |
+| `dict[str, int]` | 1 000 keys | **0.27 µs ⚠** | 0.43 µs ⚠ | 5.05 µs ⚠ | **27.48 µs** | 81.13 µs |
+| `dict[str, int]` | 10 000 keys | **0.27 µs ⚠** | 0.44 µs ⚠ | 5.14 µs ⚠ | **269.26 µs** | 872.03 µs |
+| `list[dict[str, int]]` | 100 x 10 items | **0.29 µs ⚠** | 0.56 µs ⚠ | 6.25 µs ⚠ | **43.61 µs** | 82.00 µs |
+| `list[dict[str, int]]` | 100 x 100 items | **0.30 µs ⚠** | 0.63 µs ⚠ | 6.30 µs ⚠ | **313.17 µs** | 776.74 µs |
 
-Make sure you have Python 3.11.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).
+> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 2× faster than Beartype** and **up to 20× faster than Typeguard**.
 
-- Unsupported python versions can be used, however newer features will not be available.
-    - For 3.7: use type_enforced==0.0.16 (only very basic type checking is supported)
-    - For 3.8: use type_enforced==0.0.16 (only very basic type checking is supported)
-    - For 3.9: use type_enforced<=1.9.0 (`staticmethod`, union with `|` and `from __future__ import annotations` typechecking are not supported)
-    - For 3.10: use type_enforced<=1.10.2 (`from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods))
+> **Full Validation:** When full validation is required, `type_enforced` is **up to 8× faster than Pydantic**. 
+
+---
 
 ## Installation
 
-```
+Install via `pip`:
+
+```bash
 pip install type_enforced
 ```
 
-## Basic Usage
-```py
-import type_enforced
+Or using `uv`:
 
-@type_enforced.Enforcer(enabled=True, strict=True, clean_traceback=True, iterable_sample_pct=100)
-def my_fn(a: int , b: int | str =2, c: int =3) -> None:
-    pass
-```
-- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.
-- Note: `strict=True` by default if not specified. You can set `strict=False` to disable exceptions being raised when type checking fails. Instead, a warning will be printed to the console.
-- Note: `clean_traceback=True` by default if not specified. This modifies the excepthook temporarily when a type exception is raised such that only the relevant stack (stack items not from type_enforced) is shown.
-- Note: `iterable_sample_pct=100` by default if not specified. You can set this to `'first'`, `'last'`, `'log'`, `0` (1 random sample), or an integer percentage `1..100` (rounding up) to control sampling during iterable validation. Lower values improve performance for large iterables at the cost of reduced type checking coverage.
-
-## Getting Started
-
-`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce many basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html).
-
-`Enforcer` can be used as a decorator for functions, methods, and classes. It will enforce the type hints on the function or method inputs and outputs. It takes in the following optional arguments:
-
-- `enabled` (True): A boolean to enable or disable type checking. If `True`, type checking will be enforced. If `False`, type checking will be disabled.
-- `strict` (True): A boolean to enable or disable type mismatch exceptions. If `True` exceptions will be raised when type checking fails. If `False`, exceptions will not be raised but instead a warning will be printed to the console.
-- `clean_traceback` (True): A boolean to enable or disable cleaning of tracebacks. If `True`, modifies the excepthook temporarily such that only the relevant stack (not in the type_enforced package) is shown.
-- `iterable_sample_pct` (100): Control how many items in iterables are checked during type enforcement. Supports `'first'`, `'last'`, `'log'`, `0` (1 random sample), or an integer percentage `1..100` (rounding up).
-    - Note: Lower values improve performance for large iterables but reduce type checking coverage.
-
-`type_enforcer` currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an `int`, a number `int | float`, an instance of the self defined `MyClass`, or a even a vector with `list[int]`. Items like `typing.List`, `typing.Dict`, `typing.Union` and `typing.Optional` are supported.
-
-You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with `int | float` or `typing.Union[int, float]`.
-
-Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For example, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.
-
-Variables without an annotation for type are not enforced.
-
-## Supported Type Checking Features:
-
-- Function/Method Input Typing
-- Function/Method Return Typing
-- Dataclass Typing
-- All standard python types (`str`, `list`, `int`, `dict`, ...)
-- Union types
-    - typing.Union
-    - `|` separated items (e.g. `int | float`)
-- Nested types (e.g. `dict[str, int]` or `list[int|float]`)
-    - Note: Each parent level must be an iterable
-        - Specifically a variant of `list`, `set`, `tuple` or `dict`
-    - Note: `dict` requires two types to be specified (unions count as a single type)
-        - The first type is the key type and the second type is the value type
-        - e.g. `dict[str, int|float]` or `dict[int, float]`
-    - Note: `list` and `set` require a single type to be specified (unions count as a single type)
-        - e.g. `list[int]`, `set[str]`, `list[float|str]`
-    - Note: `tuple` Allows for `N` types to be specified
-        - Each item refers to the positional type of each item in the tuple
-        - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type
-            - e.g. `tuple[int, ...]` or `tuple[int|str, ...]`
-        - Note: Unions between two tuples are not supported
-            - e.g. `tuple[int, str] | tuple[str, int]` will not work
-    - Deeply nested types are supported too:
-        - `dict[dict[int]]`
-        - `list[set[str]]`
-- Many of the `typing` (package) functions and methods including:
-    - Standard typing functions:
-        - `List`
-        - `Set`
-        - `Dict`
-        - `Tuple`
-    - `Union`
-    - `Optional`
-    - `Any`
-    - `Sized`
-        - Essentially creates a union of:
-            - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`
-        - Note: Can not have a nested type
-            - Because this does not always meet the criteria for `Nested types` above
-    - `Literal`
-        - Only allow certain values to be passed. Operates slightly differently than other checks.
-        - e.g. `Literal['a', 'b']` will require any passed values that are equal (`==`) to `'a'` or `'b'`.
-            - This compares the value of the passed input and not the type of the passed input.
-        - Note: Multiple types can be passed in the same `Literal` as acceptable values.
-            - e.g. Literal['a', 'b', 1, 2] will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.
-        - Note: If type is a `str | Literal['a', 'b']`
-            - The check will validate that the type is a string or the value is equal to `'a'` or `'b'`.
-            - This means that an input of `'c'` will pass the check since it matches the string type, but an input of `1` will fail.
-        - Note: If type is a `int | Literal['a', 'b']`
-            - The check will validate that the type is an int or the value is equal to `'a'` or `'b'`.
-            - This means that an input of `'c'` will fail the check, but an input of `1` will pass.
-        - Note: Literals stack when used with unions.
-            - e.g. `Literal['a', 'b'] | Literal[1, 2]` will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.
-    - `Callable`
-        - Essentially creates a union of:
-            - `staticmethod`, `classmethod`, `types.FunctionType`, `types.BuiltinFunctionType`, `types.MethodType`, `types.BuiltinMethodType`, `types.GeneratorType`
-    - Note: Other functions might have support, but there are not currently tests to validate them
-        - Feel free to create an issue (or better yet a PR) if you want to add tests/support
-- `Constraint` validation.
-    - This is a special type of validation that allows passed input to be validated.
-        - Standard and custom constraints are supported.
-    - Constraints are not actually types. They are type_enforced specific validators and may cause issues with other runtime or static type checkers like `mypy`.
-    - This is useful for validating that a passed input is within a certain range or meets a certain criteria.
-    - Note: Constraints stack when used with unions.
-        - e.g. `int | Constraint(ge=0) | Constraint(le=5)` will require any passed values to be integers that are greater than or equal to `0` and less than or equal to `5`.
-    - Note: The constraint is checked after type checking occurs and operates independently of the type checking.
-        - This operates differently than other checks (like `Literal`) and is evaluated post type checking.
-        - For example, if you have an annotation of `str | Constraint(ge=0)`, this will always raise an exception since if you pass a string, it will raise on the constraint check and if you pass an integer, it will raise on the type check.
-    - Note: See the example below or technical [constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) and [generic constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint) docs for more information.
-
-## Interactive Example
-
-```py
->>> import type_enforced
->>> @type_enforced.Enforcer
-... def my_fn(a: int , b: int|str =2, c: int =3) -> None:
-...     pass
-...
->>> my_fn(a=1, b=2, c=3)
->>> my_fn(a=1, b='2', c=3)
->>> my_fn(a='a', b=2, c=3)
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-TypeError: TypeEnforced Exception (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[<class 'int'>]` but got `<class 'str'>` with value `a` instead.
-
+```bash
+uv add type_enforced
 ```
 
-## Nested Examples
-```py
-import type_enforced
-import typing
+### Requirements
+- **Python 3.11+**
+- Zero external runtime dependencies
 
-@type_enforced.Enforcer
-def my_fn(
-    a: dict[str,dict[str, int|float]], # Note: For dicts, the key is the first type and the value is the second type
-    b: list[typing.Set[str]] # Could also just use set
-) -> None:
-    return None
+<details>
+<summary>Legacy Python Compatibility</summary>
 
-my_fn(a={'i':{'j':1}}, b=[{'x'}]) # Success
+For older Python versions, pin to legacy releases:
+- **Python 3.10**: `pip install "type_enforced<=1.10.2"`
+- **Python 3.9**: `pip install "type_enforced<=1.9.0"`
+- **Python 3.7 – 3.8**: `pip install "type_enforced==0.0.16"`
+</details>
 
-my_fn(a={'i':{'j':'k'}}, b=[{'x'}]) # Error =>
-# TypeError: TypeEnforced Exception (my_fn): Type mismatch for typed variable `a['i']['j']`. Expected one of the following `[<class 'int'>, <class 'float'>]` but got `<class 'str'>` with value `k` instead.
-```
+---
 
-## Class and Method Use
+## Usage Guide
 
-Type enforcer can be applied to methods individually:
+### 1. Functions and Methods
 
-```py
-import type_enforced
+Apply `@type_enforced.Enforcer` to any callable. It validates positional arguments, keyword arguments, default parameters, and the return type.
 
-class my_class:
-    @type_enforced.Enforcer
-    def my_fn(self, b:int):
-        pass
-```
-
-You can also enforce all typing for all methods in a class by decorating the class itself.
-
-```py
+```python
 import type_enforced
 
 @type_enforced.Enforcer
-class my_class:
-    def my_fn(self, b:int):
-        pass
+def process_user(user_id: int, tags: list[str], active: bool = True) -> dict[str, str | int]:
+    return {"user_id": user_id, "status": "active" if active else "inactive"}
 
-    def my_other_fn(self, a: int, b: int | str):
-      pass
+# Passing invalid types raises a descriptive TypeError:
+process_user("123", ["admin"])
+# TypeError: TypeEnforced Exception (process_user): Type mismatch for typed variable `user_id`.
+# Expected one of the following `[<class 'int'>]` but got `<class 'str'>` with value `123` instead.
 ```
 
-You can also enforce types on `staticmethod`s and `classmethod`s if you are using `python >= 3.10`. If you are using a python version less than this, `classmethod`s and `staticmethod`s methods will not have their types enforced.
+### 2. Classes and Dataclasses
 
-```py
-import type_enforced
+Decorating a class automatically enforces types on all annotated methods (including `__init__`, `@classmethod`, and `@staticmethod`):
 
-@type_enforced.Enforcer
-class my_class:
-    @classmethod
-    def my_fn(self, b:int):
-        pass
-
-    @staticmethod
-    def my_other_fn(a: int, b: int | str):
-      pass
-```
-
-Dataclasses are suported too.
-
-```py
+```python
 import type_enforced
 from dataclasses import dataclass
 
 @type_enforced.Enforcer
+class Account:
+    def __init__(self, username: str, balance: float):
+        self.username = username
+        self.balance = balance
+
+    def deposit(self, amount: float) -> float:
+        self.balance += amount
+        return self.balance
+
+    @staticmethod
+    def validate_code(code: str) -> bool:
+        return len(code) == 6
+
+# Dataclasses work seamlessly:
+@type_enforced.Enforcer
 @dataclass
-class my_class:
-    foo: int
-    bar: str
+class UserConfig:
+    retries: int
+    endpoint: str
 ```
 
-You can skip enforcement if you add the argument `enabled=False` in the `Enforcer` call.
-- This is useful for a production vs debugging environment.
-- This is also useful for undecorating a single method in a larger wrapped class.
-- Note: You can set `enabled=False` for an entire class or simply disable a specific method in a larger wrapped class.
-- Note: Method level wrapper `enabled` values take precedence over class level wrappers.
-```py
-import type_enforced
+To disable enforcement on a specific method within an enforced class:
+
+```python
 @type_enforced.Enforcer
-class my_class:
-    def my_fn(self, a: int) -> None:
+class Worker:
+    def standard_job(self, task: str) -> None:
         pass
 
     @type_enforced.Enforcer(enabled=False)
-    def my_other_fn(self, a: int) -> None:
+    def high_throughput_job(self, data):
+        # Type enforcement skipped for maximum throughput
         pass
 ```
 
-## Only Typed
+### 3. Module-Level Enforcement (`ModuleEnforcer`)
 
-You can require that all parameters and return values have type annotations by setting `only_typed=True` (defaults to `False`). If any parameter or return value is missing a type annotation, an exception will be raised upon decoration:
+Enforce typing across an entire module in a single line without decorating every function and class individually:
 
-```py
-import type_enforced
-
-@type_enforced.Enforcer(only_typed=True)
-def my_fn(a: int, b: str) -> str:
-    return f"{a}: {b}"
-
-# Missing type hint on parameter `a` or return value raises TypeError:
-@type_enforced.Enforcer(only_typed=True)
-def bad_fn(a, b: int) -> int:
-    return b
-# TypeError: TypeEnforced Exception (bad_fn): Untyped variable `a` found in function/method `bad_fn`.
-```
-
-`only_typed=True` can also be used on classes or with `ModuleEnforcer`:
-
-```py
-@type_enforced.Enforcer(only_typed=True)
-class MyClass:
-    def greet(self, name: str) -> str:
-        return f"Hello {name}"
-```
-
-## Module Use
-
-You can enforce typing for all functions and classes in an entire module by calling `type_enforced.ModuleEnforcer()` in the module file:
-
-```py
+```python
+# Place at the top of your module file (e.g., my_package/core.py)
 import type_enforced
 
 type_enforced.ModuleEnforcer()
 
-def my_fn(a: int, b: int) -> int:
+def add(a: int, b: int) -> int:
     return a + b
 
-class MyClass:
-    def greet(self, name: str) -> str:
-        return f"Hello {name}"
+class Helper:
+    def run(self, flag: bool) -> str:
+        return "ok" if flag else "failed"
 ```
 
-You can also enforce an imported module object:
+You can also enforce an imported module:
 
-```py
-import my_module
+```python
+import my_package
 import type_enforced
 
-type_enforced.ModuleEnforcer(my_module)
+type_enforced.ModuleEnforcer(my_package)
 ```
 
-Note: `submodules=True` by default, which recursively enforces all sub-packages/sub-modules belonging to the same package namespace (e.g. `mypkg.subpackage`), while never enforcing external libraries or imports outside that package namespace. Set `submodules=False` to only enforce the current module.
+> **Note:** By default, `submodules=True`, which recursively enforces all sub-packages/sub-modules in the same namespace (e.g. `mypkg.submodule`), while safely ignoring third-party and standard library imports.
 
-## Validate with Constraints
-Type enforcer can enforce constraints for passed variables. These constraints are validated after any type checks are made.
+---
 
-To enforce basic input values are integers greater than or equal to zero, you can use the [Constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) class like so:
-```py
+## Supported Type Annotations
+
+`type_enforced` supports all standard Python 3.11+ typing constructs:
+
+### Standard Built-ins & Unions
+```python
+@type_enforced.Enforcer
+def fn(
+    a: int,
+    b: str | float,                    # Standard union syntax
+    c: int | None = None,              # Optional syntax
+) -> None:
+    pass
+```
+
+### Collections & Nested Generics
+```python
+@type_enforced.Enforcer
+def fn(
+    items: list[int | float],
+    mapping: dict[str, list[int]],      # Dicts require [KeyType, ValType]
+    unique_ids: set[str],
+    fixed_pair: tuple[str, int],        # Exact positional tuple: (str, int)
+    var_tuple: tuple[int, ...],         # Variable-length tuple
+) -> None:
+    pass
+```
+
+### Custom Classes & Subclass Inheritance
+By default, subclasses pass type validation (e.g. `Bar()` satisfies `Foo` if `class Bar(Foo)`):
+
+```python
+class Animal: pass
+class Dog(Animal): pass
+class Vehicle: pass
+
+@type_enforced.Enforcer
+def feed(animal: Animal) -> None:
+    pass
+
+feed(Animal())  # OK
+feed(Dog())     # OK (subclasses allowed)
+feed(Vehicle()) # Raises TypeError
+```
+
+To enforce uninitialized class objects (the class itself, rather than an instance), use `type[Animal]` (or `typing.Type[Animal]`):
+
+```python
+@type_enforced.Enforcer
+def make_instance(cls: type[Animal]) -> Animal:
+    return cls()
+```
+
+### Literals & Special Types
+```python
+from typing import Literal, Callable, Sized, Any
+
+@type_enforced.Enforcer
+def fn(
+    mode: Literal["read", "write"],        # Value check: must equal "read" or "write"
+    handler: Callable,                     # Functions, methods, generators
+    container: Sized,                      # list, dict, set, str, tuple, bytes, etc.
+    wildcard: Any,                         # Permissive bypass
+) -> None:
+    pass
+```
+
+- **Stacking Literals**: Literals combine with unions using OR logic (`int | Literal['auto']` allows any `int` or the literal string `'auto'`).
+
+---
+
+## Value Validation with Constraints
+
+`type_enforced` allows post-type-check value constraints directly in type annotations.
+
+### Built-in `Constraint`
+Validate bounds, numeric comparisons, string patterns (regex), and inclusion/exclusion:
+
+```python
 import type_enforced
 from type_enforced.utils import Constraint
 
-@type_enforced.Enforcer()
-def positive_int_test(value: int |Constraint(ge=0)) -> bool:
+@type_enforced.Enforcer
+def set_score(
+    score: int | Constraint(ge=0, le=100),
+    code: str | Constraint(pattern=r"^[A-Z]{3}-\d{4}$"),
+) -> bool:
     return True
 
-positive_int_test(1) # Passes
-positive_int_test(-1) # Fails
-positive_int_test(1.0) # Fails
+set_score(85, "ABC-1234")    # Passes
+set_score(105, "ABC-1234")   # Raises TypeError (Constraint `Less Than Or Equal To (100)` not met)
+set_score(85, "invalid")     # Raises TypeError (Constraint `Regex Pattern Match` not met)
 ```
 
-To enforce a [GenericConstraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint):
-```py
+Available `Constraint` parameters:
+- `gt`, `lt`, `ge`, `le`, `eq`, `ne` (numeric / comparison bounds)
+- `pattern` (regular expression string match)
+- `includes`, `excludes` (membership checks)
+
+### Custom `GenericConstraint`
+Write arbitrary validation logic using custom predicates:
+
+```python
 import type_enforced
 from type_enforced.utils import GenericConstraint
 
-CustomConstraint = GenericConstraint(
-    {
-        'in_rgb': lambda x: x in ['red', 'green', 'blue'],
-    }
-)
-
-@type_enforced.Enforcer()
-def rgb_test(value: str | CustomConstraint) -> bool:
-    return True
-
-rgb_test('red') # Passes
-rgb_test('yellow') # Fails
-```
-
-
-
-## Validate class instances and classes
-
-Type enforcer can enforce class instances and classes. There are a few caveats between the two.
-
-To enforce a class instance, simply pass the class itself as a type hint:
-```py
-import type_enforced
-
-class Foo():
-    def __init__(self) -> None:
-        pass
+RGBColor = str | GenericConstraint({
+    "valid_hex_color": lambda c: c.startswith("#") and len(c) in (4, 7)
+})
 
 @type_enforced.Enforcer
-class my_class():
-    def __init__(self, object: Foo) -> None:
-        self.object = object
+def render(color: RGBColor) -> None:
+    pass
 
-x=my_class(Foo()) # Works great!
-y=my_class(Foo) # Fails!
+render("#ffffff")  # Passes
+render("red")      # Raises TypeError (Constraint `valid_hex_color` not met)
 ```
 
-Notice how an initialized class instance `Foo()` must be passed for the enforcer to not raise an exception.
+> **Note:** Constraints are evaluated *after* type checking. Constraints stack with unions: `int | Constraint(ge=0) | Constraint(le=10)`.
 
-To enforce an uninitialized class object use `typing.Type[classHere]` on the class to enforce inputs to be an uninitialized class:
-```py
-import type_enforced
-import typing
+---
 
-class Foo():
-    def __init__(self) -> None:
-        pass
+## Configuration Reference
 
-@type_enforced.Enforcer
-class my_class():
-    def __init__(self, object_class: typing.Type[Foo]) -> None:
-        self.object = object_class()
+Both `@Enforcer` and `ModuleEnforcer` accept the following configuration arguments:
 
-y=my_class(Foo) # Works great!
-x=my_class(Foo()) # Fails
-```
+| Parameter | Type | Default | Description |
+|:---|:---:|:---:|:---|
+| `enabled` | `bool` | `True` | Toggle enforcement. Set `False` to bypass type checks (useful for production vs. debugging or per-method overrides). |
+| `strict` | `bool` | `True` | When `True`, raises `TypeError` on mismatch. When `False`, logs a warning to the console instead of raising. |
+| `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so unhandled tracebacks point directly to user code (see note below). |
+| `iterable_sample_pct` | `int \| str` | `100` | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'log'` checks a sample of $\lceil\log_2 n\rceil$ items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. |
+| `only_typed` | `bool` | `False` | When `True`, raises an exception upon decoration if any parameter or return value lacks a type hint. |
+| `submodules` *(ModuleEnforcer only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |
 
-By default, type_enforced will check for subclasses of a class when validating types. This means that if you pass a subclass of the expected class, it will pass the type check.
+### Configuration Options in Depth
 
-Note: Uninitialized class objects that are passed are not checked for subclasses.
+#### 1. Strict Typing Mode (`only_typed=True`)
+To catch unannotated parameters or missing return annotations across your codebase, enable `only_typed=True`. This raises a `TypeError` at definition time if any parameter (excluding `self`/`cls`) or the return type lacks an annotation:
 
-```py
+```python
 import type_enforced
 
-class Foo:
-    pass
+@type_enforced.Enforcer(only_typed=True)
+def calculate(a: int, b: int) -> int:
+    return a + b
 
-class Bar(Foo):
-    pass
-
-class Baz:
-    pass
-
-@type_enforced.Enforcer
-def my_fn(custom_class: Foo):
-    pass
-
-my_fn(Foo()) # Passes as expected
-my_fn(Bar()) # Passes as expected
-my_fn(Baz()) # Raises TypeError as expected
+# Missing annotation on parameter `b` or missing return annotation raises immediately:
+@type_enforced.Enforcer(only_typed=True)
+def invalid_fn(a: int, b):
+    return a
+# TypeError: TypeEnforced Exception (invalid_fn): Untyped variable `b` found in function/method `invalid_fn`.
 ```
 
-## What changed in 2.0.0?
-The main changes in version 2.0.0 revolve around migrating towards the standard python typing hint process and away from the original type_enfoced type hints (as type enforced was originally created before the `|` operator was added to python).
-- Support for python3.10 has been dropped.
-- List based union types are no longer supported.
-    - For example `[int, float]` is no longer a supported type hint.
-    - Use `int|float` or `typing.Union[int, float]` instead.
-- Dict types now require two types to be specified.
-    - The first type is the key type and the second type is the value type.
-    - For example, `dict[str, int|float]` or `dict[int, float]` are valid types.
-- Tuple types now allow for `N` types to be specified.
-    - Each item refers to the positional type of each item in the tuple.
-    - Support for ellipsis (`...`) is supported if you only specify two types and the second is the ellipsis type.
-        - For example, `tuple[int, ...]` or `tuple[int|str, ...]` are valid types.
-    - Note: Unions between two tuples are not supported.
-        - For example, `tuple[int, str] | tuple[str, int]` will not work.
-- Constraints and Literals can now be stacked with unions.
-    - For example, `int | Constraint(ge=0) | Constraint(le=5)` will require any passed values to be integers that are greater than or equal to `0` and less than or equal to `5`.
-    - For example, `Literal['a', 'b'] | Literal[1, 2]` will require any passed values that are equal (`==`) to `'a'`, `'b'`, `1` or `2`.
-- Literals now evaluate during the same time as type checking and operate as OR checks.
-    - For example, `int | Literal['a', 'b']` will validate that the type is an int or the value is equal to `'a'` or `'b'`.
-- Constraints are still are evaluated after type checking and operate independently of the type checking.
+#### 2. Warning Mode (`strict=False`)
+Print warnings to the console instead of raising exceptions (useful for gradual adoption or debugging without breaking execution):
 
-# Support
+```python
+@type_enforced.Enforcer(strict=False)
+def lenient_fn(x: int) -> int:
+    return x
 
-## Bug Reports and Feature Requests
+lenient_fn("not_an_int")
+# Logs: TypeEnforced Warning (lenient_fn): Type mismatch for typed variable `x`...
+# Returns "not_an_int" without raising an exception.
+```
 
-If you find a bug or are looking for a new feature, please open an issue on GitHub.
+#### 3. Clean Tracebacks (`clean_traceback=True`)
+By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a type exception is raised, stripping internal `type_enforced` library frames so that unhandled script tracebacks point directly to the line of user code that caused the issue.
 
-## Need Help?
+> **Note on Interactive Terminals / REPLs:** In interactive environments (such as the Python REPL / PyREPL, IPython, or Jupyter notebooks), the shell wraps execution in an internal `try...except` loop and catches exceptions before they reach `sys.excepthook`. Consequently, interactive terminal sessions will still display the full traceback.
 
-If you need help, please open an issue on GitHub.
+#### 4. Sampled Validation (`iterable_sample_pct`)
+For large or performance-critical collections, configure sampling instead of full iteration:
+- `'first'`: Validates the first element in O(1) time (runs up to 2× faster than Beartype).
+- `'last'`: Validates the last element in O(1) time.
+- `'log'`: Validates a sample of $\lceil\log_2 n\rceil$ items across the collection.
+- `0`: Validates one element chosen at random.
+- `1..100` (int): Validates the specified percentage of items (rounding up).
 
-# Contributing
+```python
+@type_enforced.Enforcer(iterable_sample_pct="first")
+def fast_check(items: list[int]) -> int:
+    return len(items)
 
-Contributions are welcome! Please open an issue or submit a pull request.
+fast_check([1, 2, 3])           # OK
+fast_check(["bad_first", 2, 3])  # Raises TypeError
+```
 
-## Development
+---
 
-To avoid extra development overhead, we expect all developers to use a unix based environment (Linux or Mac). If you use Windows, please use WSL2.
+## Contributing
 
-For development, we use [uv](https://docs.astral.sh/uv/) to manage dependencies and run tests.
+Contributions are welcome!
 
-## Making Changes
+### Development Setup
 
-1) Fork the repo and clone it locally.
-2) Make your modifications.
-3) Run tests and make sure they pass.
-4) Prettify your code.
-5) **DO NOT GENERATE DOCS**.
-    - We will generate the docs and update the version number when we are ready to release a new version.
-6) Only commit relevant changes and add clear commit messages.
-    - Atomic commits are preferred.
-7) Submit a pull request.
+We use [uv](https://docs.astral.sh/uv/) for dependency management and testing in a Unix-based environment (Linux, macOS, or WSL2 on Windows).
 
-## Development Commands
+```bash
+# Clone the repository
+git clone https://github.com/connor-makowski/type_enforced.git
+cd type_enforced
 
-| Command | What it does |
-|---|---|
-| `uv run nox` | Run tests across Python 3.11, 3.12, 3.13, 3.14 |
-| `uv run nox -s tests-3.14` | Run tests on a single Python version |
-| `uv run pytest` | Run tests in the local venv |
+# Install dev dependencies
+uv sync --extra dev
+```
+
+### Development Commands
+
+| Command | Description |
+|:---|:---|
+| `uv run pytest` | Run tests in local environment |
 | `uv run pytest -v` | Run tests with verbose output |
-| `uv run python utils/prettify.py` | Format with autoflake + black |
+| `uv run nox` | Run test suite across Python 3.11, 3.12, 3.13, 3.14 |
+| `uv run nox -s tests-3.14` | Run test suite on a specific Python version |
+| `uv run python utils/prettify.py` | Auto-format with `autoflake` and `black` (80 col) |
 
-Dev dependencies are in `[project.optional-dependencies] dev` in `pyproject.toml`. Install with `uv sync --extra dev`.
+### Guidelines
+1. Fork the repo and create your branch from `main`.
+2. Ensure all tests pass across versions (`uv run nox`).
+3. Format code before committing (`uv run python utils/prettify.py`).
+4. Keep commits atomic and clearly described.
+5. Submit a pull request.
+
+---
+
+## Academic Citation
+
+If you use `type_enforced` in academic research, please cite our [JOSS paper](https://doi.org/10.21105/joss.08832):
+
+```bibtex
+@article{Makowski2026,
+  doi = {10.21105/joss.08832},
+  url = {https://doi.org/10.21105/joss.08832},
+  year = {2026},
+  publisher = {The Open Journal},
+  volume = {11},
+  number = {118},
+  pages = {8832},
+  author = {Connor Makowski},
+  title = {type_enforced: A pure Python runtime type enforcer},
+  journal = {Journal of Open Source Software}
+}
+```
+
+---
+
+## License
+
+Distributed under the [MIT License](https://opensource.org/licenses/MIT). See `LICENSE` for details.
 """
 
 from .enforcer import Enforcer, FunctionMethodEnforcer
