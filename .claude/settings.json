@@ -6,13 +6,10 @@
     "allow": [
       "Read(./type_enforced/**)",
       "Edit(./type_enforced/**)",
-      "Write(./type_enforced/**)",
       "Read(./test/**)",
       "Edit(./test/**)",
-      "Write(./test/**)",
       "Read(./README.md)",
       "Edit(./README.md)",
-      "Write(./README.md)",
       "Bash(uv run utils/*.py)",
       "Bash(uv run nox*)",
       "Bash(uv run pytest*)"

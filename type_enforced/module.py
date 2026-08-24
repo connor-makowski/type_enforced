@@ -71,8 +71,10 @@ def ModuleEnforcer(
         - Type: bool
         - Default: True
     - `iterable_sample_pct`:
-        - What: The percentage (0-100) of items to validate when checking typed iterables.
-        - Type: int | float
+        - What: Control how many items in iterables are checked during type enforcement.
+            Supports 'first' (first element), 'last' (last element), 'log' (sample of log n items),
+            0 (1 random sample), or an integer percentage 1..100 (rounding up).
+        - Type: int | str
         - Default: 100
     - `submodules`:
         - What: A boolean to enable or disable recursive enforcement on submodules under the

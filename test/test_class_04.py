@@ -24,6 +24,12 @@ class Baz:
         self.object = use_class
 
 
+@type_enforced.Enforcer
+class BazBuiltin:
+    def __init__(self, use_class: type[Foo]) -> None:
+        self.object = use_class
+
+
 def test_class_04():
     Baz(Foo)
 
@@ -33,3 +39,12 @@ def test_class_04():
         Baz(Bar)
     with pytest.raises(Exception):
         Baz(Bum)
+
+    BazBuiltin(Foo)
+
+    with pytest.raises(Exception):
+        BazBuiltin(Foo())
+    with pytest.raises(Exception):
+        BazBuiltin(Bar)
+    with pytest.raises(Exception):
+        BazBuiltin(Bum)
