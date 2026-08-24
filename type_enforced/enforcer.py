@@ -23,6 +23,7 @@ from type_enforced.specialized import (
 import sys
 import traceback
 import random
+from itertools import islice
 from pathlib import Path
 
 __NoneType__ = type(None)
@@ -94,10 +95,10 @@ class FunctionMethodEnforcer:
                 - Type: bool
                 - Default: True
             - `__iterable_sample_pct__`:
-                - What: The percentage of items to sample when validating iterables. If 100, all items
-                    are validated. If less than 100, the first and last items are always validated
-                    plus a random sample of the remaining items up to the specified percentage.
-                - Type: int | float
+                - What: Control how many items in iterables are checked during type enforcement.
+                    Supports 'first' (first element), 'last' (last element), 'log' (sample of log n items),
+                    0 (1 random sample), or an integer percentage 1..100 (rounding up).
+                - Type: int | str
                 - Default: 100
             - `__only_typed__`:
                 - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.
@@ -113,6 +114,17 @@ class FunctionMethodEnforcer:
         self.__types_parsed__ = False
         self.__flat_subtypes__ = {}
         self.__keys_tuples__ = {}
+        # Validate iterable_sample_pct
+        if self.__iterable_sample_pct__ not in ("first", "last", "log"):
+            if (
+                not isinstance(self.__iterable_sample_pct__, int)
+                or isinstance(self.__iterable_sample_pct__, bool)
+                or not (0 <= self.__iterable_sample_pct__ <= 100)
+            ):
+                self.__exception__(
+                    f"Invalid iterable_sample_pct `{self.__iterable_sample_pct__}`. Expected 'first', 'last', 'log', or an integer between 0 and 100.",
+                    raise_exception=True,
+                )
         # Validate that the passed function or method is a method or function
         self.__check_method_function__()
         # Check only_typed if enabled
@@ -142,17 +154,18 @@ class FunctionMethodEnforcer:
                 continue
             if name not in type_hints:
                 self.__exception__(
-                    f"Untyped variable `{name}` found in function/method `{self.__fn__.__qualname__}`."
+                    f"Untyped variable `{name}` found in function/method `{self.__fn__.__qualname__}`.",
+                    raise_exception=True,
                 )
         if "return" not in type_hints:
             self.__exception__(
-                f"Untyped return value found in function/method `{self.__fn__.__qualname__}`."
+                f"Untyped return value found in function/method `{self.__fn__.__qualname__}`.",
+                raise_exception=True,
             )
 
     def __get_defaults__(self):
         """
-        Get the default values of the passed function or method and store them in `self.__fn_defaults__`.
-        Also caches the function's variable names for use in `__call__`.
+        Processes default parameter values for the wrapped function/method.
         """
         self.__fn_varnames__ = self.__fn__.__code__.co_varnames
         self.__fn_defaults_tuple__ = self.__fn__.__defaults__
@@ -172,49 +185,80 @@ class FunctionMethodEnforcer:
 
     def __get_sample_indices__(self, length):
         """
-        Get a sorted list of indices to sample for iterable validation.
-
-        If iterable_sample_pct is 0, only the first item (index 0) is checked.
-        Otherwise, always includes the first (0) and last (length-1) indices.
-        If length > 3, samples additional middle indices up to the
-        iterable_sample_pct percentage.
-        Only called when self.__iterable_sample_pct__ < 100.
+        Get sampled indices for sequence validation based on iterable_sample_pct.
         """
         if length == 0:
             return []
-        if self.__iterable_sample_pct__ == 0:
+        pct = self.__iterable_sample_pct__
+        if pct == "first":
             return [0]
-        if length <= 3:
+        if pct == "last":
+            return [length - 1]
+        if pct == 0:
+            return [random.randrange(length)]
+        if pct == "log":
+            count = max(1, (length - 1).bit_length())
+        else:
+            count = max(1, (length * pct + 99) // 100)
+        if count >= length:
             return range(length)
-        n = max(3, int(length * self.__iterable_sample_pct__ / 100))
-        if n >= length:
-            return range(length)
-        middle_sample = random.sample(range(1, length - 1), n - 2)
-        return sorted([0] + middle_sample + [length - 1])
+        if count == 1:
+            return [0]
+        if count == 2:
+            return [0, length - 1]
+        step = max(1, (length - 1) // (count - 1))
+        return [0, length - 1] + list(range(step, length - 1, step))
 
     def __get_sample_keys__(self, keys):
         """
-        Get a sampled list of dict keys for iterable validation.
-
-        If iterable_sample_pct is 0, only the first key is returned.
-        Otherwise, always includes the first key plus a random sample of
-        the remaining keys up to the iterable_sample_pct percentage.
-        Only called when self.__iterable_sample_pct__ < 100.
+        Get sampled keys for dict validation based on iterable_sample_pct.
         """
         if isinstance(keys, dict):
             if not keys:
                 return []
-            if self.__iterable_sample_pct__ == 0 or len(keys) == 1:
+            l = len(keys)
+            pct = self.__iterable_sample_pct__
+            if pct == "first" or l == 1:
                 return [next(iter(keys))]
-            keys = list(keys.keys())
+            if pct == "last":
+                return [next(reversed(keys))]
+            if pct == 0:
+                return [next(islice(keys, random.randrange(l), None))]
+            if pct == "log":
+                count = max(1, (l - 1).bit_length())
+            else:
+                count = max(1, (l * pct + 99) // 100)
+            if count >= l:
+                return list(keys.keys())
+            if count == 1:
+                return [next(iter(keys))]
+            if count == 2:
+                return [next(iter(keys)), next(reversed(keys))]
+            return [next(iter(keys)), next(reversed(keys))] + list(
+                islice(keys, 1, count - 1)
+            )
         elif len(keys) == 0:
             return []
-        elif self.__iterable_sample_pct__ == 0 or len(keys) == 1:
-            return [keys[0]]
-        n = max(1, int(len(keys) * self.__iterable_sample_pct__ / 100))
-        if n >= len(keys):
-            return keys
-        return [keys[0]] + random.sample(keys[1:], n - 1)
+        else:
+            l = len(keys)
+            pct = self.__iterable_sample_pct__
+            if pct == "first" or l == 1:
+                return [keys[0]]
+            if pct == "last":
+                return [keys[-1]]
+            if pct == 0:
+                return [keys[random.randrange(l)]]
+            if pct == "log":
+                count = max(1, (l - 1).bit_length())
+            else:
+                count = max(1, (l * pct + 99) // 100)
+            if count >= l:
+                return keys
+            if count == 1:
+                return [keys[0]]
+            if count == 2:
+                return [keys[0], keys[-1]]
+            return [keys[0], keys[-1]] + list(islice(keys, 1, count - 1))
 
     def __get_checkable_types__(self):
         """
@@ -713,47 +757,33 @@ class FunctionMethodEnforcer:
                 pass
             # Recursive validation
             elif obj_type == list:
-                if self.__iterable_sample_pct__ < 100:
-                    if self.__iterable_sample_pct__ == 0:
-                        if len(obj) > 0:
-                            self.__check_type__(obj[0], subtype, (key, "[0]"))
-                    else:
-                        for idx in self.__get_sample_indices__(len(obj)):
-                            self.__check_type__(
-                                obj[idx], subtype, (key, "[", idx, "]")
-                            )
+                if self.__iterable_sample_pct__ != 100:
+                    for idx in self.__get_sample_indices__(len(obj)):
+                        self.__check_type__(
+                            obj[idx], subtype, (key, "[", idx, "]")
+                        )
                 # If the subtype does not contain iterables with typing, we can validate the items directly.
                 elif not self.__quick_check__(subtype, obj):
                     for idx, item in enumerate(obj):
                         self.__check_type__(item, subtype, (key, "[", idx, "]"))
             elif obj_type == dict:
                 key_type, val_type = subtype
-                if self.__iterable_sample_pct__ < 100:
-                    if self.__iterable_sample_pct__ == 0:
-                        if len(obj) > 0:
-                            dk = next(iter(obj))
+                if self.__iterable_sample_pct__ != 100:
+                    sampled_keys = self.__get_sample_keys__(obj)
+                    if not isinstance(sampled_keys, list):
+                        sampled_keys = list(sampled_keys)
+                    if not self.__quick_check__(key_type, sampled_keys):
+                        for dk in sampled_keys:
                             self.__check_type__(
                                 dk, key_type, (key, ".key[", repr(dk), "]")
                             )
+                    if not self.__quick_check__(
+                        val_type, [obj[dk] for dk in sampled_keys]
+                    ):
+                        for dk in sampled_keys:
                             self.__check_type__(
                                 obj[dk], val_type, (key, "[", repr(dk), "]")
                             )
-                    else:
-                        sampled_keys = self.__get_sample_keys__(
-                            list(obj.keys())
-                        )
-                        if not self.__quick_check__(key_type, sampled_keys):
-                            for dk in sampled_keys:
-                                self.__check_type__(
-                                    dk, key_type, (key, ".key[", repr(dk), "]")
-                                )
-                        if not self.__quick_check__(
-                            val_type, [obj[dk] for dk in sampled_keys]
-                        ):
-                            for dk in sampled_keys:
-                                self.__check_type__(
-                                    obj[dk], val_type, (key, "[", repr(dk), "]")
-                                )
                 else:
                     if not self.__quick_check__(key_type, obj.keys()):
                         for dk in obj.keys():
@@ -768,19 +798,13 @@ class FunctionMethodEnforcer:
             elif obj_type == tuple:
                 expected_args, is_ellipsis = subtype
                 if is_ellipsis:
-                    if self.__iterable_sample_pct__ < 100:
-                        if self.__iterable_sample_pct__ == 0:
-                            if len(obj) > 0:
-                                self.__check_type__(
-                                    obj[0], expected_args, (key, "[0]")
-                                )
-                        else:
-                            for idx in self.__get_sample_indices__(len(obj)):
-                                self.__check_type__(
-                                    obj[idx],
-                                    expected_args,
-                                    (key, "[", idx, "]"),
-                                )
+                    if self.__iterable_sample_pct__ != 100:
+                        for idx in self.__get_sample_indices__(len(obj)):
+                            self.__check_type__(
+                                obj[idx],
+                                expected_args,
+                                (key, "[", idx, "]"),
+                            )
                     elif not self.__quick_check__(expected_args, obj):
                         for idx, item in enumerate(obj):
                             self.__check_type__(
@@ -804,17 +828,42 @@ class FunctionMethodEnforcer:
                             obj[idx], expected_args[idx], (key, "[", idx, "]")
                         )
             elif obj_type == set:
-                if self.__iterable_sample_pct__ < 100:
-                    if self.__iterable_sample_pct__ == 0:
+                if self.__iterable_sample_pct__ != 100:
+                    if self.__iterable_sample_pct__ == "first":
                         if len(obj) > 0:
                             item = next(iter(obj))
                             self.__check_type__(
                                 item, subtype, (key, "[", repr(item), "]")
                             )
+                    elif self.__iterable_sample_pct__ == "last":
+                        if len(obj) > 0:
+                            item = None
+                            for item in obj:
+                                pass
+                            self.__check_type__(
+                                item, subtype, (key, "[", repr(item), "]")
+                            )
+                    elif self.__iterable_sample_pct__ == 0:
+                        if len(obj) > 0:
+                            item = next(
+                                islice(obj, random.randrange(len(obj)), None)
+                            )
+                            self.__check_type__(
+                                item, subtype, (key, "[", repr(item), "]")
+                            )
+                    elif self.__iterable_sample_pct__ == "log":
+                        count = max(1, (len(obj) - 1).bit_length())
+                        for item in islice(obj, count):
+                            self.__check_type__(
+                                item, subtype, (key, "[", repr(item), "]")
+                            )
                     else:
-                        obj_list = list(obj)
-                        for idx in self.__get_sample_indices__(len(obj_list)):
-                            item = obj_list[idx]
+                        count = max(
+                            1,
+                            (len(obj) * self.__iterable_sample_pct__ + 99)
+                            // 100,
+                        )
+                        for item in islice(obj, count):
                             self.__check_type__(
                                 item, subtype, (key, "[", repr(item), "]")
                             )
@@ -883,11 +932,10 @@ def Enforcer(
         - Type: bool
         - Default: True
     - `iterable_sample_pct`:
-        - What: The percentage (0-100) of items to validate when checking typed iterables (list,
-            dict, set, variable-length tuple). At 100 (default) every item is checked. Below 100,
-            the first and last items are always checked; if the collection has more than 3 items,
-            additional items are randomly sampled so that the total checked is at least 3.
-        - Type: int | float
+        - What: Control how many items in iterables are checked during type enforcement.
+            Supports 'first' (first element), 'last' (last element), 'log' (sample of log n items),
+            0 (1 random sample), or an integer percentage 1..100 (rounding up).
+        - Type: int | str
         - Default: 100
     - `only_typed`:
         - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.

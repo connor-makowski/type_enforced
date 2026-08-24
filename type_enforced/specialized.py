@@ -1,5 +1,27 @@
 import ast
+import random
 import types
+from itertools import islice
+
+
+def _random_dict_key(d):
+    l = len(d)
+    if l == 1:
+        return next(iter(d))
+    return next(islice(d, random.randrange(l), None))
+
+
+def _random_set_item(s):
+    l = len(s)
+    if l == 1:
+        return next(iter(s))
+    return next(islice(s, random.randrange(l), None))
+
+
+def _log_count(length):
+    if length <= 0:
+        return 0
+    return max(1, (length - 1).bit_length())
 
 
 def create_specialized_class(base_cls, fn_qualname, call_method):
@@ -204,19 +226,88 @@ def generate_type_check_ast(
             is_loop=True,
         )
 
-        if sample_pct == 0:
+        if sample_pct == "first":
             content_check = ast.If(
                 test=var_expr,
                 body=[
-                    ast.For(
-                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                        iter=var_expr,
-                        body=sub_checks + [ast.Break()],
-                        orelse=[],
+                    ast.Assign(
+                        targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                        value=ast.Subscript(
+                            value=var_expr,
+                            slice=ast.Constant(value=0),
+                            ctx=ast.Load(),
+                        ),
                     )
-                ],
+                ]
+                + sub_checks,
                 orelse=[],
             )
+        elif sample_pct == "last":
+            if k is list:
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=var_expr,
+                                slice=ast.Constant(value=-1),
+                                ctx=ast.Load(),
+                            ),
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+            else:
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.For(
+                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                            iter=var_expr,
+                            body=[ast.Pass()],
+                            orelse=[],
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+        elif sample_pct == 0:
+            if k is list:
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Call(
+                                func=ast.Name(id="_choice", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+            else:
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Call(
+                                func=ast.Name(
+                                    id="_random_set_item", ctx=ast.Load()
+                                ),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
         elif sample_pct == 100:
             if elem_is_simple:
                 elem_set = frozenset(sub_exp.keys())
@@ -278,19 +369,118 @@ def generate_type_check_ast(
                     orelse=[],
                 )
         else:
+            if sample_pct == "log":
+                count_expr = ast.Call(
+                    func=ast.Name(id="_log_count", ctx=ast.Load()),
+                    args=[
+                        ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        )
+                    ],
+                    keywords=[],
+                )
+            else:
+                fn_globals[f"{prefix}_pct"] = sample_pct
+                count_expr = ast.Call(
+                    func=ast.Name(id="max", ctx=ast.Load()),
+                    args=[
+                        ast.Constant(value=1),
+                        ast.BinOp(
+                            left=ast.BinOp(
+                                left=ast.BinOp(
+                                    left=ast.Call(
+                                        func=ast.Name(id="len", ctx=ast.Load()),
+                                        args=[var_expr],
+                                        keywords=[],
+                                    ),
+                                    op=ast.Mult(),
+                                    right=ast.Name(
+                                        id=f"{prefix}_pct", ctx=ast.Load()
+                                    ),
+                                ),
+                                op=ast.Add(),
+                                right=ast.Constant(value=99),
+                            ),
+                            op=ast.FloorDiv(),
+                            right=ast.Constant(value=100),
+                        ),
+                    ],
+                    keywords=[],
+                )
+
             if k is list:
+                short_loop = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks,
+                    orelse=[],
+                )
+                assign_0 = ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=0),
+                        ctx=ast.Load(),
+                    ),
+                )
+                assign_last = ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=-1),
+                        ctx=ast.Load(),
+                    ),
+                )
                 idx_var_id = f"{prefix}_idx"
-                content_check = ast.For(
-                    target=ast.Name(id=idx_var_id, ctx=ast.Store()),
-                    iter=ast.Call(
-                        func=ast.Name(id="_get_sample_indices", ctx=ast.Load()),
-                        args=[
-                            ast.Name(id="__enf_self__", ctx=ast.Load()),
-                            ast.Call(
-                                func=ast.Name(id="len", ctx=ast.Load()),
-                                args=[var_expr],
+                step_expr = ast.Call(
+                    func=ast.Name(id="max", ctx=ast.Load()),
+                    args=[
+                        ast.Constant(value=1),
+                        ast.BinOp(
+                            left=ast.BinOp(
+                                left=ast.Call(
+                                    func=ast.Name(id="len", ctx=ast.Load()),
+                                    args=[var_expr],
+                                    keywords=[],
+                                ),
+                                op=ast.Sub(),
+                                right=ast.Constant(value=1),
+                            ),
+                            op=ast.FloorDiv(),
+                            right=ast.Call(
+                                func=ast.Name(id="max", ctx=ast.Load()),
+                                args=[
+                                    ast.Constant(value=1),
+                                    ast.BinOp(
+                                        left=count_expr,
+                                        op=ast.Sub(),
+                                        right=ast.Constant(value=1),
+                                    ),
+                                ],
                                 keywords=[],
                             ),
+                        ),
+                    ],
+                    keywords=[],
+                )
+                range_loop = ast.For(
+                    target=ast.Name(id=idx_var_id, ctx=ast.Store()),
+                    iter=ast.Call(
+                        func=ast.Name(id="range", ctx=ast.Load()),
+                        args=[
+                            step_expr,
+                            ast.BinOp(
+                                left=ast.Call(
+                                    func=ast.Name(id="len", ctx=ast.Load()),
+                                    args=[var_expr],
+                                    keywords=[],
+                                ),
+                                op=ast.Sub(),
+                                right=ast.Constant(value=1),
+                            ),
+                            step_expr,
                         ],
                         keywords=[],
                     ),
@@ -307,61 +497,56 @@ def generate_type_check_ast(
                     + sub_checks,
                     orelse=[],
                 )
-            else:
-                idx_var_id = f"{prefix}_idx"
-                indices_set_id = f"{prefix}_indices"
-                init_indices = ast.Assign(
-                    targets=[ast.Name(id=indices_set_id, ctx=ast.Store())],
-                    value=ast.Call(
-                        func=ast.Name(id="set", ctx=ast.Load()),
-                        args=[
-                            ast.Call(
-                                func=ast.Name(
-                                    id="_get_sample_indices", ctx=ast.Load()
-                                ),
-                                args=[
-                                    ast.Name(id="__enf_self__", ctx=ast.Load()),
-                                    ast.Call(
-                                        func=ast.Name(id="len", ctx=ast.Load()),
-                                        args=[var_expr],
-                                        keywords=[],
-                                    ),
-                                ],
-                                keywords=[],
-                            )
-                        ],
-                        keywords=[],
-                    ),
+                long_check = (
+                    [assign_0]
+                    + sub_checks
+                    + [assign_last]
+                    + sub_checks
+                    + [range_loop]
                 )
-                content_check = ast.For(
-                    target=ast.Tuple(
-                        elts=[
-                            ast.Name(id=idx_var_id, ctx=ast.Store()),
-                            ast.Name(id=loop_var_id, ctx=ast.Store()),
-                        ],
-                        ctx=ast.Store(),
+                content_check = ast.If(
+                    test=ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.LtE()],
+                        comparators=[ast.Constant(value=3)],
                     ),
-                    iter=ast.Call(
-                        func=ast.Name(id="enumerate", ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    ),
-                    body=[
-                        ast.If(
-                            test=ast.Compare(
-                                left=ast.Name(id=idx_var_id, ctx=ast.Load()),
-                                ops=[ast.In()],
-                                comparators=[
-                                    ast.Name(id=indices_set_id, ctx=ast.Load())
-                                ],
-                            ),
-                            body=sub_checks,
-                            orelse=[],
-                        )
-                    ],
+                    body=[short_loop],
+                    orelse=long_check,
+                )
+            else:
+                short_loop = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks,
                     orelse=[],
                 )
-                return [outer_type_guard, init_indices, content_check]
+                islice_loop = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=ast.Call(
+                        func=ast.Name(id="islice", ctx=ast.Load()),
+                        args=[var_expr, count_expr],
+                        keywords=[],
+                    ),
+                    body=sub_checks,
+                    orelse=[],
+                )
+                content_check = ast.If(
+                    test=ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.LtE()],
+                        comparators=[ast.Constant(value=3)],
+                    ),
+                    body=[short_loop],
+                    orelse=[islice_loop],
+                )
 
         return [outer_type_guard, content_check]
 
@@ -425,17 +610,68 @@ def generate_type_check_ast(
         )
         dict_loop_body = k_checks + [assign_val] + v_checks
 
-        if sample_pct == 0:
+        if sample_pct == "first":
             content_check = ast.If(
                 test=var_expr,
                 body=[
-                    ast.For(
-                        target=ast.Name(id=k_var_id, ctx=ast.Store()),
-                        iter=var_expr,
-                        body=dict_loop_body + [ast.Break()],
-                        orelse=[],
+                    ast.Assign(
+                        targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
+                        value=ast.Call(
+                            func=ast.Name(id="next", ctx=ast.Load()),
+                            args=[
+                                ast.Call(
+                                    func=ast.Name(id="iter", ctx=ast.Load()),
+                                    args=[var_expr],
+                                    keywords=[],
+                                )
+                            ],
+                            keywords=[],
+                        ),
                     )
-                ],
+                ]
+                + dict_loop_body,
+                orelse=[],
+            )
+        elif sample_pct == "last":
+            content_check = ast.If(
+                test=var_expr,
+                body=[
+                    ast.Assign(
+                        targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
+                        value=ast.Call(
+                            func=ast.Name(id="next", ctx=ast.Load()),
+                            args=[
+                                ast.Call(
+                                    func=ast.Name(
+                                        id="reversed", ctx=ast.Load()
+                                    ),
+                                    args=[var_expr],
+                                    keywords=[],
+                                )
+                            ],
+                            keywords=[],
+                        ),
+                    )
+                ]
+                + dict_loop_body,
+                orelse=[],
+            )
+        elif sample_pct == 0:
+            content_check = ast.If(
+                test=var_expr,
+                body=[
+                    ast.Assign(
+                        targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
+                        value=ast.Call(
+                            func=ast.Name(
+                                id="_random_dict_key", ctx=ast.Load()
+                            ),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                    )
+                ]
+                + dict_loop_body,
                 orelse=[],
             )
         elif sample_pct == 100:
@@ -548,18 +784,118 @@ def generate_type_check_ast(
                     orelse=[],
                 )
         else:
-            content_check = ast.For(
+            if sample_pct == "log":
+                count_expr = ast.Call(
+                    func=ast.Name(id="_log_count", ctx=ast.Load()),
+                    args=[
+                        ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        )
+                    ],
+                    keywords=[],
+                )
+            else:
+                fn_globals[f"{prefix}_pct"] = sample_pct
+                count_expr = ast.Call(
+                    func=ast.Name(id="max", ctx=ast.Load()),
+                    args=[
+                        ast.Constant(value=1),
+                        ast.BinOp(
+                            left=ast.BinOp(
+                                left=ast.BinOp(
+                                    left=ast.Call(
+                                        func=ast.Name(id="len", ctx=ast.Load()),
+                                        args=[var_expr],
+                                        keywords=[],
+                                    ),
+                                    op=ast.Mult(),
+                                    right=ast.Name(
+                                        id=f"{prefix}_pct", ctx=ast.Load()
+                                    ),
+                                ),
+                                op=ast.Add(),
+                                right=ast.Constant(value=99),
+                            ),
+                            op=ast.FloorDiv(),
+                            right=ast.Constant(value=100),
+                        ),
+                    ],
+                    keywords=[],
+                )
+            short_loop = ast.For(
+                target=ast.Name(id=k_var_id, ctx=ast.Store()),
+                iter=var_expr,
+                body=dict_loop_body,
+                orelse=[],
+            )
+            assign_k0 = ast.Assign(
+                targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
+                value=ast.Call(
+                    func=ast.Name(id="next", ctx=ast.Load()),
+                    args=[
+                        ast.Call(
+                            func=ast.Name(id="iter", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        )
+                    ],
+                    keywords=[],
+                ),
+            )
+            assign_kl = ast.Assign(
+                targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
+                value=ast.Call(
+                    func=ast.Name(id="next", ctx=ast.Load()),
+                    args=[
+                        ast.Call(
+                            func=ast.Name(id="reversed", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        )
+                    ],
+                    keywords=[],
+                ),
+            )
+            mid_count = ast.BinOp(
+                left=ast.Call(
+                    func=ast.Name(id="max", ctx=ast.Load()),
+                    args=[ast.Constant(value=3), count_expr],
+                    keywords=[],
+                ),
+                op=ast.Sub(),
+                right=ast.Constant(value=2),
+            )
+            mid_loop = ast.For(
                 target=ast.Name(id=k_var_id, ctx=ast.Store()),
                 iter=ast.Call(
-                    func=ast.Name(id="_get_sample_keys", ctx=ast.Load()),
-                    args=[
-                        ast.Name(id="__enf_self__", ctx=ast.Load()),
-                        var_expr,
-                    ],
+                    func=ast.Name(id="islice", ctx=ast.Load()),
+                    args=[var_expr, ast.Constant(value=1), mid_count],
                     keywords=[],
                 ),
                 body=dict_loop_body,
                 orelse=[],
+            )
+            long_check = (
+                [assign_k0]
+                + dict_loop_body
+                + [assign_kl]
+                + dict_loop_body
+                + [mid_loop]
+            )
+            content_check = ast.If(
+                test=ast.Compare(
+                    left=ast.Call(
+                        func=ast.Name(id="len", ctx=ast.Load()),
+                        args=[var_expr],
+                        keywords=[],
+                    ),
+                    ops=[ast.LtE()],
+                    comparators=[ast.Constant(value=3)],
+                ),
+                body=[short_loop],
+                orelse=long_check,
             )
 
         return [outer_type_guard, content_check]
@@ -606,17 +942,52 @@ def generate_type_check_ast(
                 is_loop=True,
             )
 
-            if sample_pct == 0:
+            if sample_pct == "first":
                 content_check = ast.If(
                     test=var_expr,
                     body=[
-                        ast.For(
-                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                            iter=var_expr,
-                            body=sub_checks + [ast.Break()],
-                            orelse=[],
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=var_expr,
+                                slice=ast.Constant(value=0),
+                                ctx=ast.Load(),
+                            ),
                         )
-                    ],
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+            elif sample_pct == "last":
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=var_expr,
+                                slice=ast.Constant(value=-1),
+                                ctx=ast.Load(),
+                            ),
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+            elif sample_pct == 0:
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Call(
+                                func=ast.Name(id="_choice", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                        )
+                    ]
+                    + sub_checks,
                     orelse=[],
                 )
             elif sample_pct == 100:
@@ -685,18 +1056,119 @@ def generate_type_check_ast(
                         orelse=[],
                     )
             else:
-                idx_var_id = f"{prefix}_idx"
-                content_check = ast.For(
-                    target=ast.Name(id=idx_var_id, ctx=ast.Store()),
-                    iter=ast.Call(
-                        func=ast.Name(id="_get_sample_indices", ctx=ast.Load()),
+                if sample_pct == "log":
+                    count_expr = ast.Call(
+                        func=ast.Name(id="_log_count", ctx=ast.Load()),
                         args=[
-                            ast.Name(id="__enf_self__", ctx=ast.Load()),
                             ast.Call(
                                 func=ast.Name(id="len", ctx=ast.Load()),
                                 args=[var_expr],
                                 keywords=[],
+                            )
+                        ],
+                        keywords=[],
+                    )
+                else:
+                    fn_globals[f"{prefix}_pct"] = sample_pct
+                    count_expr = ast.Call(
+                        func=ast.Name(id="max", ctx=ast.Load()),
+                        args=[
+                            ast.Constant(value=1),
+                            ast.BinOp(
+                                left=ast.BinOp(
+                                    left=ast.BinOp(
+                                        left=ast.Call(
+                                            func=ast.Name(
+                                                id="len", ctx=ast.Load()
+                                            ),
+                                            args=[var_expr],
+                                            keywords=[],
+                                        ),
+                                        op=ast.Mult(),
+                                        right=ast.Name(
+                                            id=f"{prefix}_pct", ctx=ast.Load()
+                                        ),
+                                    ),
+                                    op=ast.Add(),
+                                    right=ast.Constant(value=99),
+                                ),
+                                op=ast.FloorDiv(),
+                                right=ast.Constant(value=100),
                             ),
+                        ],
+                        keywords=[],
+                    )
+
+                short_loop = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks,
+                    orelse=[],
+                )
+                assign_0 = ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=0),
+                        ctx=ast.Load(),
+                    ),
+                )
+                assign_last = ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=-1),
+                        ctx=ast.Load(),
+                    ),
+                )
+                idx_var_id = f"{prefix}_idx"
+                step_expr = ast.Call(
+                    func=ast.Name(id="max", ctx=ast.Load()),
+                    args=[
+                        ast.Constant(value=1),
+                        ast.BinOp(
+                            left=ast.BinOp(
+                                left=ast.Call(
+                                    func=ast.Name(id="len", ctx=ast.Load()),
+                                    args=[var_expr],
+                                    keywords=[],
+                                ),
+                                op=ast.Sub(),
+                                right=ast.Constant(value=1),
+                            ),
+                            op=ast.FloorDiv(),
+                            right=ast.Call(
+                                func=ast.Name(id="max", ctx=ast.Load()),
+                                args=[
+                                    ast.Constant(value=1),
+                                    ast.BinOp(
+                                        left=count_expr,
+                                        op=ast.Sub(),
+                                        right=ast.Constant(value=1),
+                                    ),
+                                ],
+                                keywords=[],
+                            ),
+                        ),
+                    ],
+                    keywords=[],
+                )
+                range_loop = ast.For(
+                    target=ast.Name(id=idx_var_id, ctx=ast.Store()),
+                    iter=ast.Call(
+                        func=ast.Name(id="range", ctx=ast.Load()),
+                        args=[
+                            step_expr,
+                            ast.BinOp(
+                                left=ast.Call(
+                                    func=ast.Name(id="len", ctx=ast.Load()),
+                                    args=[var_expr],
+                                    keywords=[],
+                                ),
+                                op=ast.Sub(),
+                                right=ast.Constant(value=1),
+                            ),
+                            step_expr,
                         ],
                         keywords=[],
                     ),
@@ -712,6 +1184,26 @@ def generate_type_check_ast(
                     ]
                     + sub_checks,
                     orelse=[],
+                )
+                long_check = (
+                    [assign_0]
+                    + sub_checks
+                    + [assign_last]
+                    + sub_checks
+                    + [range_loop]
+                )
+                content_check = ast.If(
+                    test=ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.LtE()],
+                        comparators=[ast.Constant(value=3)],
+                    ),
+                    body=[short_loop],
+                    orelse=long_check,
                 )
 
             return [outer_type_guard, content_check]
@@ -802,13 +1294,24 @@ def build_specialized_call(
         "_check_fn": check_type_fn,
         "isinstance": isinstance,
         "len": len,
+        "range": range,
         "set": set,
         "map": map,
         "type": type,
         "list": list,
         "dict": dict,
         "tuple": tuple,
+        "islice": islice,
         "enumerate": enumerate,
+        "next": next,
+        "iter": iter,
+        "reversed": reversed,
+        "int": int,
+        "max": max,
+        "_choice": random.choice,
+        "_random_dict_key": _random_dict_key,
+        "_random_set_item": _random_set_item,
+        "_log_count": _log_count,
         "_get_sample_indices": get_sample_indices_fn,
         "_get_sample_keys": get_sample_keys_fn,
     }

@@ -5,7 +5,7 @@
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.08832/status.svg)](https://doi.org/10.21105/joss.08832)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/type-enforced?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=ORANGE&left_text=Downloads)](https://pepy.tech/projects/type-enforced)
 
-Fast, pure-Python runtime type enforcement for Python 3.11+ type annotations. Zero dependencies, near-instant validation, and uncompromising performance.
+Fast, pure-Python runtime type enforcement for Python 3.11+ type annotations. Zero dependencies and uncompromising performance.
 
 ---
 
@@ -35,28 +35,30 @@ Existing runtime type checkers force an unnecessary compromise:
 `type_enforced` eliminates this compromise:
 
 - **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
-- **2–9× Faster than Pydantic**: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.
-- **Fastest Sampled Mode (Up to 2× Faster than Beartype)**: Need O(1) sampling for massive collections? Set `iterable_sample_pct=0` for sampled validation that runs up to 2× faster than Beartype across all tested data structures (~0.18–0.35 µs).
+- **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.
+- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype and Typeguard work. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 2× faster than Beartype across all tested data structures.
 - **Pure Python, Zero Dependencies**: A lightweight decorator with zero external packages, C-extensions, or compilation steps. Compatible everywhere Python 3.11+ runs.
 - **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
 - **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
 
 ### Performance at a Glance
 
-Timings are averages over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (see [full benchmarks](benchmark.md)).
+Timings are averages of a single validation over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (see [full benchmarks](benchmark.md)).
 
-| Type | type_enforced (100%) | type_enforced (sample) | beartype (sample) | Pydantic (100%) | Typeguard (sample) |
-|:-----|:--------------------:|:----------------------:|:-----------------:|:---------------:|:------------------:|
-| `int` | **0.21 µs** | **0.18 µs** | 0.27 µs | 1.37 µs | 2.43 µs |
-| `Union[int, float]` | **0.19 µs** | **0.18 µs** | 0.30 µs | 1.46 µs | 5.60 µs |
-| `str` | **0.18 µs** | **0.17 µs** | 0.28 µs | 1.23 µs | 2.51 µs |
-| `list[int]` (1 000 items) | **12.63 µs** | **0.22 µs ⚠** | 0.42 µs ⚠ | 22.31 µs | 3.84 µs ⚠ |
-| `dict[str, int]` (1 000 keys) | **27.34 µs** | **0.30 µs ⚠** | 0.43 µs ⚠ | 81.58 µs | 6.97 µs ⚠ |
-| `dict[str, int]` (10 000 keys) | **270.78 µs** | **0.31 µs ⚠** | 0.44 µs ⚠ | 873.62 µs | 5.07 µs ⚠ |
-| `list[dict[str, int]]` (100 x 10 items) | **60.26 µs** | **0.35 µs ⚠** | 0.55 µs ⚠ | 83.71 µs | 6.51 µs ⚠ |
-| `list[dict[str, int]]` (100 x 100 items) | **320.77 µs** | **0.35 µs ⚠** | 0.59 µs ⚠ | 785.22 µs | 6.33 µs ⚠ |
+| Type | Size | type_enforced (1 sample) | Beartype (1 sample) | Typeguard (1 sample) | type_enforced (100%) | Pydantic (100%) |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| `int` | — | **0.19 µs** | 0.29 µs | 2.45 µs | **0.19 µs** | 1.39 µs |
+| `Union[int, float]` | — | **0.20 µs** | 0.30 µs | 6.10 µs | **0.17 µs** | 2.20 µs |
+| `str` | — | **0.19 µs** | 0.28 µs | 2.57 µs | **0.16 µs** | 1.28 µs |
+| `list[int]` | 1 000 items | **0.18 µs ⚠** | 0.42 µs ⚠ | 3.66 µs ⚠ | **12.55 µs** | 22.41 µs |
+| `dict[str, int]` | 1 000 keys | **0.26 µs ⚠** | 0.44 µs ⚠ | 4.98 µs ⚠ | **27.48 µs** | 80.93 µs |
+| `dict[str, int]` | 10 000 keys | **0.27 µs ⚠** | 0.44 µs ⚠ | 4.84 µs ⚠ | **272.65 µs** | 882.62 µs |
+| `list[dict[str, int]]` | 100 x 10 items | **0.30 µs ⚠** | 0.55 µs ⚠ | 6.39 µs ⚠ | **44.99 µs** | 83.60 µs |
+| `list[dict[str, int]]` | 100 x 100 items | **0.30 µs ⚠** | 0.59 µs ⚠ | 6.44 µs ⚠ | **315.94 µs** | 797.86 µs |
 
-> **Note:** Beartype and Typeguard's speed on complex types reflects incomplete validation — they sample rather than check all items. When full validation is required, `type_enforced` is **2–9× faster than Pydantic**. When sampled validation is desired, `type_enforced(iterable_sample_pct=0)` is **up to 2× faster than Beartype**.
+> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 2× faster than Beartype** and **up to 20× faster than Typeguard**.
+
+> **Full Validation:** When full validation is required, `type_enforced` is **up to 8× faster than Pydantic**. 
 
 ---
 
@@ -315,8 +317,8 @@ Both `@Enforcer` and `ModuleEnforcer` accept the following configuration argumen
 |:---|:---:|:---:|:---|
 | `enabled` | `bool` | `True` | Toggle enforcement. Set `False` to bypass type checks (useful for production vs. debugging or per-method overrides). |
 | `strict` | `bool` | `True` | When `True`, raises `TypeError` on mismatch. When `False`, logs a warning to the console instead of raising. |
-| `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so tracebacks point directly to user code. |
-| `iterable_sample_pct` | `int` | `100` | Percentage (0–100) of iterable items to validate. `100` validates all elements. `0` validates only the first element in O(1) time. |
+| `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so unhandled tracebacks point directly to user code (see note below). |
+| `iterable_sample_pct` | `int \| str` | `100` | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'log'` checks a sample of $\lceil\log_2 n\rceil$ items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. |
 | `only_typed` | `bool` | `False` | When `True`, raises an exception upon decoration if any parameter or return value lacks a type hint. |
 | `submodules` *(ModuleEnforcer only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |
 
@@ -352,11 +354,21 @@ lenient_fn("not_an_int")
 # Returns "not_an_int" without raising an exception.
 ```
 
-#### 3. Sampled Validation (`iterable_sample_pct=0`)
-For massive collections where full validation overhead is unacceptable, check only the first item in O(1) time (runs up to 2× faster than Beartype):
+#### 3. Clean Tracebacks (`clean_traceback=True`)
+By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a type exception is raised, stripping internal `type_enforced` library frames so that unhandled script tracebacks point directly to the line of user code that caused the issue.
+
+> **Note on Interactive Terminals / REPLs:** In interactive environments (such as the Python REPL / PyREPL, IPython, or Jupyter notebooks), the shell wraps execution in an internal `try...except` loop and catches exceptions before they reach `sys.excepthook`. Consequently, interactive terminal sessions will still display the full traceback.
+
+#### 4. Sampled Validation (`iterable_sample_pct`)
+For large or performance-critical collections, configure sampling instead of full iteration:
+- `'first'`: Validates the first element in O(1) time (runs up to 2× faster than Beartype).
+- `'last'`: Validates the last element in O(1) time.
+- `'log'`: Validates a sample of $\lceil\log_2 n\rceil$ items across the collection.
+- `0`: Validates one element chosen at random.
+- `1..100` (int): Validates the specified percentage of items (rounding up).
 
 ```python
-@type_enforced.Enforcer(iterable_sample_pct=0)
+@type_enforced.Enforcer(iterable_sample_pct="first")
 def fast_check(items: list[int]) -> int:
     return len(items)
 

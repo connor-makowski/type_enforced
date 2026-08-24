@@ -493,8 +493,8 @@ def test_readme_configuration_strict_false(capsys):
 
 
 def test_readme_configuration_iterable_sample_pct():
-    # iterable_sample_pct=0 validates only first item in O(1) time
-    @type_enforced.Enforcer(iterable_sample_pct=0)
+    # iterable_sample_pct='first' validates only first item in O(1) time
+    @type_enforced.Enforcer(iterable_sample_pct="first")
     def fast_check(items: list[int]) -> int:
         return len(items)
 
