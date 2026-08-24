@@ -267,14 +267,24 @@ def test_readme_uninitialized_class_type():
         pass
 
     @type_enforced.Enforcer
-    def make_instance(cls: typing.Type[Animal]) -> Animal:
+    def make_instance(cls: type[Animal]) -> Animal:
+        return cls()
+
+    @type_enforced.Enforcer
+    def make_instance_typing(cls: typing.Type[Animal]) -> Animal:
         return cls()
 
     inst = make_instance(Animal)
     assert isinstance(inst, Animal)
 
+    inst_typing = make_instance_typing(Animal)
+    assert isinstance(inst_typing, Animal)
+
     with pytest.raises(Exception):
         make_instance(Animal())
+
+    with pytest.raises(Exception):
+        make_instance_typing(Animal())
 
 
 def test_readme_literals_and_special_types():

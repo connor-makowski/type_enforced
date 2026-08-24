@@ -114,7 +114,7 @@ dict[str, int]   → {dict: ({str: None}, {int: None})}
 
 - All Python built-ins: `int`, `str`, `float`, `bool`, `list`, `dict`, `tuple`, `set`, etc.
 - Custom class instances (and subclasses thereof)
-- `typing.Type[ClassName]` for uninitialized class objects
+- `type[ClassName]` / `typing.Type[ClassName]` for uninitialized class objects
 - Union: `int | str`, `typing.Union[int, str]`, `typing.Optional[str]`
 - Nested generics: `list[int]`, `dict[str, int]`, `set[str]`, `tuple[int, str]`
 - Variable-length tuples: `tuple[int, ...]`

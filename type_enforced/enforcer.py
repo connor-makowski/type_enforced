@@ -454,13 +454,31 @@ class FunctionMethodEnforcer:
         if isinstance(annotation, GenericConstraint):
             return {"__extra__": {"__constraints__": [annotation]}}
 
+        # Handle typing.Type (unsubscripted)
+        if annotation is Type:
+            return {type: None}
+
         # Handle standard types
         if isinstance(annotation, type):
             return {annotation: None}
 
-        # Handle typing.Type (for uninitialized classes)
+        # Handle typing.Type and type[T] (for uninitialized classes)
         if origin is type and len(args) == 1:
-            return {annotation: None}
+            target = args[0]
+            if target is Any or target is object:
+                return {type: None}
+            if (
+                isinstance(target, UnionType)
+                or getattr(target, "__origin__", None) == Union
+            ):
+                combined_types = {}
+                for sub_type in target.__args__:
+                    if sub_type is Any or sub_type is object:
+                        combined_types[type] = None
+                    else:
+                        combined_types[Type[sub_type]] = None
+                return combined_types
+            return {Type[target]: None}
 
         self.__exception__(
             f"Unsupported type hint: {annotation}", raise_exception=True
@@ -714,17 +732,21 @@ class FunctionMethodEnforcer:
         if isinstance(obj, type):
             # An uninitialized class is passed, we need to check if the type is in the expected types using Type[obj]
             obj_type = Type[obj]
-            is_present = obj_type in expected
+            is_present = obj_type in expected or type in expected
         else:
             obj_type = type(obj)
             expected_id = id(expected)
             keys_tuple = self.__keys_tuples__.get(expected_id)
             if keys_tuple is None:
                 keys_tuple = tuple(
-                    k for k in expected.keys() if k != "__extra__"
+                    k
+                    for k in expected.keys()
+                    if k != "__extra__" and isinstance(k, type)
                 )
                 self.__keys_tuples__[expected_id] = keys_tuple
-            is_present = obj_type in expected or isinstance(obj, keys_tuple)
+            is_present = obj_type in expected or (
+                bool(keys_tuple) and isinstance(obj, keys_tuple)
+            )
 
         if not is_present:
             # Resolve key dynamically if it is a tuple (lazy f-string alternative)
