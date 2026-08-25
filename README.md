@@ -30,13 +30,13 @@ Static type checkers (like `mypy` or `pyright`) catch errors during development,
 
 Existing runtime type checkers force an unnecessary compromise:
 - **Pydantic** provides thorough validation, but comes with heavy runtime overhead and steep execution slowdowns.
-- **Beartype & Typeguard** achieve high speed primarily by taking shortcuts. They sample a small number of elements in collections and miss invalid items in unsampled data.
+- **Beartype** achieves high speed primarily by taking shortcuts. It samples 1 element in collections and misses invalid items in unsampled data.
 
 `type_enforced` eliminates this compromise:
 
 - **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
 - **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.
-- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype and Typeguard work. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 2× faster than Beartype.
+- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 2× faster than Beartype.
 - **Pure Python, Zero Dependencies**: A lightweight decorator with zero external packages, C-extensions, or compilation steps. Compatible everywhere Python 3.11+ runs.
 - **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
 - **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
@@ -45,18 +45,18 @@ Existing runtime type checkers force an unnecessary compromise:
 
 Timings are averages of a single validation over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (see [full benchmarks](benchmark.md)).
 
-| Type | Size | type_enforced (1 sample) | Beartype (1 sample) | Typeguard (1 sample) | type_enforced (100%) | Pydantic (100%) |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| `int` | — | **0.16 µs** | 0.28 µs | 2.46 µs | **0.19 µs** | 1.56 µs |
-| `Union[int, float]` | — | **0.17 µs** | 0.30 µs | 5.45 µs | **0.17 µs** | 1.52 µs |
-| `str` | — | **0.15 µs** | 0.27 µs | 2.37 µs | **0.16 µs** | 1.27 µs |
-| `list[int]` | 1 000 items | **0.18 µs ⚠** | 0.42 µs ⚠ | 3.85 µs ⚠ | **12.36 µs** | 22.40 µs |
-| `dict[str, int]` | 1 000 keys | **0.27 µs ⚠** | 0.43 µs ⚠ | 5.05 µs ⚠ | **27.48 µs** | 81.13 µs |
-| `dict[str, int]` | 10 000 keys | **0.27 µs ⚠** | 0.44 µs ⚠ | 5.14 µs ⚠ | **269.26 µs** | 872.03 µs |
-| `list[dict[str, int]]` | 100 x 10 items | **0.29 µs ⚠** | 0.56 µs ⚠ | 6.25 µs ⚠ | **43.61 µs** | 82.00 µs |
-| `list[dict[str, int]]` | 100 x 100 items | **0.30 µs ⚠** | 0.63 µs ⚠ | 6.30 µs ⚠ | **313.17 µs** | 776.74 µs |
+| Type | Size | type_enforced (1 sample) | Beartype (1 sample) | type_enforced (100%) | Pydantic (100%) |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| `int` | — | **0.16 µs** | 0.28 µs | **0.19 µs** | 1.56 µs |
+| `Union[int, float]` | — | **0.17 µs** | 0.30 µs | **0.17 µs** | 1.52 µs |
+| `str` | — | **0.15 µs** | 0.27 µs | **0.16 µs** | 1.27 µs |
+| `list[int]` | 1 000 items | **0.18 µs ⚠** | 0.42 µs ⚠ | **12.36 µs** | 22.40 µs |
+| `dict[str, int]` | 1 000 keys | **0.27 µs ⚠** | 0.43 µs ⚠ | **27.48 µs** | 81.13 µs |
+| `dict[str, int]` | 10 000 keys | **0.27 µs ⚠** | 0.44 µs ⚠ | **269.26 µs** | 872.03 µs |
+| `list[dict[str, int]]` | 100 x 10 items | **0.29 µs ⚠** | 0.56 µs ⚠ | **43.61 µs** | 82.00 µs |
+| `list[dict[str, int]]` | 100 x 100 items | **0.30 µs ⚠** | 0.63 µs ⚠ | **313.17 µs** | 776.74 µs |
 
-> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 2× faster than Beartype** and **up to 20× faster than Typeguard**.
+> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 2× faster than Beartype**.
 
 > **Full Validation:** When full validation is required, `type_enforced` is **up to 8× faster than Pydantic**. 
 
