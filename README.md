@@ -45,7 +45,7 @@ Existing runtime type checkers force an unnecessary compromise:
 
 Timings are averages of a single validation over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (see [full benchmarks](benchmark.md)).
 
-| Type | Size | type_enforced (1-sample) | Beartype (1-sample) | type_enforced (100%) | Pydantic (100%) |
+| Type | Size | type_enforced (sample=1) | Beartype (sample=1) | type_enforced (100%) | Pydantic (100%) |
 |:---|:---:|:---:|:---:|:---:|:---:|
 | `int` | — | **0.16 µs** | 0.28 µs | **0.19 µs** | 1.56 µs |
 | `Union[int, float]` | — | **0.17 µs** | 0.30 µs | **0.17 µs** | 1.52 µs |
