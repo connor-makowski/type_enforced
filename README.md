@@ -36,7 +36,7 @@ Existing runtime type checkers force an unnecessary compromise:
 
 - **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
 - **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.
-- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 2× faster than Beartype.
+- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 2x faster than Beartype.
 - **Pure Python, Zero Dependencies**: A lightweight decorator with zero external packages, C-extensions, or compilation steps. Compatible everywhere Python 3.11+ runs.
 - **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
 - **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
@@ -56,9 +56,9 @@ Timings are averages of a single validation over 100 runs. ⚠ = checker did not
 | `list[dict[str, int]]` | 100 x 10 items | **0.29 µs ⚠** | 0.56 µs ⚠ | **43.61 µs** | 82.00 µs |
 | `list[dict[str, int]]` | 100 x 100 items | **0.30 µs ⚠** | 0.63 µs ⚠ | **313.17 µs** | 776.74 µs |
 
-> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 2× faster than Beartype**.
+> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 2x faster than Beartype**.
 
-> **Full Validation:** When full validation is required, `type_enforced` is **up to 8× faster than Pydantic**. 
+> **Full Validation:** When full validation is required, `type_enforced` is **up to 8x faster than Pydantic**. 
 
 ---
 
@@ -270,13 +270,13 @@ from type_enforced.utils import Constraint
 @type_enforced.Enforcer
 def set_score(
     score: int | Constraint(ge=0, le=100),
-    code: str | Constraint(pattern=r"^[A-Z]{3}-\d{4}$"),
+    code: str | Constraint(pattern=r"^[A-Z]{3}[0-9]{4}$"),
 ) -> bool:
     return True
 
-set_score(85, "ABC-1234")    # Passes
-set_score(105, "ABC-1234")   # Raises TypeError (Constraint `Less Than Or Equal To (100)` not met)
-set_score(85, "invalid")     # Raises TypeError (Constraint `Regex Pattern Match` not met)
+set_score(85, "ABC1234")    # Passes
+set_score(105, "ABC1234")   # Raises TypeError (Constraint `Less Than Or Equal To (100)` not met)
+set_score(85, "invalid")    # Raises TypeError (Constraint `Regex Pattern Match` not met)
 ```
 
 Available `Constraint` parameters:
@@ -316,7 +316,7 @@ Both `@Enforcer` and `ModuleEnforcer` accept the following configuration argumen
 | `enabled` | `bool` | `True` | Toggle enforcement. Set `False` to bypass type checks (useful for production vs. debugging or per-method overrides). |
 | `strict` | `bool` | `True` | When `True`, raises `TypeError` on mismatch. When `False`, logs a warning to the console instead of raising. |
 | `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so unhandled tracebacks point directly to user code (see note below). |
-| `iterable_sample_pct` | `int \| str` | `100` | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'log'` checks a sample of $\lceil\log_2 n\rceil$ items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. |
+| `iterable_sample_pct` | `int or str` | `100` | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'log'` checks a sample of ceil(log2(n)) items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. |
 | `only_typed` | `bool` | `False` | When `True`, raises an exception upon decoration if any parameter or return value lacks a type hint. |
 | `submodules` *(ModuleEnforcer only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |
 
@@ -359,9 +359,9 @@ By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a typ
 
 #### 4. Sampled Validation (`iterable_sample_pct`)
 For large or performance-critical collections, configure sampling instead of full iteration:
-- `'first'`: Validates the first element in O(1) time (runs up to 2× faster than Beartype).
+- `'first'`: Validates the first element in O(1) time (runs up to 2x faster than Beartype).
 - `'last'`: Validates the last element in O(1) time.
-- `'log'`: Validates a sample of $\lceil\log_2 n\rceil$ items across the collection.
+- `'log'`: Validates a sample of ceil(log2(n)) items across the collection.
 - `0`: Validates one element chosen at random.
 - `1..100` (int): Validates the specified percentage of items (rounding up).
 

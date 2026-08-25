@@ -329,27 +329,27 @@ def test_readme_builtin_constraints():
     @type_enforced.Enforcer
     def set_score(
         score: int | Constraint(ge=0, le=100),
-        code: str | Constraint(pattern=r"^[A-Z]{3}-\d{4}$"),
+        code: str | Constraint(pattern=r"^[A-Z]{3}[0-9]{4}$"),
     ) -> bool:
         return True
 
-    assert set_score(85, "ABC-1234") is True
-    assert set_score(0, "ZZZ-9999") is True
-    assert set_score(100, "AAA-0000") is True
+    assert set_score(85, "ABC1234") is True
+    assert set_score(0, "ZZZ9999") is True
+    assert set_score(100, "AAA0000") is True
 
     # Out of range constraints
     with pytest.raises(TypeError, match="Constraint `Less Than Or Equal To"):
-        set_score(105, "ABC-1234")
+        set_score(105, "ABC1234")
 
     with pytest.raises(TypeError, match="Constraint `Greater Than Or Equal To"):
-        set_score(-1, "ABC-1234")
+        set_score(-1, "ABC1234")
 
     # Regex pattern mismatch
     with pytest.raises(TypeError, match="Constraint `Regex Pattern Match`"):
         set_score(85, "invalid")
 
     with pytest.raises(TypeError, match="Constraint `Regex Pattern Match`"):
-        set_score(85, "abc-1234")
+        set_score(85, "abc1234")
 
 
 def test_readme_all_constraint_options():
