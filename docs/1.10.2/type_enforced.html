@@ -23,24 +23,19 @@
 
             <h2>Contents</h2>
             <ul>
-  <li><a href="#type-enforced">Type Enforced</a></li>
-  <li><a href="#setup">Setup</a>
+  <li><a href="#type_enforced">type_enforced</a>
   <ul>
-    <li><a href="#basic-usage">Basic Usage</a></li>
-  </ul></li>
-  <li><a href="#getting-started">Getting Started</a>
-  <ul>
-    <li><a href="#supported-type-checking-features">Supported Type Checking Features:</a></li>
-    <li><a href="#interactive-example">Interactive Example</a></li>
-    <li><a href="#nested-examples">Nested Examples</a></li>
-    <li><a href="#class-and-method-use">Class and Method Use</a></li>
-    <li><a href="#validate-with-constraints">Validate with Constraints</a></li>
-    <li><a href="#validate-class-instances-and-classes">Validate class instances and classes</a></li>
-    <li><a href="#validate-classes-with-inheritance">Validate classes with inheritance</a></li>
-  </ul></li>
-  <li><a href="#development">Development</a>
-  <ul>
-    <li><a href="#running-tests-prettifying-code-and-updating-docs">Running Tests, Prettifying Code, and Updating Docs</a></li>
+    <li><a href="#quick-start">Quick Start</a></li>
+    <li><a href="#why-type_enforced">Why type_enforced?</a></li>
+    <li><a href="#installation">Installation</a></li>
+    <li><a href="#usage-guide">Usage Guide</a></li>
+    <li><a href="#supported-type-annotations">Supported Type Annotations</a></li>
+    <li><a href="#value-validation-with-constraints">Value Validation with Constraints</a></li>
+    <li><a href="#configuration-reference">Configuration Reference</a></li>
+    <li><a href="#production-best-practices">Production Best Practices</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#academic-citation">Academic Citation</a></li>
+    <li><a href="#license">License</a></li>
   </ul></li>
 </ul>
 
@@ -48,13 +43,17 @@
             <h2>Submodules</h2>
             <ul>
                     <li><a href="type_enforced/enforcer.html">enforcer</a></li>
+                    <li><a href="type_enforced/module.html">module</a></li>
+                    <li><a href="type_enforced/specialized.html">specialized</a></li>
                     <li><a href="type_enforced/utils.html">utils</a></li>
+                    <li><a href="type_enforced/cpp.html">cpp</a></li>
             </ul>
 
 
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
+        <option value="2.9.0">2.9.0</option>
         <option value="2.8.1">2.8.1</option>
         <option value="2.7.0">2.7.0</option>
         <option value="2.6.0">2.6.0</option>
@@ -117,407 +116,686 @@
                     <h1 class="modulename">
 type_enforced    </h1>
 
-                        <div class="docstring"><h1 id="type-enforced">Type Enforced</h1>
+                        <div class="docstring"><h1 id="type_enforced">type_enforced</h1>
 
-<p><a href="https://badge.fury.io/py/type_enforced"><img src="https://badge.fury.io/py/type_enforced.svg" alt="PyPI version" /></a>
-<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-<a href="https://pypi.org/project/type_enforced/"><img src="https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads" alt="PyPI Downloads" /></a></p>
+<p><a href="https://pypi.org/project/type_enforced/"><img src="https://img.shields.io/pypi/v/type_enforced.svg?color=blue" alt="PyPI version" /></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
+<a href="https://doi.org/10.21105/joss.08832"><img src="https://joss.theoj.org/papers/10.21105/joss.08832/status.svg" alt="DOI" /></a>
+<a href="https://pepy.tech/projects/type-enforced"><img src="https://static.pepy.tech/personalized-badge/type-enforced?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=ORANGE&left_text=Downloads" alt="PyPI Downloads" /></a></p>
 
-<p>A pure python (no special compiler required) type enforcer for type annotations. Enforce types in python functions and methods.</p>
+<p>Fast runtime type enforcement for Python 3.11+ type annotations. Zero dependencies and uncompromising performance.</p>
 
-<h1 id="setup">Setup</h1>
+<hr />
 
-<p>Make sure you have Python 3.10.x (or higher) installed on your system. You can download it <a href="https://www.python.org/downloads/">here</a>.</p>
-
-<ul>
-<li>Unsupported python versions can be used, however newer features will not be available.
-<ul>
-<li>For 3.7: use type_enforced==0.0.16 (only very basic type checking is supported)</li>
-<li>For 3.8: use type_enforced==0.0.16 (only very basic type checking is supported)</li>
-<li>For 3.9: use type_enforced&lt;=1.9.0 (<code>staticmethod</code>, union with <code>|</code> and <code>from __future__ import annotations</code> typechecking are not supported)</li>
-</ul></li>
-<li>Other notes:
-<ul>
-<li>For python 3.10: <code>from __future__ import annotations</code> may cause errors (EG: when using staticmethods and classmethods)</li>
-</ul></li>
-</ul>
-
-<h3 id="installation">Installation</h3>
-
-<pre><code>pip install type_enforced
-</code></pre>
-
-<h2 id="basic-usage">Basic Usage</h2>
-
-<div class="pdoc-code codehilite">
-<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
-
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span> <span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="k">pass</span>
-</code></pre>
-</div>
-
-<ul>
-<li>Note: <code>enabled=True</code> by default if not specified. You can set <code>enabled=False</code> to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.</li>
-</ul>
-
-<h1 id="getting-started">Getting Started</h1>
-
-<p><code>type_enforcer</code> contains a basic <code>Enforcer</code> wrapper that can be used to enforce many basic python typing hints. <a href="https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html">Technical Docs Here</a>.</p>
-
-<p><code>type_enforcer</code> currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an <code>int</code>, a number <code>[int, float]</code>, an instance of the self defined <code>MyClass</code>, or a even a vector with <code>list[int]</code>. Items like <code>typing.List</code>, <code>typing.Dict</code>, <code>typing.Union</code> and <code>typing.Optional</code> are supported.</p>
-
-<p>You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with <code>[int, float]</code>, <code>[int | float]</code> or even <code>typing.Union[int, float]</code>.</p>
-
-<p>Nesting is allowed as long as the nested items are iterables (e.g. <code>typing.List</code>, <code>dict</code>, ...). For example, you could validate that a list is a vector with <code>list[int]</code> or possibly <code>typing.List[int]</code>.</p>
-
-<p>Variables without an annotation for type are not enforced.</p>
-
-<h2 id="supported-type-checking-features">Supported Type Checking Features:</h2>
-
-<ul>
-<li>Function/Method Input Typing</li>
-<li>Function/Method Return Typing</li>
-<li>Dataclass Typing</li>
-<li>All standard python types (<code>str</code>, <code>list</code>, <code>int</code>, <code>dict</code>, ...)</li>
-<li>Union types
-<ul>
-<li>typing.Union</li>
-<li><code>,</code> separated list (e.g. <code>[int, float]</code>)</li>
-<li><code>|</code> separated list (e.g. <code>[int | float]</code>)</li>
-<li><code>|</code> separated items (e.g. <code>int | float</code>)</li>
-</ul></li>
-<li>Nested types (e.g. <code>dict[str]</code> or <code>list[int, float]</code>)
-<ul>
-<li>Note: Each parent level must be an iterable
-<ul>
-<li>Specifically a variant of <code>list</code>, <code>set</code>, <code>tuple</code> or <code>dict</code></li>
-</ul></li>
-<li>Note: <code>dict</code> keys are not validated, only values</li>
-<li>Deeply nested types are supported too:
-<ul>
-<li><code>dict[dict[int]]</code></li>
-<li><code>list[set[str]]</code></li>
-</ul></li>
-</ul></li>
-<li>Many of the <code>typing</code> (package) functions and methods including:
-<ul>
-<li>Standard typing functions:
-<ul>
-<li><code>List</code>, <code>Set</code>, <code>Dict</code>, <code>Tuple</code></li>
-</ul></li>
-<li><code>Union</code></li>
-<li><code>Optional</code></li>
-<li><code>Sized</code>
-<ul>
-<li>Essentially creates a union of:
-<ul>
-<li><code>list</code>, <code>tuple</code>, <code>dict</code>, <code>set</code>, <code>str</code>, <code>bytes</code>, <code>bytearray</code>, <code>memoryview</code>, <code>range</code></li>
-</ul></li>
-<li>Note: Can not have a nested type
-<ul>
-<li>Because this does not always meet the criteria for <code>Nested types</code> above</li>
-</ul></li>
-</ul></li>
-<li><code>Literal</code>
-<ul>
-<li>Only allow certain values to be passed. Operates slightly differently than other checks.</li>
-<li>e.g. <code>Literal['a', 'b']</code> will require any passed values that are equal (<code>==</code>) to <code>'a'</code> or <code>'b'</code>.
-<ul>
-<li>This compares the value of the passed input and not the type of the passed input.</li>
-</ul></li>
-<li>Note: Multiple types can be passed in the same <code>Literal</code>.</li>
-<li>Note: Literals are evaluated after type checking occurs.</li>
-</ul></li>
-<li><code>Callable</code>
-<ul>
-<li>Essentially creates a union of:
-<ul>
-<li><code>staticmethod</code>, <code>classmethod</code>, <code>types.FunctionType</code>, <code>types.BuiltinFunctionType</code>, <code>types.MethodType</code>, <code>types.BuiltinMethodType</code>, <code>types.GeneratorType</code></li>
-</ul></li>
-</ul></li>
-<li>Note: Other functions might have support, but there are not currently tests to validate them
-<ul>
-<li>Feel free to create an issue (or better yet a PR) if you want to add tests/support</li>
-</ul></li>
-</ul></li>
-<li><code>Constraint</code> validation.
-<ul>
-<li>This is a special type of validation that allows passed input to be validated.
-<ul>
-<li>Standard and custom constraints are supported.</li>
-</ul></li>
-<li>This is useful for validating that a passed input is within a certain range or meets a certain criteria.</li>
-<li>Note: The constraint is checked after type checking occurs.</li>
-<li>Note: See the example below or technical <a href="https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint">constraint</a> and <a href="https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint">generic constraint</a> docs for more information.
-```</li>
-</ul></li>
-</ul>
-
-<h2 id="interactive-example">Interactive Example</h2>
-
-<div class="pdoc-code codehilite">
-<pre><span></span><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="o">...</span> <span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span> <span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="o">...</span>     <span class="k">pass</span>
-<span class="o">...</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">my_fn</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">my_fn</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="s1">&#39;2&#39;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<span class="o">&gt;&gt;&gt;</span> <span class="n">my_fn</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
-  <span class="n">File</span> <span class="s2">&quot;&lt;stdin&gt;&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1</span><span class="p">,</span> <span class="ow">in</span> <span class="o">&lt;</span><span class="n">module</span><span class="o">&gt;</span>
-  <span class="n">File</span> <span class="s2">&quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">85</span><span class="p">,</span> <span class="ow">in</span> <span class="fm">__call__</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">__check_type__</span><span class="p">(</span><span class="n">assigned_vars</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="n">value</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
-  <span class="n">File</span> <span class="s2">&quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">107</span><span class="p">,</span> <span class="ow">in</span> <span class="n">__check_type__</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">__exception__</span><span class="p">(</span>
-  <span class="n">File</span> <span class="s2">&quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">34</span><span class="p">,</span> <span class="ow">in</span> <span class="n">__exception__</span>
-    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">__fn__</span><span class="o">.</span><span class="vm">__qualname__</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="ne">TypeError</span><span class="p">:</span> <span class="p">(</span><span class="n">my_fn</span><span class="p">):</span> <span class="n">Type</span> <span class="n">mismatch</span> <span class="k">for</span> <span class="n">typed</span> <span class="n">variable</span> <span class="err">`</span><span class="n">a</span><span class="err">`</span><span class="o">.</span> <span class="n">Expected</span> <span class="n">one</span> <span class="n">of</span> <span class="n">the</span> <span class="n">following</span> <span class="err">`</span><span class="p">[</span><span class="o">&lt;</span><span class="k">class</span><span class="w"> </span><span class="err">&#39;</span><span class="nc">int</span><span class="s1">&#39;&gt;]` but got `&lt;class &#39;</span><span class="nb">str</span><span class="s1">&#39;&gt;` instead.</span>
-</code></pre>
-</div>
-
-<h2 id="nested-examples">Nested Examples</h2>
-
-<div class="pdoc-code codehilite">
-<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
-
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span> <span class="c1"># Note: dict keys are not validated, only values</span>
-    <span class="n">b</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="c1"># Could also just use set</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="k">return</span> <span class="kc">None</span>
-
-<span class="n">my_fn</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;i&#39;</span><span class="p">:{</span><span class="s1">&#39;j&#39;</span><span class="p">:</span><span class="mi">1</span><span class="p">}},</span> <span class="n">b</span><span class="o">=</span><span class="p">[{</span><span class="s1">&#39;x&#39;</span><span class="p">}])</span> <span class="c1"># Success</span>
-
-<span class="n">my_fn</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;i&#39;</span><span class="p">:{</span><span class="s1">&#39;j&#39;</span><span class="p">:</span><span class="s1">&#39;k&#39;</span><span class="p">}},</span> <span class="n">b</span><span class="o">=</span><span class="p">[{</span><span class="s1">&#39;x&#39;</span><span class="p">}])</span> <span class="c1"># Error:</span>
-<span class="c1"># TypeError: (my_fn): Type mismatch for typed variable `a[i][j]`. Expected one of the following `[&lt;class &#39;int&#39;&gt;]` but got `&lt;class &#39;str&#39;&gt;` instead. </span>
-</code></pre>
-</div>
-
-<h2 id="class-and-method-use">Class and Method Use</h2>
-
-<p>Type enforcer can be applied to methods individually:</p>
-
-<div class="pdoc-code codehilite">
-<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">my_class</span><span class="p">:</span>
-    <span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span><span class="nb">int</span><span class="p">):</span>
-        <span class="k">pass</span>
-</code></pre>
-</div>
-
-<p>You can also enforce all typing for all methods in a class by decorating the class itself.</p>
+<h2 id="quick-start">Quick Start</h2>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
 
 <span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">my_class</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span><span class="nb">int</span><span class="p">):</span>
-        <span class="k">pass</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">greet</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">repeat</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Hello </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">!&quot;</span> <span class="o">*</span> <span class="n">repeat</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">my_other_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">):</span>
-      <span class="k">pass</span>
+<span class="n">greet</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>       <span class="c1"># Returns &quot;Hello Alice!Hello Alice!&quot;</span>
+<span class="n">greet</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">,</span> <span class="s2">&quot;twice&quot;</span><span class="p">)</span>  <span class="c1"># Raises TypeError at runtime!</span>
 </code></pre>
 </div>
 
-<p>You can also enforce types on <code>staticmethod</code>s and <code>classmethod</code>s if you are using <code>python &gt;= 3.10</code>. If you are using a python version less than this, <code>classmethod</code>s and <code>staticmethod</code>s methods will not have their types enforced.</p>
+<hr />
+
+<h2 id="why-type_enforced">Why type_enforced?</h2>
+
+<p>Static type checkers (like <code>mypy</code> or <code>pyright</code>) catch errors during development, but offer zero protection at runtime against dynamic payloads, untyped API inputs, or user data.</p>
+
+<p>Existing runtime type checkers force an unnecessary compromise:</p>
+
+<ul>
+<li><strong>Pydantic</strong> provides thorough validation, but comes with heavy runtime overhead and steep execution slowdowns.</li>
+<li><strong>Beartype</strong> achieves high speed primarily by taking shortcuts. It samples 1 element in collections and misses invalid items in unsampled data.</li>
+</ul>
+
+<p><code><a href="">type_enforced</a></code> eliminates this compromise:</p>
+
+<ul>
+<li><strong>Guaranteed Complete Validation</strong>: Validates every single item across large collections and nested data structures (e.g. <code>list[dict[str, int]]</code> or dicts with 10,000+ keys) by default, with zero shortcuts.</li>
+<li><strong>Fastest Full Validation</strong>: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.</li>
+<li><strong>Fastest Sampled Validation</strong>: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set <code>iterable_sample_pct='first'</code>, <code>'last'</code>, <code>'log'</code>, <code>0</code> (random pick), or a percentage. Sampled validation in <code><a href="">type_enforced</a></code> runs up to 3x faster than Beartype.</li>
+<li><strong>Pure Python, Zero Dependencies</strong>: A lightweight decorator with zero external packages, C-extensions, or compilation steps. Compatible everywhere Python 3.11+ runs.</li>
+<li><strong>Rich Type Support &amp; Constraints</strong>: Seamlessly supports standard Python <code>|</code> unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation <code>Constraint</code> rules.</li>
+<li><strong>Clean Tracebacks</strong>: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.</li>
+</ul>
+
+<h3 id="performance-at-a-glance">Performance at a Glance</h3>
+
+<p>Timings are averages of a single validation over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see <a href="utils/benchmarks.py">utils/benchmarks.py</a> and <a href="benchmark.md">benchmark.md</a>.</p>
+
+<table>
+<thead>
+<tr>
+  <th style="text-align:left;">Type</th>
+  <th style="text-align:center;">Size</th>
+  <th style="text-align:center;">type_enforced (sample=1)</th>
+  <th style="text-align:center;">Beartype (sample=1)</th>
+  <th style="text-align:center;">type_enforced (100%)</th>
+  <th style="text-align:center;">Pydantic (100%)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left;"><code>int</code></td>
+  <td style="text-align:center;">—</td>
+  <td style="text-align:center;">0.18 µs</td>
+  <td style="text-align:center;">0.33 µs</td>
+  <td style="text-align:center;">0.18 µs</td>
+  <td style="text-align:center;">0.66 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>Union[int, float]</code></td>
+  <td style="text-align:center;">—</td>
+  <td style="text-align:center;">0.21 µs</td>
+  <td style="text-align:center;">0.37 µs</td>
+  <td style="text-align:center;">0.19 µs</td>
+  <td style="text-align:center;">0.73 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>str</code></td>
+  <td style="text-align:center;">—</td>
+  <td style="text-align:center;">0.17 µs</td>
+  <td style="text-align:center;">0.33 µs</td>
+  <td style="text-align:center;">0.18 µs</td>
+  <td style="text-align:center;">0.64 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>list[int]</code></td>
+  <td style="text-align:center;">1 000 items</td>
+  <td style="text-align:center;">0.21 µs ⚠</td>
+  <td style="text-align:center;">0.60 µs ⚠</td>
+  <td style="text-align:center;">1.86 µs</td>
+  <td style="text-align:center;">11.29 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>list[int]</code></td>
+  <td style="text-align:center;">10 000 items</td>
+  <td style="text-align:center;">0.21 µs ⚠</td>
+  <td style="text-align:center;">0.67 µs ⚠</td>
+  <td style="text-align:center;">17.01 µs</td>
+  <td style="text-align:center;">113.66 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>dict[str, int]</code></td>
+  <td style="text-align:center;">1 000 keys</td>
+  <td style="text-align:center;">0.22 µs ⚠</td>
+  <td style="text-align:center;">0.49 µs ⚠</td>
+  <td style="text-align:center;">5.13 µs</td>
+  <td style="text-align:center;">44.93 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>dict[str, int]</code></td>
+  <td style="text-align:center;">10 000 keys</td>
+  <td style="text-align:center;">0.22 µs ⚠</td>
+  <td style="text-align:center;">0.47 µs ⚠</td>
+  <td style="text-align:center;">53.59 µs</td>
+  <td style="text-align:center;">473.11 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>list[list[int]]</code></td>
+  <td style="text-align:center;">100 x 100 items</td>
+  <td style="text-align:center;">0.24 µs ⚠</td>
+  <td style="text-align:center;">0.62 µs ⚠</td>
+  <td style="text-align:center;">17.40 µs</td>
+  <td style="text-align:center;">96.83 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>dict[str, list[int]]</code></td>
+  <td style="text-align:center;">100 x 100 items</td>
+  <td style="text-align:center;">0.37 µs ⚠</td>
+  <td style="text-align:center;">0.60 µs ⚠</td>
+  <td style="text-align:center;">15.40 µs</td>
+  <td style="text-align:center;">102.70 µs</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>list[dict[str, int]]</code></td>
+  <td style="text-align:center;">100 x 100 items</td>
+  <td style="text-align:center;">0.25 µs ⚠</td>
+  <td style="text-align:center;">0.80 µs ⚠</td>
+  <td style="text-align:center;">54.07 µs</td>
+  <td style="text-align:center;">444.42 µs</td>
+</tr>
+</tbody>
+</table>
+
+<blockquote>
+  <p><strong>Sampled Validation:</strong> When 1 sample validation is acceptable, <code><a href="">type_enforced</a></code> is <strong>up to 3x faster than Beartype</strong>.</p>
+</blockquote>
+
+<blockquote>
+  <p><strong>Full Validation:</strong> When full validation is required, <code><a href="">type_enforced</a></code> is <strong>up to 8x faster than Pydantic</strong>. </p>
+</blockquote>
+
+<hr />
+
+<h2 id="installation">Installation</h2>
+
+<p>Install via <code>pip</code>:</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>type_enforced
+</code></pre>
+</div>
+
+<p>Or using <code>uv</code>:</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code>uv<span class="w"> </span>add<span class="w"> </span>type_enforced
+</code></pre>
+</div>
+
+<h3 id="requirements-build-options">Requirements &amp; Build Options</h3>
+
+<ul>
+<li><strong>Python 3.11+</strong></li>
+<li><strong>Zero Runtime Dependencies</strong>: Self contained package with zero external dependencies.</li>
+<li><strong>C++ Acceleration</strong>: If available, <code><a href="">type_enforced</a></code> leverages high-performance C++ validators via <code>nanobind</code>. </li>
+<li><strong>Pure Python Fallback</strong>: If compiling from source on a system without a C++ compiler, <code><a href="">type_enforced</a></code> automatically falls back to a pure-Python engine.</li>
+<li><p><strong>Pure Python Installation</strong>: To explicitly skip C++ compilation when installing from source:</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>type_enforced<span class="w"> </span>--no-binary<span class="w"> </span>type_enforced<span class="w"> </span>-Ccmake.define.SKIP_CPP_BUILD<span class="o">=</span>ON
+</code></pre>
+</div></li>
+</ul>
+
+<p><details>
+<summary>Legacy Python Compatibility</summary></p>
+
+<p>For older Python versions, pin to legacy releases:</p>
+
+<ul>
+<li><strong>Python 3.10</strong>: <code>pip install "type_enforced&lt;=1.10.2"</code></li>
+<li><strong>Python 3.9</strong>: <code>pip install "type_enforced&lt;=1.9.0"</code></li>
+<li><strong>Python 3.7 – 3.8</strong>: <code>pip install "type_enforced==0.0.16"</code>
+</details></li>
+</ul>
+
+<hr />
+
+<h2 id="usage-guide">Usage Guide</h2>
+
+<h3 id="1-functions-and-methods">1. Functions and Methods</h3>
+
+<p>Apply <code>@type_enforced.Enforcer</code> to any callable. It validates positional arguments, keyword arguments, default parameters, and the return type.</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
 
 <span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">my_class</span><span class="p">:</span>
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span><span class="nb">int</span><span class="p">):</span>
-        <span class="k">pass</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="n">user_id</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;active&quot;</span> <span class="k">if</span> <span class="n">active</span> <span class="k">else</span> <span class="s2">&quot;inactive&quot;</span><span class="p">}</span>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">my_other_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">):</span>
-      <span class="k">pass</span>
+<span class="c1"># Passing invalid types raises a descriptive TypeError:</span>
+<span class="n">process_user</span><span class="p">(</span><span class="s2">&quot;123&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;admin&quot;</span><span class="p">])</span>
+<span class="c1"># TypeError: TypeEnforced Exception (process_user): Type mismatch for typed variable `user_id`.</span>
+<span class="c1"># Expected one of the following `[&lt;class &#39;int&#39;&gt;]` but got `&lt;class &#39;str&#39;&gt;` with value `123` instead.</span>
 </code></pre>
 </div>
 
-<p>Dataclasses are suported too.</p>
+<h3 id="2-classes-and-dataclasses">2. Classes and Dataclasses</h3>
+
+<p>Decorating a class automatically enforces types on all annotated methods (including <code>__init__</code>, <code>@classmethod</code>, and <code>@staticmethod</code>):</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 
 <span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Account</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">balance</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">username</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">balance</span> <span class="o">=</span> <span class="n">balance</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">deposit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">balance</span> <span class="o">+=</span> <span class="n">amount</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">balance</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_code</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span>
+
+<span class="c1"># Dataclasses work seamlessly:</span>
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
 <span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">my_class</span><span class="p">:</span>
-    <span class="n">foo</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">bar</span><span class="p">:</span> <span class="nb">str</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">UserConfig</span><span class="p">:</span>
+    <span class="n">retries</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">endpoint</span><span class="p">:</span> <span class="nb">str</span>
 </code></pre>
 </div>
 
-<p>You can skip enforcement if you add the argument <code>enabled=False</code> in the <code>Enforcer</code> call.</p>
-
-<ul>
-<li>This is useful for a production vs debugging environment.</li>
-<li>This is also useful for undecorating a single method in a larger wrapped class.</li>
-<li>Note: You can set <code>enabled=False</code> for an entire class or simply disable a specific method in a larger wrapped class.</li>
-<li>Note: Method level wrapper <code>enabled</code> values take precedence over class level wrappers.</li>
-</ul>
+<p>To disable enforcement on a specific method within an enforced class:</p>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">my_class</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<pre><span></span><code><span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Worker</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">standard_job</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">pass</span>
 
     <span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">my_other_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">high_throughput_job</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="c1"># Type enforcement skipped for maximum throughput</span>
         <span class="k">pass</span>
 </code></pre>
 </div>
 
-<h2 id="validate-with-constraints">Validate with Constraints</h2>
+<h3 id="3-module-level-enforcement-moduleenforcer">3. Module-Level Enforcement (<code>ModuleEnforcer</code>)</h3>
 
-<p>Type enforcer can enforce constraints for passed variables. These constraints are validated after any type checks are made.</p>
+<p>Enforce typing across an entire module in a single line without decorating every function and class individually:</p>
 
-<p>To enforce basic input values are integers greater than or equal to zero, you can use the <a href="https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint">Constraint</a> class like so:</p>
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="c1"># Place at the top of your module file (e.g., my_package/core.py)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
+
+<span class="n">type_enforced</span><span class="o">.</span><span class="n">ModuleEnforcer</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Helper</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;ok&quot;</span> <span class="k">if</span> <span class="n">flag</span> <span class="k">else</span> <span class="s2">&quot;failed&quot;</span>
+</code></pre>
+</div>
+
+<p>You can also enforce an imported module:</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">my_package</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
+
+<span class="n">type_enforced</span><span class="o">.</span><span class="n">ModuleEnforcer</span><span class="p">(</span><span class="n">my_package</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<blockquote>
+  <p><strong>Note:</strong> By default, <code>submodules=True</code>, which recursively enforces all sub-packages/sub-modules in the same namespace (e.g. <code>mypkg.submodule</code>), while safely ignoring third-party and standard library imports.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="supported-type-annotations">Supported Type Annotations</h2>
+
+<p><code><a href="">type_enforced</a></code> supports all standard Python 3.11+ typing constructs:</p>
+
+<h3 id="standard-built-ins-unions">Standard Built-ins &amp; Unions</h3>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fn</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">float</span><span class="p">,</span>                    <span class="c1"># Standard union syntax</span>
+    <span class="n">c</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>              <span class="c1"># Optional syntax</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</code></pre>
+</div>
+
+<h3 id="collections-nested-generics">Collections &amp; Nested Generics</h3>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fn</span><span class="p">(</span>
+    <span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>      <span class="c1"># Dicts require [KeyType, ValType]</span>
+    <span class="n">unique_ids</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">fixed_pair</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>        <span class="c1"># Exact positional tuple: (str, int)</span>
+    <span class="n">var_tuple</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>         <span class="c1"># Variable-length tuple</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</code></pre>
+</div>
+
+<h3 id="custom-classes-subclass-inheritance">Custom Classes &amp; Subclass Inheritance</h3>
+
+<p>By default, subclasses pass type validation (e.g. <code>Bar()</code> satisfies <code>Foo</code> if <code>class Bar(Foo)</code>):</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Animal</span><span class="p">:</span> <span class="k">pass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Dog</span><span class="p">(</span><span class="n">Animal</span><span class="p">):</span> <span class="k">pass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Vehicle</span><span class="p">:</span> <span class="k">pass</span>
+
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">feed</span><span class="p">(</span><span class="n">animal</span><span class="p">:</span> <span class="n">Animal</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+<span class="n">feed</span><span class="p">(</span><span class="n">Animal</span><span class="p">())</span>  <span class="c1"># OK</span>
+<span class="n">feed</span><span class="p">(</span><span class="n">Dog</span><span class="p">())</span>     <span class="c1"># OK (subclasses allowed)</span>
+<span class="n">feed</span><span class="p">(</span><span class="n">Vehicle</span><span class="p">())</span> <span class="c1"># Raises TypeError</span>
+</code></pre>
+</div>
+
+<p>To enforce uninitialized class objects (the class itself, rather than an instance), use <code>type[Animal]</code> (or <code>typing.Type[Animal]</code>):</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_instance</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Animal</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Animal</span><span class="p">:</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">()</span>
+</code></pre>
+</div>
+
+<h3 id="literals-special-types">Literals &amp; Special Types</h3>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sized</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fn</span><span class="p">(</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">,</span> <span class="s2">&quot;write&quot;</span><span class="p">],</span>        <span class="c1"># Value check: must equal &quot;read&quot; or &quot;write&quot;</span>
+    <span class="n">handler</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>                     <span class="c1"># Functions, methods, generators</span>
+    <span class="n">container</span><span class="p">:</span> <span class="n">Sized</span><span class="p">,</span>                      <span class="c1"># list, dict, set, str, tuple, bytes, etc.</span>
+    <span class="n">wildcard</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>                         <span class="c1"># Permissive bypass</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</code></pre>
+</div>
+
+<ul>
+<li><strong>Stacking Literals</strong>: Literals combine with unions using OR logic (<code>int | Literal['auto']</code> allows any <code>int</code> or the literal string <code>'auto'</code>).</li>
+</ul>
+
+<hr />
+
+<h2 id="value-validation-with-constraints">Value Validation with Constraints</h2>
+
+<p><code><a href="">type_enforced</a></code> allows post-type-check value constraints directly in type annotations.</p>
+
+<h3 id="built-in-constraint">Built-in <code>Constraint</code></h3>
+
+<p>Validate bounds, numeric comparisons, string patterns (regex), and inclusion/exclusion:</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn"><a href="type_enforced/utils.html">type_enforced.utils</a></span><span class="w"> </span><span class="kn">import</span> <span class="n">Constraint</span>
 
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">()</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">positive_int_test</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Constraint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_score</span><span class="p">(</span>
+    <span class="n">score</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Constraint</span><span class="p">(</span><span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">code</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Constraint</span><span class="p">(</span><span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;^[A-Z]</span><span class="si">{3}</span><span class="s2">[0-9]</span><span class="si">{4}</span><span class="s2">$&quot;</span><span class="p">),</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="k">return</span> <span class="kc">True</span>
 
-<span class="n">positive_int_test</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># Passes</span>
-<span class="n">positive_int_test</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># Fails</span>
-<span class="n">positive_int_test</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span> <span class="c1"># Fails</span>
+<span class="n">set_score</span><span class="p">(</span><span class="mi">85</span><span class="p">,</span> <span class="s2">&quot;ABC1234&quot;</span><span class="p">)</span>    <span class="c1"># Passes</span>
+<span class="n">set_score</span><span class="p">(</span><span class="mi">105</span><span class="p">,</span> <span class="s2">&quot;ABC1234&quot;</span><span class="p">)</span>   <span class="c1"># Raises TypeError (Constraint `Less Than Or Equal To (100)` not met)</span>
+<span class="n">set_score</span><span class="p">(</span><span class="mi">85</span><span class="p">,</span> <span class="s2">&quot;invalid&quot;</span><span class="p">)</span>    <span class="c1"># Raises TypeError (Constraint `Regex Pattern Match` not met)</span>
 </code></pre>
 </div>
 
-<p>To enforce a <a href="https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint">GenericConstraint</a>:</p>
+<p>Available <code>Constraint</code> parameters:</p>
+
+<ul>
+<li><code>gt</code>, <code>lt</code>, <code>ge</code>, <code>le</code>, <code>eq</code>, <code>ne</code> (numeric / comparison bounds)</li>
+<li><code>pattern</code> (regular expression string match)</li>
+<li><code>includes</code>, <code>excludes</code> (membership checks)</li>
+</ul>
+
+<h3 id="custom-genericconstraint">Custom <code>GenericConstraint</code></h3>
+
+<p>Write arbitrary validation logic using custom predicates:</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn"><a href="type_enforced/utils.html">type_enforced.utils</a></span><span class="w"> </span><span class="kn">import</span> <span class="n">GenericConstraint</span>
 
-<span class="n">CustomConstraint</span> <span class="o">=</span> <span class="n">GenericConstraint</span><span class="p">(</span>
-    <span class="p">{</span>
-        <span class="s1">&#39;in_rgb&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="s1">&#39;green&#39;</span><span class="p">,</span> <span class="s1">&#39;blue&#39;</span><span class="p">],</span>
-    <span class="p">}</span>
-<span class="p">)</span>
+<span class="n">RGBColor</span> <span class="o">=</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">GenericConstraint</span><span class="p">({</span>
+    <span class="s2">&quot;valid_hex_color&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+<span class="p">})</span>
 
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">()</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">rgb_test</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CustomConstraint</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="k">return</span> <span class="kc">True</span>
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="n">color</span><span class="p">:</span> <span class="n">RGBColor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
 
-<span class="n">rgb_test</span><span class="p">(</span><span class="s1">&#39;red&#39;</span><span class="p">)</span> <span class="c1"># Passes</span>
-<span class="n">rgb_test</span><span class="p">(</span><span class="s1">&#39;yellow&#39;</span><span class="p">)</span> <span class="c1"># Fails</span>
+<span class="n">render</span><span class="p">(</span><span class="s2">&quot;#ffffff&quot;</span><span class="p">)</span>  <span class="c1"># Passes</span>
+<span class="n">render</span><span class="p">(</span><span class="s2">&quot;red&quot;</span><span class="p">)</span>      <span class="c1"># Raises TypeError (Constraint `valid_hex_color` not met)</span>
 </code></pre>
 </div>
 
-<h2 id="validate-class-instances-and-classes">Validate class instances and classes</h2>
+<blockquote>
+  <p><strong>Note:</strong> Constraints are evaluated <em>after</em> type checking. Constraints stack with unions: <code>int | Constraint(ge=0) | Constraint(le=10)</code>.</p>
+</blockquote>
 
-<p>Type enforcer can enforce class instances and classes. There are a few caveats between the two.</p>
+<hr />
 
-<p>To enforce a class instance, simply pass the class itself as a type hint:</p>
+<h2 id="configuration-reference">Configuration Reference</h2>
+
+<p>Both <code>@Enforcer</code> and <code>ModuleEnforcer</code> accept the following configuration arguments:</p>
+
+<table>
+<thead>
+<tr>
+  <th style="text-align:left;">Parameter</th>
+  <th style="text-align:center;">Type</th>
+  <th style="text-align:center;">Default</th>
+  <th style="text-align:left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left;"><code>enabled</code></td>
+  <td style="text-align:center;"><code>bool</code></td>
+  <td style="text-align:center;"><code>True</code></td>
+  <td style="text-align:left;">Toggle enforcement. Set <code>False</code> to bypass type checks (useful for production vs. debugging or per-method overrides).</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>strict</code></td>
+  <td style="text-align:center;"><code>bool</code></td>
+  <td style="text-align:center;"><code>True</code></td>
+  <td style="text-align:left;">When <code>True</code>, raises <code>TypeError</code> on mismatch. When <code>False</code>, logs a warning to the console instead of raising.</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>clean_traceback</code></td>
+  <td style="text-align:center;"><code>bool</code></td>
+  <td style="text-align:center;"><code>True</code></td>
+  <td style="text-align:left;">Filters internal <code><a href="">type_enforced</a></code> stack frames so unhandled tracebacks point directly to user code (see note below).</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>iterable_sample_pct</code></td>
+  <td style="text-align:center;"><code>int or str</code></td>
+  <td style="text-align:center;"><code>100</code></td>
+  <td style="text-align:left;">Sampling mode or percentage (0–100) of iterable items to validate. <code>'first'</code> checks the first item, <code>'last'</code> checks the last item, <code>'log'</code> checks a sample of ceil(log2(n)) items, <code>0</code> checks 1 random item, and <code>1..100</code> checks the specified percentage (rounding up). <code>100</code> validates all elements.</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>only_typed</code></td>
+  <td style="text-align:center;"><code>bool</code></td>
+  <td style="text-align:center;"><code>False</code></td>
+  <td style="text-align:left;">When <code>True</code>, raises an exception upon decoration if any parameter or return value lacks a type hint.</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>submodules</code> <em>(ModuleEnforcer only)</em></td>
+  <td style="text-align:center;"><code>bool</code></td>
+  <td style="text-align:center;"><code>True</code></td>
+  <td style="text-align:left;">Recursively enforces all sub-packages/sub-modules in the same namespace.</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="configuration-options-in-depth">Configuration Options in Depth</h3>
+
+<h4 id="1-strict-typing-mode-only_typedtrue">1. Strict Typing Mode (<code>only_typed=True</code>)</h4>
+
+<p>To catch unannotated parameters or missing return annotations across your codebase, enable <code>only_typed=True</code>. This raises a <code>TypeError</code> at definition time if any parameter (excluding <code>self</code>/<code>cls</code>) or the return type lacks an annotation:</p>
 
 <div class="pdoc-code codehilite">
 <pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
 
-<span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="p">():</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">pass</span>
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">(</span><span class="n">only_typed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">calculate</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
 
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">my_class</span><span class="p">():</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">object</span><span class="p">:</span> <span class="n">Foo</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">object</span> <span class="o">=</span> <span class="nb">object</span>
-
-<span class="n">x</span><span class="o">=</span><span class="n">my_class</span><span class="p">(</span><span class="n">Foo</span><span class="p">())</span> <span class="c1"># Works great!</span>
-<span class="n">y</span><span class="o">=</span><span class="n">my_class</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span> <span class="c1"># Fails!</span>
+<span class="c1"># Missing annotation on parameter `b` or missing return annotation raises immediately:</span>
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">(</span><span class="n">only_typed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">invalid_fn</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">a</span>
+<span class="c1"># TypeError: TypeEnforced Exception (invalid_fn): Untyped variable `b` found in function/method `invalid_fn`.</span>
 </code></pre>
 </div>
 
-<p>Notice how an initialized class instance <code>Foo()</code> must be passed for the enforcer to not raise an exception.</p>
+<h4 id="2-warning-mode-strictfalse">2. Warning Mode (<code>strict=False</code>)</h4>
 
-<p>To enforce an uninitialized class object use <code>typing.Type[classHere]</code> on the class to enforce inputs to be an uninitialized class:</p>
+<p>Print warnings to the console instead of raising exceptions (useful for gradual adoption or debugging without breaking execution):</p>
 
 <div class="pdoc-code codehilite">
-<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<pre><span></span><code><span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">(</span><span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">lenient_fn</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">x</span>
 
-<span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="p">():</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">pass</span>
-
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">my_class</span><span class="p">():</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">object_class</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Type</span><span class="p">[</span><span class="n">Foo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">object</span> <span class="o">=</span> <span class="n">object_class</span><span class="p">()</span>
-
-<span class="n">y</span><span class="o">=</span><span class="n">my_class</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span> <span class="c1"># Works great!</span>
-<span class="n">x</span><span class="o">=</span><span class="n">my_class</span><span class="p">(</span><span class="n">Foo</span><span class="p">())</span> <span class="c1"># Fails</span>
+<span class="n">lenient_fn</span><span class="p">(</span><span class="s2">&quot;not_an_int&quot;</span><span class="p">)</span>
+<span class="c1"># Logs: TypeEnforced Warning (lenient_fn): Type mismatch for typed variable `x`...</span>
+<span class="c1"># Returns &quot;not_an_int&quot; without raising an exception.</span>
 </code></pre>
 </div>
 
-<h2 id="validate-classes-with-inheritance">Validate classes with inheritance</h2>
+<h4 id="3-clean-tracebacks-clean_tracebacktrue">3. Clean Tracebacks (<code>clean_traceback=True</code>)</h4>
 
-<div class="pdoc-code codehilite">
-<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn"><a href="type_enforced/utils.html">type_enforced.utils</a></span><span class="w"> </span><span class="kn">import</span> <span class="n">WithSubclasses</span>
+<p>By default, <code>clean_traceback=True</code> temporarily hooks <code>sys.excepthook</code> when a type exception is raised, stripping internal <code><a href="">type_enforced</a></code> library frames so that unhandled script tracebacks point directly to the line of user code that caused the issue.</p>
 
-<span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
+<blockquote>
+  <p><strong>Note on Interactive Terminals / REPLs:</strong> In interactive environments (such as the Python REPL / PyREPL, IPython, or Jupyter notebooks), the shell wraps execution in an internal <code>try...except</code> loop and catches exceptions before they reach <code>sys.excepthook</code>. Consequently, interactive terminal sessions will still display the full traceback.</p>
+</blockquote>
 
-<span class="k">class</span><span class="w"> </span><span class="nc">Bar</span><span class="p">(</span><span class="n">Foo</span><span class="p">):</span>
-    <span class="k">pass</span>
+<h4 id="4-sampled-validation-iterable_sample_pct">4. Sampled Validation (<code>iterable_sample_pct</code>)</h4>
 
-<span class="k">class</span><span class="w"> </span><span class="nc">Baz</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="n">custom_class</span><span class="p">:</span> <span class="n">WithSubclasses</span><span class="p">(</span><span class="n">Foo</span><span class="p">)):</span>
-    <span class="k">pass</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="n">WithSubclasses</span><span class="o">.</span><span class="n">get_subclasses</span><span class="p">(</span><span class="n">Foo</span><span class="p">))</span> <span class="c1"># Prints: [&lt;class &#39;__main__.Foo&#39;&gt;, &lt;class &#39;__main__.Bar&#39;&gt;]</span>
-<span class="n">my_fn</span><span class="p">(</span><span class="n">Foo</span><span class="p">())</span> <span class="c1"># Passes as expected</span>
-<span class="n">my_fn</span><span class="p">(</span><span class="n">Bar</span><span class="p">())</span> <span class="c1"># Passes as expected</span>
-<span class="n">my_fn</span><span class="p">(</span><span class="n">Baz</span><span class="p">())</span> <span class="c1"># Raises TypeError as expected</span>
-</code></pre>
-</div>
-
-<h1 id="development">Development</h1>
-
-<h2 id="running-tests-prettifying-code-and-updating-docs">Running Tests, Prettifying Code, and Updating Docs</h2>
-
-<p>Make sure Docker is installed and running.</p>
+<p>For large or performance-critical collections, configure sampling instead of full iteration:</p>
 
 <ul>
-<li>Create a docker container and drop into a shell
-<ul>
-<li><code>./run.sh</code></li>
-</ul></li>
-<li>Run all tests (see ./utils/test.sh)
-<ul>
-<li><code>./run.sh test</code></li>
-</ul></li>
-<li>Prettify the code (see ./utils/prettify.sh)
-<ul>
-<li><code>./run.sh prettify</code></li>
-</ul></li>
-<li><p>Update the docs (see ./utils/docs.sh)</p>
-
-<ul>
-<li><code>./run.sh docs</code></li>
-</ul></li>
-<li><p>Note: You can and should modify the <code>Dockerfile</code> to test different python versions.</p></li>
+<li><code>'first'</code>: Validates the first element in O(1) time (runs up to 3x faster than Beartype).</li>
+<li><code>'last'</code>: Validates the last element in O(1) time.</li>
+<li><code>'log'</code>: Validates a sample of ceil(log2(n)) items across the collection.</li>
+<li><code>0</code>: Validates one element chosen at random.</li>
+<li><code>1..100</code> (int): Validates the specified percentage of items (rounding up).</li>
 </ul>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">(</span><span class="n">iterable_sample_pct</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fast_check</span><span class="p">(</span><span class="n">items</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+
+<span class="n">fast_check</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>           <span class="c1"># OK</span>
+<span class="n">fast_check</span><span class="p">([</span><span class="s2">&quot;bad_first&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>  <span class="c1"># Raises TypeError</span>
+</code></pre>
+</div>
+
+<hr />
+
+<h2 id="production-best-practices">Production Best Practices</h2>
+
+<h3 id="multi-threaded-services-web-frameworks-clean_tracebackfalse">Multi-Threaded Services &amp; Web Frameworks (<code>clean_traceback=False</code>)</h3>
+
+<p>By default, <code>clean_traceback=True</code> temporarily hooks <code>sys.excepthook</code> to filter internal library frames for standalone scripts. In concurrent multi-threaded environments and applications using centralized error handlers, consider setting <code>clean_traceback=False</code>:</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">type_enforced</span>
+
+<span class="nd">@type_enforced</span><span class="o">.</span><span class="n">Enforcer</span><span class="p">(</span><span class="n">clean_traceback</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_request</span><span class="p">(</span><span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="n">user_id</span><span class="p">,</span> <span class="s2">&quot;tags&quot;</span><span class="p">:</span> <span class="n">tags</span><span class="p">}</span>
+</code></pre>
+</div>
+
+<hr />
+
+<h2 id="contributing">Contributing</h2>
+
+<p>Contributions are welcome!</p>
+
+<h3 id="development-setup">Development Setup</h3>
+
+<p>We use <a href="https://docs.astral.sh/uv/">uv</a> for dependency management and testing in a Unix-based environment (Linux, macOS, or WSL2 on Windows).</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="c1"># Clone the repository</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/connor-makowski/type_enforced.git
+<span class="nb">cd</span><span class="w"> </span>type_enforced
+
+<span class="c1"># Install dev dependencies</span>
+uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
+</code></pre>
+</div>
+
+<h3 id="development-commands">Development Commands</h3>
+
+<table>
+<thead>
+<tr>
+  <th style="text-align:left;">Command</th>
+  <th style="text-align:left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:left;"><code>uv run pytest</code></td>
+  <td style="text-align:left;">Run tests in local environment</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>uv run pytest -v</code></td>
+  <td style="text-align:left;">Run tests with verbose output</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>uv run nox</code></td>
+  <td style="text-align:left;">Run test suite across Python 3.11–3.14 (C++ and pure-Python fallback)</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>uv run nox -s tests-3.14</code></td>
+  <td style="text-align:left;">Run test suite on a specific Python version</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>uv run python utils/minibench.py</code></td>
+  <td style="text-align:left;">Run quick performance at a glance benchmark</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>uv run python utils/cpp_vs_python_bench.py</code></td>
+  <td style="text-align:left;">Run C++ accelerated vs pure Python benchmark</td>
+</tr>
+<tr>
+  <td style="text-align:left;"><code>uv run python utils/prettify.py</code></td>
+  <td style="text-align:left;">Auto-format with <code>autoflake</code> and <code>black</code> (80 col)</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="guidelines">Guidelines</h3>
+
+<ol>
+<li>Fork the repo and create your branch from <code>main</code>.</li>
+<li>Ensure all tests pass across versions (<code>uv run nox</code>).</li>
+<li>Format code before committing (<code>uv run python utils/prettify.py</code>).</li>
+<li>Keep commits atomic and clearly described.</li>
+<li>Submit a pull request.</li>
+</ol>
+
+<hr />
+
+<h2 id="academic-citation">Academic Citation</h2>
+
+<p>If you use <code><a href="">type_enforced</a></code> in academic research, please cite our <a href="https://doi.org/10.21105/joss.08832">JOSS paper</a>:</p>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="nc">@article</span><span class="p">{</span><span class="nl">Makowski2026</span><span class="p">,</span>
+<span class="w">  </span><span class="na">doi</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{10.21105/joss.08832}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">url</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{https://doi.org/10.21105/joss.08832}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">year</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{2026}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">publisher</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{The Open Journal}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">volume</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{11}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">number</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{118}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">pages</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{8832}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">author</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Connor Makowski}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">title</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{type_enforced: A pure Python runtime type enforcer}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">journal</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Journal of Open Source Software}</span>
+<span class="p">}</span>
+</code></pre>
+</div>
+
+<hr />
+
+<h2 id="license">License</h2>
+
+<p>Distributed under the <a href="https://opensource.org/licenses/MIT">MIT License</a>. See <code>LICENSE</code> for details.</p>
 </div>
 
                         <input id="mod-type_enforced-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
@@ -525,333 +803,474 @@ type_enforced    </h1>
                         <label class="view-source-button" for="mod-type_enforced-view-source"><span>View Source</span></label>
 
                         <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-2"><a href="#L-2"><span class="linenos">  2</span></a><span class="sd"># Type Enforced</span>
-</span><span id="L-3"><a href="#L-3"><span class="linenos">  3</span></a><span class="sd">[![PyPI version](https://badge.fury.io/py/type_enforced.svg)](https://badge.fury.io/py/type_enforced)</span>
-</span><span id="L-4"><a href="#L-4"><span class="linenos">  4</span></a><span class="sd">[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)</span>
-</span><span id="L-5"><a href="#L-5"><span class="linenos">  5</span></a><span class="sd">[![PyPI Downloads](https://img.shields.io/pypi/dm/type_enforced.svg?label=PyPI%20downloads)](https://pypi.org/project/type_enforced/)</span>
-</span><span id="L-6"><a href="#L-6"><span class="linenos">  6</span></a>
-</span><span id="L-7"><a href="#L-7"><span class="linenos">  7</span></a><span class="sd">A pure python (no special compiler required) type enforcer for type annotations. Enforce types in python functions and methods.</span>
+</span><span id="L-2"><a href="#L-2"><span class="linenos">  2</span></a><span class="sd"># type_enforced</span>
+</span><span id="L-3"><a href="#L-3"><span class="linenos">  3</span></a>
+</span><span id="L-4"><a href="#L-4"><span class="linenos">  4</span></a><span class="sd">[![PyPI version](https://img.shields.io/pypi/v/type_enforced.svg?color=blue)](https://pypi.org/project/type_enforced/)</span>
+</span><span id="L-5"><a href="#L-5"><span class="linenos">  5</span></a><span class="sd">[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)</span>
+</span><span id="L-6"><a href="#L-6"><span class="linenos">  6</span></a><span class="sd">[![DOI](https://joss.theoj.org/papers/10.21105/joss.08832/status.svg)](https://doi.org/10.21105/joss.08832)</span>
+</span><span id="L-7"><a href="#L-7"><span class="linenos">  7</span></a><span class="sd">[![PyPI Downloads](https://static.pepy.tech/personalized-badge/type-enforced?period=total&amp;units=INTERNATIONAL_SYSTEM&amp;left_color=GREY&amp;right_color=ORANGE&amp;left_text=Downloads)](https://pepy.tech/projects/type-enforced)</span>
 </span><span id="L-8"><a href="#L-8"><span class="linenos">  8</span></a>
-</span><span id="L-9"><a href="#L-9"><span class="linenos">  9</span></a><span class="sd"># Setup</span>
+</span><span id="L-9"><a href="#L-9"><span class="linenos">  9</span></a><span class="sd">Fast runtime type enforcement for Python 3.11+ type annotations. Zero dependencies and uncompromising performance.</span>
 </span><span id="L-10"><a href="#L-10"><span class="linenos"> 10</span></a>
-</span><span id="L-11"><a href="#L-11"><span class="linenos"> 11</span></a><span class="sd">Make sure you have Python 3.10.x (or higher) installed on your system. You can download it [here](https://www.python.org/downloads/).</span>
+</span><span id="L-11"><a href="#L-11"><span class="linenos"> 11</span></a><span class="sd">---</span>
 </span><span id="L-12"><a href="#L-12"><span class="linenos"> 12</span></a>
-</span><span id="L-13"><a href="#L-13"><span class="linenos"> 13</span></a><span class="sd">- Unsupported python versions can be used, however newer features will not be available.</span>
-</span><span id="L-14"><a href="#L-14"><span class="linenos"> 14</span></a><span class="sd">    - For 3.7: use type_enforced==0.0.16 (only very basic type checking is supported)</span>
-</span><span id="L-15"><a href="#L-15"><span class="linenos"> 15</span></a><span class="sd">    - For 3.8: use type_enforced==0.0.16 (only very basic type checking is supported)</span>
-</span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a><span class="sd">    - For 3.9: use type_enforced&lt;=1.9.0 (`staticmethod`, union with `|` and `from __future__ import annotations` typechecking are not supported)</span>
-</span><span id="L-17"><a href="#L-17"><span class="linenos"> 17</span></a><span class="sd">- Other notes:</span>
-</span><span id="L-18"><a href="#L-18"><span class="linenos"> 18</span></a><span class="sd">    - For python 3.10: `from __future__ import annotations` may cause errors (EG: when using staticmethods and classmethods)</span>
-</span><span id="L-19"><a href="#L-19"><span class="linenos"> 19</span></a>
-</span><span id="L-20"><a href="#L-20"><span class="linenos"> 20</span></a><span class="sd">### Installation</span>
+</span><span id="L-13"><a href="#L-13"><span class="linenos"> 13</span></a><span class="sd">## Quick Start</span>
+</span><span id="L-14"><a href="#L-14"><span class="linenos"> 14</span></a>
+</span><span id="L-15"><a href="#L-15"><span class="linenos"> 15</span></a><span class="sd">```python</span>
+</span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-17"><a href="#L-17"><span class="linenos"> 17</span></a>
+</span><span id="L-18"><a href="#L-18"><span class="linenos"> 18</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos"> 19</span></a><span class="sd">def greet(name: str, repeat: int = 1) -&gt; str:</span>
+</span><span id="L-20"><a href="#L-20"><span class="linenos"> 20</span></a><span class="sd">    return f&quot;Hello {name}!&quot; * repeat</span>
 </span><span id="L-21"><a href="#L-21"><span class="linenos"> 21</span></a>
-</span><span id="L-22"><a href="#L-22"><span class="linenos"> 22</span></a><span class="sd">```</span>
-</span><span id="L-23"><a href="#L-23"><span class="linenos"> 23</span></a><span class="sd">pip install type_enforced</span>
+</span><span id="L-22"><a href="#L-22"><span class="linenos"> 22</span></a><span class="sd">greet(&quot;Alice&quot;, 2)       # Returns &quot;Hello Alice!Hello Alice!&quot;</span>
+</span><span id="L-23"><a href="#L-23"><span class="linenos"> 23</span></a><span class="sd">greet(&quot;Alice&quot;, &quot;twice&quot;)  # Raises TypeError at runtime!</span>
 </span><span id="L-24"><a href="#L-24"><span class="linenos"> 24</span></a><span class="sd">```</span>
 </span><span id="L-25"><a href="#L-25"><span class="linenos"> 25</span></a>
-</span><span id="L-26"><a href="#L-26"><span class="linenos"> 26</span></a><span class="sd">## Basic Usage</span>
-</span><span id="L-27"><a href="#L-27"><span class="linenos"> 27</span></a><span class="sd">```py</span>
-</span><span id="L-28"><a href="#L-28"><span class="linenos"> 28</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-26"><a href="#L-26"><span class="linenos"> 26</span></a><span class="sd">---</span>
+</span><span id="L-27"><a href="#L-27"><span class="linenos"> 27</span></a>
+</span><span id="L-28"><a href="#L-28"><span class="linenos"> 28</span></a><span class="sd">## Why type_enforced?</span>
 </span><span id="L-29"><a href="#L-29"><span class="linenos"> 29</span></a>
-</span><span id="L-30"><a href="#L-30"><span class="linenos"> 30</span></a><span class="sd">@type_enforced.Enforcer(enabled=True)</span>
-</span><span id="L-31"><a href="#L-31"><span class="linenos"> 31</span></a><span class="sd">def my_fn(a: int , b: [int, str] =2, c: int =3) -&gt; None:</span>
-</span><span id="L-32"><a href="#L-32"><span class="linenos"> 32</span></a><span class="sd">    pass</span>
-</span><span id="L-33"><a href="#L-33"><span class="linenos"> 33</span></a><span class="sd">```</span>
-</span><span id="L-34"><a href="#L-34"><span class="linenos"> 34</span></a><span class="sd">- Note: `enabled=True` by default if not specified. You can set `enabled=False` to disable type checking for a specific function, method, or class. This is useful for a production vs debugging environment or for undecorating a single method in a larger wrapped class.</span>
+</span><span id="L-30"><a href="#L-30"><span class="linenos"> 30</span></a><span class="sd">Static type checkers (like `mypy` or `pyright`) catch errors during development, but offer zero protection at runtime against dynamic payloads, untyped API inputs, or user data.</span>
+</span><span id="L-31"><a href="#L-31"><span class="linenos"> 31</span></a>
+</span><span id="L-32"><a href="#L-32"><span class="linenos"> 32</span></a><span class="sd">Existing runtime type checkers force an unnecessary compromise:</span>
+</span><span id="L-33"><a href="#L-33"><span class="linenos"> 33</span></a><span class="sd">- **Pydantic** provides thorough validation, but comes with heavy runtime overhead and steep execution slowdowns.</span>
+</span><span id="L-34"><a href="#L-34"><span class="linenos"> 34</span></a><span class="sd">- **Beartype** achieves high speed primarily by taking shortcuts. It samples 1 element in collections and misses invalid items in unsampled data.</span>
 </span><span id="L-35"><a href="#L-35"><span class="linenos"> 35</span></a>
-</span><span id="L-36"><a href="#L-36"><span class="linenos"> 36</span></a><span class="sd"># Getting Started</span>
+</span><span id="L-36"><a href="#L-36"><span class="linenos"> 36</span></a><span class="sd">`type_enforced` eliminates this compromise:</span>
 </span><span id="L-37"><a href="#L-37"><span class="linenos"> 37</span></a>
-</span><span id="L-38"><a href="#L-38"><span class="linenos"> 38</span></a><span class="sd">`type_enforcer` contains a basic `Enforcer` wrapper that can be used to enforce many basic python typing hints. [Technical Docs Here](https://connor-makowski.github.io/type_enforced/type_enforced/enforcer.html).</span>
-</span><span id="L-39"><a href="#L-39"><span class="linenos"> 39</span></a>
-</span><span id="L-40"><a href="#L-40"><span class="linenos"> 40</span></a><span class="sd">`type_enforcer` currently supports many single and multi level python types. This includes class instances and classes themselves. For example, you can force an input to be an `int`, a number `[int, float]`, an instance of the self defined `MyClass`, or a even a vector with `list[int]`. Items like `typing.List`, `typing.Dict`, `typing.Union` and `typing.Optional` are supported.</span>
-</span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a>
-</span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a><span class="sd">You can pass union types to validate one of multiple types. For example, you could validate an input was an int or a float with `[int, float]`, `[int | float]` or even `typing.Union[int, float]`.</span>
-</span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a>
-</span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a><span class="sd">Nesting is allowed as long as the nested items are iterables (e.g. `typing.List`, `dict`, ...). For example, you could validate that a list is a vector with `list[int]` or possibly `typing.List[int]`.</span>
-</span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a>
-</span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a><span class="sd">Variables without an annotation for type are not enforced.</span>
-</span><span id="L-47"><a href="#L-47"><span class="linenos"> 47</span></a>
-</span><span id="L-48"><a href="#L-48"><span class="linenos"> 48</span></a><span class="sd">## Supported Type Checking Features:</span>
-</span><span id="L-49"><a href="#L-49"><span class="linenos"> 49</span></a>
-</span><span id="L-50"><a href="#L-50"><span class="linenos"> 50</span></a><span class="sd">- Function/Method Input Typing</span>
-</span><span id="L-51"><a href="#L-51"><span class="linenos"> 51</span></a><span class="sd">- Function/Method Return Typing</span>
-</span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a><span class="sd">- Dataclass Typing</span>
-</span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a><span class="sd">- All standard python types (`str`, `list`, `int`, `dict`, ...)</span>
-</span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a><span class="sd">- Union types</span>
-</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a><span class="sd">    - typing.Union</span>
-</span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a><span class="sd">    - `,` separated list (e.g. `[int, float]`)</span>
-</span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a><span class="sd">    - `|` separated list (e.g. `[int | float]`)</span>
-</span><span id="L-58"><a href="#L-58"><span class="linenos"> 58</span></a><span class="sd">    - `|` separated items (e.g. `int | float`)</span>
-</span><span id="L-59"><a href="#L-59"><span class="linenos"> 59</span></a><span class="sd">- Nested types (e.g. `dict[str]` or `list[int, float]`)</span>
-</span><span id="L-60"><a href="#L-60"><span class="linenos"> 60</span></a><span class="sd">    - Note: Each parent level must be an iterable</span>
-</span><span id="L-61"><a href="#L-61"><span class="linenos"> 61</span></a><span class="sd">        - Specifically a variant of `list`, `set`, `tuple` or `dict`</span>
-</span><span id="L-62"><a href="#L-62"><span class="linenos"> 62</span></a><span class="sd">    - Note: `dict` keys are not validated, only values</span>
-</span><span id="L-63"><a href="#L-63"><span class="linenos"> 63</span></a><span class="sd">    - Deeply nested types are supported too:</span>
-</span><span id="L-64"><a href="#L-64"><span class="linenos"> 64</span></a><span class="sd">        - `dict[dict[int]]`</span>
-</span><span id="L-65"><a href="#L-65"><span class="linenos"> 65</span></a><span class="sd">        - `list[set[str]]`</span>
-</span><span id="L-66"><a href="#L-66"><span class="linenos"> 66</span></a><span class="sd">- Many of the `typing` (package) functions and methods including:</span>
-</span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a><span class="sd">    - Standard typing functions:</span>
-</span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a><span class="sd">        - `List`, `Set`, `Dict`, `Tuple`</span>
-</span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a><span class="sd">    - `Union`</span>
-</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a><span class="sd">    - `Optional`</span>
-</span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a><span class="sd">    - `Sized`</span>
-</span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a><span class="sd">        - Essentially creates a union of:</span>
-</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a><span class="sd">            - `list`, `tuple`, `dict`, `set`, `str`, `bytes`, `bytearray`, `memoryview`, `range`</span>
-</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a><span class="sd">        - Note: Can not have a nested type</span>
-</span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a><span class="sd">            - Because this does not always meet the criteria for `Nested types` above</span>
-</span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a><span class="sd">    - `Literal`</span>
-</span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a><span class="sd">        - Only allow certain values to be passed. Operates slightly differently than other checks.</span>
-</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a><span class="sd">        - e.g. `Literal[&#39;a&#39;, &#39;b&#39;]` will require any passed values that are equal (`==`) to `&#39;a&#39;` or `&#39;b&#39;`.</span>
-</span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a><span class="sd">            - This compares the value of the passed input and not the type of the passed input.</span>
-</span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a><span class="sd">        - Note: Multiple types can be passed in the same `Literal`.</span>
-</span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a><span class="sd">        - Note: Literals are evaluated after type checking occurs.</span>
-</span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a><span class="sd">    - `Callable`</span>
-</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a><span class="sd">        - Essentially creates a union of:</span>
-</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a><span class="sd">            - `staticmethod`, `classmethod`, `types.FunctionType`, `types.BuiltinFunctionType`, `types.MethodType`, `types.BuiltinMethodType`, `types.GeneratorType`</span>
-</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a><span class="sd">    - Note: Other functions might have support, but there are not currently tests to validate them</span>
-</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a><span class="sd">        - Feel free to create an issue (or better yet a PR) if you want to add tests/support</span>
-</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a><span class="sd">- `Constraint` validation.</span>
-</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a><span class="sd">    - This is a special type of validation that allows passed input to be validated.</span>
-</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a><span class="sd">        - Standard and custom constraints are supported.</span>
-</span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a><span class="sd">    - This is useful for validating that a passed input is within a certain range or meets a certain criteria.</span>
-</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a><span class="sd">    - Note: The constraint is checked after type checking occurs.</span>
-</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a><span class="sd">    - Note: See the example below or technical [constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) and [generic constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint) docs for more information.</span>
-</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a><span class="sd">    ```</span>
+</span><span id="L-38"><a href="#L-38"><span class="linenos"> 38</span></a><span class="sd">- **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.</span>
+</span><span id="L-39"><a href="#L-39"><span class="linenos"> 39</span></a><span class="sd">- **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of Pydantic&#39;s overhead.</span>
+</span><span id="L-40"><a href="#L-40"><span class="linenos"> 40</span></a><span class="sd">- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct=&#39;first&#39;`, `&#39;last&#39;`, `&#39;log&#39;`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 3x faster than Beartype.</span>
+</span><span id="L-41"><a href="#L-41"><span class="linenos"> 41</span></a><span class="sd">- **Pure Python, Zero Dependencies**: A lightweight decorator with zero external packages, C-extensions, or compilation steps. Compatible everywhere Python 3.11+ runs.</span>
+</span><span id="L-42"><a href="#L-42"><span class="linenos"> 42</span></a><span class="sd">- **Rich Type Support &amp; Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.</span>
+</span><span id="L-43"><a href="#L-43"><span class="linenos"> 43</span></a><span class="sd">- **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.</span>
+</span><span id="L-44"><a href="#L-44"><span class="linenos"> 44</span></a>
+</span><span id="L-45"><a href="#L-45"><span class="linenos"> 45</span></a><span class="sd">### Performance at a Glance</span>
+</span><span id="L-46"><a href="#L-46"><span class="linenos"> 46</span></a>
+</span><span id="L-47"><a href="#L-47"><span class="linenos"> 47</span></a><span class="sd">Timings are averages of a single validation over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmarks.py](utils/benchmarks.py) and [benchmark.md](benchmark.md).</span>
+</span><span id="L-48"><a href="#L-48"><span class="linenos"> 48</span></a>
+</span><span id="L-49"><a href="#L-49"><span class="linenos"> 49</span></a><span class="sd">| Type | Size | type_enforced (sample=1) | Beartype (sample=1) | type_enforced (100%) | Pydantic (100%) |</span>
+</span><span id="L-50"><a href="#L-50"><span class="linenos"> 50</span></a><span class="sd">|:---|:---:|:---:|:---:|:---:|:---:|</span>
+</span><span id="L-51"><a href="#L-51"><span class="linenos"> 51</span></a><span class="sd">| `int` | — | 0.18 µs | 0.33 µs | 0.18 µs | 0.66 µs |</span>
+</span><span id="L-52"><a href="#L-52"><span class="linenos"> 52</span></a><span class="sd">| `Union[int, float]` | — | 0.21 µs | 0.37 µs | 0.19 µs | 0.73 µs |</span>
+</span><span id="L-53"><a href="#L-53"><span class="linenos"> 53</span></a><span class="sd">| `str` | — | 0.17 µs | 0.33 µs | 0.18 µs | 0.64 µs |</span>
+</span><span id="L-54"><a href="#L-54"><span class="linenos"> 54</span></a><span class="sd">| `list[int]` | 1 000 items | 0.21 µs ⚠ | 0.60 µs ⚠ | 1.86 µs | 11.29 µs |</span>
+</span><span id="L-55"><a href="#L-55"><span class="linenos"> 55</span></a><span class="sd">| `list[int]` | 10 000 items | 0.21 µs ⚠ | 0.67 µs ⚠ | 17.01 µs | 113.66 µs |</span>
+</span><span id="L-56"><a href="#L-56"><span class="linenos"> 56</span></a><span class="sd">| `dict[str, int]` | 1 000 keys | 0.22 µs ⚠ | 0.49 µs ⚠ | 5.13 µs | 44.93 µs |</span>
+</span><span id="L-57"><a href="#L-57"><span class="linenos"> 57</span></a><span class="sd">| `dict[str, int]` | 10 000 keys | 0.22 µs ⚠ | 0.47 µs ⚠ | 53.59 µs | 473.11 µs |</span>
+</span><span id="L-58"><a href="#L-58"><span class="linenos"> 58</span></a><span class="sd">| `list[list[int]]` | 100 x 100 items | 0.24 µs ⚠ | 0.62 µs ⚠ | 17.40 µs | 96.83 µs |</span>
+</span><span id="L-59"><a href="#L-59"><span class="linenos"> 59</span></a><span class="sd">| `dict[str, list[int]]` | 100 x 100 items | 0.37 µs ⚠ | 0.60 µs ⚠ | 15.40 µs | 102.70 µs |</span>
+</span><span id="L-60"><a href="#L-60"><span class="linenos"> 60</span></a><span class="sd">| `list[dict[str, int]]` | 100 x 100 items | 0.25 µs ⚠ | 0.80 µs ⚠ | 54.07 µs | 444.42 µs |</span>
+</span><span id="L-61"><a href="#L-61"><span class="linenos"> 61</span></a>
+</span><span id="L-62"><a href="#L-62"><span class="linenos"> 62</span></a><span class="sd">&gt; **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 3x faster than Beartype**.</span>
+</span><span id="L-63"><a href="#L-63"><span class="linenos"> 63</span></a>
+</span><span id="L-64"><a href="#L-64"><span class="linenos"> 64</span></a><span class="sd">&gt; **Full Validation:** When full validation is required, `type_enforced` is **up to 8x faster than Pydantic**. </span>
+</span><span id="L-65"><a href="#L-65"><span class="linenos"> 65</span></a>
+</span><span id="L-66"><a href="#L-66"><span class="linenos"> 66</span></a><span class="sd">---</span>
+</span><span id="L-67"><a href="#L-67"><span class="linenos"> 67</span></a>
+</span><span id="L-68"><a href="#L-68"><span class="linenos"> 68</span></a><span class="sd">## Installation</span>
+</span><span id="L-69"><a href="#L-69"><span class="linenos"> 69</span></a>
+</span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a><span class="sd">Install via `pip`:</span>
+</span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a>
+</span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a><span class="sd">```bash</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a><span class="sd">pip install type_enforced</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a><span class="sd">```</span>
+</span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a>
+</span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a><span class="sd">Or using `uv`:</span>
+</span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a>
+</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a><span class="sd">```bash</span>
+</span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a><span class="sd">uv add type_enforced</span>
+</span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a><span class="sd">```</span>
+</span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a>
+</span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a><span class="sd">### Requirements &amp; Build Options</span>
+</span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a><span class="sd">- **Python 3.11+**</span>
+</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a><span class="sd">- **Zero Runtime Dependencies**: Self contained package with zero external dependencies.</span>
+</span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a><span class="sd">- **C++ Acceleration**: If available, `type_enforced` leverages high-performance C++ validators via `nanobind`. </span>
+</span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a><span class="sd">- **Pure Python Fallback**: If compiling from source on a system without a C++ compiler, `type_enforced` automatically falls back to a pure-Python engine.</span>
+</span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a><span class="sd">- **Pure Python Installation**: To explicitly skip C++ compilation when installing from source:</span>
+</span><span id="L-88"><a href="#L-88"><span class="linenos"> 88</span></a><span class="sd">  ```bash</span>
+</span><span id="L-89"><a href="#L-89"><span class="linenos"> 89</span></a><span class="sd">  pip install type_enforced --no-binary type_enforced -Ccmake.define.SKIP_CPP_BUILD=ON</span>
+</span><span id="L-90"><a href="#L-90"><span class="linenos"> 90</span></a><span class="sd">  ```</span>
+</span><span id="L-91"><a href="#L-91"><span class="linenos"> 91</span></a>
+</span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a><span class="sd">&lt;details&gt;</span>
+</span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a><span class="sd">&lt;summary&gt;Legacy Python Compatibility&lt;/summary&gt;</span>
 </span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a>
-</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="sd">## Interactive Example</span>
-</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a>
-</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="sd">```py</span>
-</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="sd">&gt;&gt;&gt; import type_enforced</span>
-</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="sd">&gt;&gt;&gt; @type_enforced.Enforcer</span>
-</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a><span class="sd">... def my_fn(a: int , b: [int, str] =2, c: int =3) -&gt; None:</span>
-</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a><span class="sd">...     pass</span>
-</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a><span class="sd">...</span>
-</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="sd">&gt;&gt;&gt; my_fn(a=1, b=2, c=3)</span>
-</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a><span class="sd">&gt;&gt;&gt; my_fn(a=1, b=&#39;2&#39;, c=3)</span>
-</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a><span class="sd">&gt;&gt;&gt; my_fn(a=&#39;a&#39;, b=2, c=3)</span>
-</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="sd">Traceback (most recent call last):</span>
-</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a><span class="sd">  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;</span>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="sd">  File &quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;, line 85, in __call__</span>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="sd">    self.__check_type__(assigned_vars.get(key), value, key)</span>
-</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">  File &quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;, line 107, in __check_type__</span>
-</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a><span class="sd">    self.__exception__(</span>
-</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a><span class="sd">  File &quot;/home/conmak/development/personal/type_enforced/type_enforced/enforcer.py&quot;, line 34, in __exception__</span>
-</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a><span class="sd">    raise TypeError(f&quot;({self.__fn__.__qualname__}): {message}&quot;)</span>
-</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a><span class="sd">TypeError: (my_fn): Type mismatch for typed variable `a`. Expected one of the following `[&lt;class &#39;int&#39;&gt;]` but got `&lt;class &#39;str&#39;&gt;` instead.</span>
-</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a><span class="sd">```</span>
-</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>
-</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="sd">## Nested Examples</span>
-</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a><span class="sd">```py</span>
-</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a><span class="sd">import typing</span>
+</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="sd">For older Python versions, pin to legacy releases:</span>
+</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="sd">- **Python 3.10**: `pip install &quot;type_enforced&lt;=1.10.2&quot;`</span>
+</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="sd">- **Python 3.9**: `pip install &quot;type_enforced&lt;=1.9.0&quot;`</span>
+</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="sd">- **Python 3.7 – 3.8**: `pip install &quot;type_enforced==0.0.16&quot;`</span>
+</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="sd">&lt;/details&gt;</span>
+</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a>
+</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a><span class="sd">---</span>
+</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a>
+</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="sd">## Usage Guide</span>
+</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>
+</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a><span class="sd">### 1. Functions and Methods</span>
+</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a>
+</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a><span class="sd">Apply `@type_enforced.Enforcer` to any callable. It validates positional arguments, keyword arguments, default parameters, and the return type.</span>
+</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>
+</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="sd">```python</span>
+</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>
+</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a><span class="sd">def process_user(user_id: int, tags: list[str], active: bool = True) -&gt; dict[str, str | int]:</span>
+</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a><span class="sd">    return {&quot;user_id&quot;: user_id, &quot;status&quot;: &quot;active&quot; if active else &quot;inactive&quot;}</span>
+</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>
+</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a><span class="sd"># Passing invalid types raises a descriptive TypeError:</span>
+</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="sd">process_user(&quot;123&quot;, [&quot;admin&quot;])</span>
+</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a><span class="sd"># TypeError: TypeEnforced Exception (process_user): Type mismatch for typed variable `user_id`.</span>
+</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a><span class="sd"># Expected one of the following `[&lt;class &#39;int&#39;&gt;]` but got `&lt;class &#39;str&#39;&gt;` with value `123` instead.</span>
+</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a><span class="sd">```</span>
 </span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a>
-</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a><span class="sd">def my_fn(</span>
-</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a><span class="sd">    a: dict[dict[int, float]], # Note: dict keys are not validated, only values</span>
-</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a><span class="sd">    b: list[typing.Set[str]] # Could also just use set</span>
-</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a><span class="sd">) -&gt; None:</span>
-</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a><span class="sd">    return None</span>
-</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>
-</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a><span class="sd">my_fn(a={&#39;i&#39;:{&#39;j&#39;:1}}, b=[{&#39;x&#39;}]) # Success</span>
-</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a>
-</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a><span class="sd">my_fn(a={&#39;i&#39;:{&#39;j&#39;:&#39;k&#39;}}, b=[{&#39;x&#39;}]) # Error:</span>
-</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a><span class="sd"># TypeError: (my_fn): Type mismatch for typed variable `a[i][j]`. Expected one of the following `[&lt;class &#39;int&#39;&gt;]` but got `&lt;class &#39;str&#39;&gt;` instead. </span>
-</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a><span class="sd">```</span>
-</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a>
-</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a><span class="sd">## Class and Method Use</span>
-</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a>
-</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a><span class="sd">Type enforcer can be applied to methods individually:</span>
-</span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a>
-</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a><span class="sd">```py</span>
-</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a>
-</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a><span class="sd">class my_class:</span>
-</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a><span class="sd">    @type_enforced.Enforcer</span>
-</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a><span class="sd">    def my_fn(self, b:int):</span>
-</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a><span class="sd">        pass</span>
-</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a><span class="sd">```</span>
-</span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a>
-</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a><span class="sd">You can also enforce all typing for all methods in a class by decorating the class itself.</span>
-</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a>
-</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a><span class="sd">```py</span>
-</span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a>
-</span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a><span class="sd">class my_class:</span>
-</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a><span class="sd">    def my_fn(self, b:int):</span>
-</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a><span class="sd">        pass</span>
-</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a>
-</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a><span class="sd">    def my_other_fn(self, a: int, b: int | str):</span>
-</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="sd">      pass</span>
-</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="sd">```</span>
-</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a>
-</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a><span class="sd">You can also enforce types on `staticmethod`s and `classmethod`s if you are using `python &gt;= 3.10`. If you are using a python version less than this, `classmethod`s and `staticmethod`s methods will not have their types enforced.</span>
-</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a>
-</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a><span class="sd">```py</span>
-</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a>
-</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a><span class="sd">class my_class:</span>
-</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a><span class="sd">    @classmethod</span>
-</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a><span class="sd">    def my_fn(self, b:int):</span>
-</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a><span class="sd">        pass</span>
-</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a>
-</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a><span class="sd">    @staticmethod</span>
-</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a><span class="sd">    def my_other_fn(a: int, b: int | str):</span>
-</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a><span class="sd">      pass</span>
-</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a><span class="sd">```</span>
-</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a>
-</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a><span class="sd">Dataclasses are suported too.</span>
-</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a>
-</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a><span class="sd">```py</span>
-</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a><span class="sd">from dataclasses import dataclass</span>
+</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a><span class="sd">### 2. Classes and Dataclasses</span>
+</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>
+</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a><span class="sd">Decorating a class automatically enforces types on all annotated methods (including `__init__`, `@classmethod`, and `@staticmethod`):</span>
+</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a>
+</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a><span class="sd">```python</span>
+</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a><span class="sd">from dataclasses import dataclass</span>
+</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a>
+</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a><span class="sd">class Account:</span>
+</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a><span class="sd">    def __init__(self, username: str, balance: float):</span>
+</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a><span class="sd">        self.username = username</span>
+</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a><span class="sd">        self.balance = balance</span>
+</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a>
+</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a><span class="sd">    def deposit(self, amount: float) -&gt; float:</span>
+</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a><span class="sd">        self.balance += amount</span>
+</span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a><span class="sd">        return self.balance</span>
+</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a>
+</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a><span class="sd">    @staticmethod</span>
+</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a><span class="sd">    def validate_code(code: str) -&gt; bool:</span>
+</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a><span class="sd">        return len(code) == 6</span>
+</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a>
+</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a><span class="sd"># Dataclasses work seamlessly:</span>
+</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a><span class="sd">@dataclass</span>
+</span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a><span class="sd">class UserConfig:</span>
+</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a><span class="sd">    retries: int</span>
+</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a><span class="sd">    endpoint: str</span>
+</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a><span class="sd">```</span>
+</span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a>
+</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a><span class="sd">To disable enforcement on a specific method within an enforced class:</span>
+</span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a>
+</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a><span class="sd">```python</span>
+</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a><span class="sd">class Worker:</span>
+</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a><span class="sd">    def standard_job(self, task: str) -&gt; None:</span>
+</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a><span class="sd">        pass</span>
+</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a>
+</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="sd">    @type_enforced.Enforcer(enabled=False)</span>
+</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a><span class="sd">    def high_throughput_job(self, data):</span>
+</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a><span class="sd">        # Type enforcement skipped for maximum throughput</span>
+</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a><span class="sd">        pass</span>
+</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a><span class="sd">```</span>
+</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a>
+</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a><span class="sd">### 3. Module-Level Enforcement (`ModuleEnforcer`)</span>
+</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>
+</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a><span class="sd">Enforce typing across an entire module in a single line without decorating every function and class individually:</span>
+</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a>
+</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a><span class="sd">```python</span>
+</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a><span class="sd"># Place at the top of your module file (e.g., my_package/core.py)</span>
+</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a>
+</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a><span class="sd">type_enforced.ModuleEnforcer()</span>
+</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a>
+</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a><span class="sd">def add(a: int, b: int) -&gt; int:</span>
+</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a><span class="sd">    return a + b</span>
+</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a>
+</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a><span class="sd">class Helper:</span>
+</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a><span class="sd">    def run(self, flag: bool) -&gt; str:</span>
+</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a><span class="sd">        return &quot;ok&quot; if flag else &quot;failed&quot;</span>
+</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a><span class="sd">```</span>
 </span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a>
-</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a><span class="sd">@dataclass</span>
-</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a><span class="sd">class my_class:</span>
-</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a><span class="sd">    foo: int</span>
-</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a><span class="sd">    bar: str</span>
-</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a><span class="sd">```</span>
-</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a>
-</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a><span class="sd">You can skip enforcement if you add the argument `enabled=False` in the `Enforcer` call.</span>
-</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a><span class="sd">- This is useful for a production vs debugging environment.</span>
-</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a><span class="sd">- This is also useful for undecorating a single method in a larger wrapped class.</span>
-</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a><span class="sd">- Note: You can set `enabled=False` for an entire class or simply disable a specific method in a larger wrapped class.</span>
-</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a><span class="sd">- Note: Method level wrapper `enabled` values take precedence over class level wrappers.</span>
-</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a><span class="sd">```py</span>
-</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a><span class="sd">class my_class:</span>
-</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a><span class="sd">    def my_fn(self, a: int) -&gt; None:</span>
-</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a><span class="sd">        pass</span>
-</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a>
-</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a><span class="sd">    @type_enforced.Enforcer(enabled=False)</span>
-</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="sd">    def my_other_fn(self, a: int) -&gt; None:</span>
-</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="sd">        pass</span>
-</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a><span class="sd">```</span>
-</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a>
-</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a><span class="sd">## Validate with Constraints</span>
-</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a><span class="sd">Type enforcer can enforce constraints for passed variables. These constraints are validated after any type checks are made.</span>
-</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a>
-</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a><span class="sd">To enforce basic input values are integers greater than or equal to zero, you can use the [Constraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#Constraint) class like so:</span>
-</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a><span class="sd">```py</span>
-</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a><span class="sd">from type_enforced.utils import Constraint</span>
-</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a>
-</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a><span class="sd">@type_enforced.Enforcer()</span>
-</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a><span class="sd">def positive_int_test(value: [int, Constraint(ge=0)]) -&gt; bool:</span>
-</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a><span class="sd">    return True</span>
-</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a>
-</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a><span class="sd">positive_int_test(1) # Passes</span>
-</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a><span class="sd">positive_int_test(-1) # Fails</span>
-</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a><span class="sd">positive_int_test(1.0) # Fails</span>
+</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a><span class="sd">You can also enforce an imported module:</span>
+</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a>
+</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a><span class="sd">```python</span>
+</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a><span class="sd">import my_package</span>
+</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a>
+</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a><span class="sd">type_enforced.ModuleEnforcer(my_package)</span>
+</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a><span class="sd">```</span>
+</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a>
+</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a><span class="sd">&gt; **Note:** By default, `submodules=True`, which recursively enforces all sub-packages/sub-modules in the same namespace (e.g. `mypkg.submodule`), while safely ignoring third-party and standard library imports.</span>
+</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a>
+</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a><span class="sd">---</span>
+</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a>
+</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a><span class="sd">## Supported Type Annotations</span>
+</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a>
+</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a><span class="sd">`type_enforced` supports all standard Python 3.11+ typing constructs:</span>
+</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a>
+</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a><span class="sd">### Standard Built-ins &amp; Unions</span>
+</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a><span class="sd">```python</span>
+</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="sd">def fn(</span>
+</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="sd">    a: int,</span>
+</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a><span class="sd">    b: str | float,                    # Standard union syntax</span>
+</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a><span class="sd">    c: int | None = None,              # Optional syntax</span>
+</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a><span class="sd">) -&gt; None:</span>
+</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a><span class="sd">    pass</span>
+</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a><span class="sd">```</span>
+</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a>
+</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a><span class="sd">### Collections &amp; Nested Generics</span>
+</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a><span class="sd">```python</span>
+</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a><span class="sd">def fn(</span>
+</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a><span class="sd">    items: list[int | float],</span>
+</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a><span class="sd">    mapping: dict[str, list[int]],      # Dicts require [KeyType, ValType]</span>
+</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a><span class="sd">    unique_ids: set[str],</span>
+</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a><span class="sd">    fixed_pair: tuple[str, int],        # Exact positional tuple: (str, int)</span>
+</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a><span class="sd">    var_tuple: tuple[int, ...],         # Variable-length tuple</span>
+</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a><span class="sd">) -&gt; None:</span>
+</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a><span class="sd">    pass</span>
 </span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a><span class="sd">```</span>
 </span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a>
-</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a><span class="sd">To enforce a [GenericConstraint](https://connor-makowski.github.io/type_enforced/type_enforced/utils.html#GenericConstraint):</span>
-</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a><span class="sd">```py</span>
-</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a><span class="sd">from type_enforced.utils import GenericConstraint</span>
-</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a>
-</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a><span class="sd">CustomConstraint = GenericConstraint(</span>
-</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a><span class="sd">    {</span>
-</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a><span class="sd">        &#39;in_rgb&#39;: lambda x: x in [&#39;red&#39;, &#39;green&#39;, &#39;blue&#39;],</span>
-</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a><span class="sd">    }</span>
-</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a><span class="sd">)</span>
-</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a>
-</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a><span class="sd">@type_enforced.Enforcer()</span>
-</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a><span class="sd">def rgb_test(value: [str, CustomConstraint]) -&gt; bool:</span>
-</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="sd">    return True</span>
-</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a>
-</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="sd">rgb_test(&#39;red&#39;) # Passes</span>
-</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a><span class="sd">rgb_test(&#39;yellow&#39;) # Fails</span>
-</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">```</span>
+</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a><span class="sd">### Custom Classes &amp; Subclass Inheritance</span>
+</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a><span class="sd">By default, subclasses pass type validation (e.g. `Bar()` satisfies `Foo` if `class Bar(Foo)`):</span>
+</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a>
+</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a><span class="sd">```python</span>
+</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a><span class="sd">class Animal: pass</span>
+</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a><span class="sd">class Dog(Animal): pass</span>
+</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a><span class="sd">class Vehicle: pass</span>
+</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a>
+</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a><span class="sd">def feed(animal: Animal) -&gt; None:</span>
+</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a><span class="sd">    pass</span>
+</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a>
+</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a><span class="sd">feed(Animal())  # OK</span>
+</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="sd">feed(Dog())     # OK (subclasses allowed)</span>
+</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a><span class="sd">feed(Vehicle()) # Raises TypeError</span>
+</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="sd">```</span>
+</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a>
+</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">To enforce uninitialized class objects (the class itself, rather than an instance), use `type[Animal]` (or `typing.Type[Animal]`):</span>
 </span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a>
-</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a>
-</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a>
-</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a><span class="sd">## Validate class instances and classes</span>
-</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a>
-</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a><span class="sd">Type enforcer can enforce class instances and classes. There are a few caveats between the two.</span>
+</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a><span class="sd">```python</span>
+</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a><span class="sd">def make_instance(cls: type[Animal]) -&gt; Animal:</span>
+</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a><span class="sd">    return cls()</span>
+</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a><span class="sd">```</span>
 </span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a>
-</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a><span class="sd">To enforce a class instance, simply pass the class itself as a type hint:</span>
-</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a><span class="sd">```py</span>
-</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a><span class="sd">### Literals &amp; Special Types</span>
+</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a><span class="sd">```python</span>
+</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a><span class="sd">from typing import Literal, Callable, Sized, Any</span>
 </span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a>
-</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a><span class="sd">class Foo():</span>
-</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a><span class="sd">    def __init__(self) -&gt; None:</span>
-</span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a><span class="sd">        pass</span>
-</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a>
-</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a><span class="sd">class my_class():</span>
-</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="sd">    def __init__(self, object: Foo) -&gt; None:</span>
-</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a><span class="sd">        self.object = object</span>
-</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a>
-</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a><span class="sd">x=my_class(Foo()) # Works great!</span>
-</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="sd">y=my_class(Foo) # Fails!</span>
-</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a><span class="sd">```</span>
-</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a>
-</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a><span class="sd">Notice how an initialized class instance `Foo()` must be passed for the enforcer to not raise an exception.</span>
-</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a>
-</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a><span class="sd">To enforce an uninitialized class object use `typing.Type[classHere]` on the class to enforce inputs to be an uninitialized class:</span>
-</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a><span class="sd">```py</span>
-</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a><span class="sd">import typing</span>
-</span><span id="L-273"><a href="#L-273"><span class="linenos">273</span></a>
-</span><span id="L-274"><a href="#L-274"><span class="linenos">274</span></a><span class="sd">class Foo():</span>
-</span><span id="L-275"><a href="#L-275"><span class="linenos">275</span></a><span class="sd">    def __init__(self) -&gt; None:</span>
-</span><span id="L-276"><a href="#L-276"><span class="linenos">276</span></a><span class="sd">        pass</span>
-</span><span id="L-277"><a href="#L-277"><span class="linenos">277</span></a>
-</span><span id="L-278"><a href="#L-278"><span class="linenos">278</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-279"><a href="#L-279"><span class="linenos">279</span></a><span class="sd">class my_class():</span>
-</span><span id="L-280"><a href="#L-280"><span class="linenos">280</span></a><span class="sd">    def __init__(self, object_class: typing.Type[Foo]) -&gt; None:</span>
-</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a><span class="sd">        self.object = object_class()</span>
-</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a>
-</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a><span class="sd">y=my_class(Foo) # Works great!</span>
-</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a><span class="sd">x=my_class(Foo()) # Fails</span>
-</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a><span class="sd">```</span>
-</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a>
-</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a><span class="sd">## Validate classes with inheritance</span>
-</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a>
-</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a><span class="sd">```py</span>
-</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a><span class="sd">import type_enforced</span>
-</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a><span class="sd">from type_enforced.utils import WithSubclasses</span>
-</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a>
-</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a><span class="sd">class Foo:</span>
-</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a><span class="sd">    pass</span>
+</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a><span class="sd">def fn(</span>
+</span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a><span class="sd">    mode: Literal[&quot;read&quot;, &quot;write&quot;],        # Value check: must equal &quot;read&quot; or &quot;write&quot;</span>
+</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a><span class="sd">    handler: Callable,                     # Functions, methods, generators</span>
+</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a><span class="sd">    container: Sized,                      # list, dict, set, str, tuple, bytes, etc.</span>
+</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a><span class="sd">    wildcard: Any,                         # Permissive bypass</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="sd">) -&gt; None:</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a><span class="sd">    pass</span>
+</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a><span class="sd">```</span>
+</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a>
+</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="sd">- **Stacking Literals**: Literals combine with unions using OR logic (`int | Literal[&#39;auto&#39;]` allows any `int` or the literal string `&#39;auto&#39;`).</span>
+</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a>
+</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a><span class="sd">---</span>
+</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a>
+</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a><span class="sd">## Value Validation with Constraints</span>
+</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a>
+</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a><span class="sd">`type_enforced` allows post-type-check value constraints directly in type annotations.</span>
+</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a>
+</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a><span class="sd">### Built-in `Constraint`</span>
+</span><span id="L-273"><a href="#L-273"><span class="linenos">273</span></a><span class="sd">Validate bounds, numeric comparisons, string patterns (regex), and inclusion/exclusion:</span>
+</span><span id="L-274"><a href="#L-274"><span class="linenos">274</span></a>
+</span><span id="L-275"><a href="#L-275"><span class="linenos">275</span></a><span class="sd">```python</span>
+</span><span id="L-276"><a href="#L-276"><span class="linenos">276</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-277"><a href="#L-277"><span class="linenos">277</span></a><span class="sd">from type_enforced.utils import Constraint</span>
+</span><span id="L-278"><a href="#L-278"><span class="linenos">278</span></a>
+</span><span id="L-279"><a href="#L-279"><span class="linenos">279</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-280"><a href="#L-280"><span class="linenos">280</span></a><span class="sd">def set_score(</span>
+</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a><span class="sd">    score: int | Constraint(ge=0, le=100),</span>
+</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a><span class="sd">    code: str | Constraint(pattern=r&quot;^[A-Z]{3}[0-9]{4}$&quot;),</span>
+</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a><span class="sd">) -&gt; bool:</span>
+</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a><span class="sd">    return True</span>
+</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a>
+</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a><span class="sd">set_score(85, &quot;ABC1234&quot;)    # Passes</span>
+</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a><span class="sd">set_score(105, &quot;ABC1234&quot;)   # Raises TypeError (Constraint `Less Than Or Equal To (100)` not met)</span>
+</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a><span class="sd">set_score(85, &quot;invalid&quot;)    # Raises TypeError (Constraint `Regex Pattern Match` not met)</span>
+</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a><span class="sd">```</span>
+</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a>
+</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a><span class="sd">Available `Constraint` parameters:</span>
+</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a><span class="sd">- `gt`, `lt`, `ge`, `le`, `eq`, `ne` (numeric / comparison bounds)</span>
+</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a><span class="sd">- `pattern` (regular expression string match)</span>
+</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a><span class="sd">- `includes`, `excludes` (membership checks)</span>
 </span><span id="L-295"><a href="#L-295"><span class="linenos">295</span></a>
-</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a><span class="sd">class Bar(Foo):</span>
-</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a><span class="sd">    pass</span>
+</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a><span class="sd">### Custom `GenericConstraint`</span>
+</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a><span class="sd">Write arbitrary validation logic using custom predicates:</span>
 </span><span id="L-298"><a href="#L-298"><span class="linenos">298</span></a>
-</span><span id="L-299"><a href="#L-299"><span class="linenos">299</span></a><span class="sd">class Baz:</span>
-</span><span id="L-300"><a href="#L-300"><span class="linenos">300</span></a><span class="sd">    pass</span>
-</span><span id="L-301"><a href="#L-301"><span class="linenos">301</span></a>
-</span><span id="L-302"><a href="#L-302"><span class="linenos">302</span></a><span class="sd">@type_enforced.Enforcer</span>
-</span><span id="L-303"><a href="#L-303"><span class="linenos">303</span></a><span class="sd">def my_fn(custom_class: WithSubclasses(Foo)):</span>
-</span><span id="L-304"><a href="#L-304"><span class="linenos">304</span></a><span class="sd">    pass</span>
-</span><span id="L-305"><a href="#L-305"><span class="linenos">305</span></a>
-</span><span id="L-306"><a href="#L-306"><span class="linenos">306</span></a><span class="sd">print(WithSubclasses.get_subclasses(Foo)) # Prints: [&lt;class &#39;__main__.Foo&#39;&gt;, &lt;class &#39;__main__.Bar&#39;&gt;]</span>
-</span><span id="L-307"><a href="#L-307"><span class="linenos">307</span></a><span class="sd">my_fn(Foo()) # Passes as expected</span>
-</span><span id="L-308"><a href="#L-308"><span class="linenos">308</span></a><span class="sd">my_fn(Bar()) # Passes as expected</span>
-</span><span id="L-309"><a href="#L-309"><span class="linenos">309</span></a><span class="sd">my_fn(Baz()) # Raises TypeError as expected</span>
-</span><span id="L-310"><a href="#L-310"><span class="linenos">310</span></a><span class="sd">```</span>
-</span><span id="L-311"><a href="#L-311"><span class="linenos">311</span></a>
-</span><span id="L-312"><a href="#L-312"><span class="linenos">312</span></a><span class="sd"># Development</span>
-</span><span id="L-313"><a href="#L-313"><span class="linenos">313</span></a><span class="sd">## Running Tests, Prettifying Code, and Updating Docs</span>
+</span><span id="L-299"><a href="#L-299"><span class="linenos">299</span></a><span class="sd">```python</span>
+</span><span id="L-300"><a href="#L-300"><span class="linenos">300</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-301"><a href="#L-301"><span class="linenos">301</span></a><span class="sd">from type_enforced.utils import GenericConstraint</span>
+</span><span id="L-302"><a href="#L-302"><span class="linenos">302</span></a>
+</span><span id="L-303"><a href="#L-303"><span class="linenos">303</span></a><span class="sd">RGBColor = str | GenericConstraint({</span>
+</span><span id="L-304"><a href="#L-304"><span class="linenos">304</span></a><span class="sd">    &quot;valid_hex_color&quot;: lambda c: c.startswith(&quot;#&quot;) and len(c) in (4, 7)</span>
+</span><span id="L-305"><a href="#L-305"><span class="linenos">305</span></a><span class="sd">})</span>
+</span><span id="L-306"><a href="#L-306"><span class="linenos">306</span></a>
+</span><span id="L-307"><a href="#L-307"><span class="linenos">307</span></a><span class="sd">@type_enforced.Enforcer</span>
+</span><span id="L-308"><a href="#L-308"><span class="linenos">308</span></a><span class="sd">def render(color: RGBColor) -&gt; None:</span>
+</span><span id="L-309"><a href="#L-309"><span class="linenos">309</span></a><span class="sd">    pass</span>
+</span><span id="L-310"><a href="#L-310"><span class="linenos">310</span></a>
+</span><span id="L-311"><a href="#L-311"><span class="linenos">311</span></a><span class="sd">render(&quot;#ffffff&quot;)  # Passes</span>
+</span><span id="L-312"><a href="#L-312"><span class="linenos">312</span></a><span class="sd">render(&quot;red&quot;)      # Raises TypeError (Constraint `valid_hex_color` not met)</span>
+</span><span id="L-313"><a href="#L-313"><span class="linenos">313</span></a><span class="sd">```</span>
 </span><span id="L-314"><a href="#L-314"><span class="linenos">314</span></a>
-</span><span id="L-315"><a href="#L-315"><span class="linenos">315</span></a><span class="sd">Make sure Docker is installed and running.</span>
+</span><span id="L-315"><a href="#L-315"><span class="linenos">315</span></a><span class="sd">&gt; **Note:** Constraints are evaluated *after* type checking. Constraints stack with unions: `int | Constraint(ge=0) | Constraint(le=10)`.</span>
 </span><span id="L-316"><a href="#L-316"><span class="linenos">316</span></a>
-</span><span id="L-317"><a href="#L-317"><span class="linenos">317</span></a><span class="sd">- Create a docker container and drop into a shell</span>
-</span><span id="L-318"><a href="#L-318"><span class="linenos">318</span></a><span class="sd">    - `./run.sh`</span>
-</span><span id="L-319"><a href="#L-319"><span class="linenos">319</span></a><span class="sd">- Run all tests (see ./utils/test.sh)</span>
-</span><span id="L-320"><a href="#L-320"><span class="linenos">320</span></a><span class="sd">    - `./run.sh test`</span>
-</span><span id="L-321"><a href="#L-321"><span class="linenos">321</span></a><span class="sd">- Prettify the code (see ./utils/prettify.sh)</span>
-</span><span id="L-322"><a href="#L-322"><span class="linenos">322</span></a><span class="sd">    - `./run.sh prettify`</span>
-</span><span id="L-323"><a href="#L-323"><span class="linenos">323</span></a><span class="sd">- Update the docs (see ./utils/docs.sh)</span>
-</span><span id="L-324"><a href="#L-324"><span class="linenos">324</span></a><span class="sd">    - `./run.sh docs`</span>
-</span><span id="L-325"><a href="#L-325"><span class="linenos">325</span></a>
-</span><span id="L-326"><a href="#L-326"><span class="linenos">326</span></a><span class="sd">- Note: You can and should modify the `Dockerfile` to test different python versions.</span>
-</span><span id="L-327"><a href="#L-327"><span class="linenos">327</span></a><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-328"><a href="#L-328"><span class="linenos">328</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.enforcer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enforcer</span><span class="p">,</span> <span class="n">FunctionMethodEnforcer</span>
+</span><span id="L-317"><a href="#L-317"><span class="linenos">317</span></a><span class="sd">---</span>
+</span><span id="L-318"><a href="#L-318"><span class="linenos">318</span></a>
+</span><span id="L-319"><a href="#L-319"><span class="linenos">319</span></a><span class="sd">## Configuration Reference</span>
+</span><span id="L-320"><a href="#L-320"><span class="linenos">320</span></a>
+</span><span id="L-321"><a href="#L-321"><span class="linenos">321</span></a><span class="sd">Both `@Enforcer` and `ModuleEnforcer` accept the following configuration arguments:</span>
+</span><span id="L-322"><a href="#L-322"><span class="linenos">322</span></a>
+</span><span id="L-323"><a href="#L-323"><span class="linenos">323</span></a><span class="sd">| Parameter | Type | Default | Description |</span>
+</span><span id="L-324"><a href="#L-324"><span class="linenos">324</span></a><span class="sd">|:---|:---:|:---:|:---|</span>
+</span><span id="L-325"><a href="#L-325"><span class="linenos">325</span></a><span class="sd">| `enabled` | `bool` | `True` | Toggle enforcement. Set `False` to bypass type checks (useful for production vs. debugging or per-method overrides). |</span>
+</span><span id="L-326"><a href="#L-326"><span class="linenos">326</span></a><span class="sd">| `strict` | `bool` | `True` | When `True`, raises `TypeError` on mismatch. When `False`, logs a warning to the console instead of raising. |</span>
+</span><span id="L-327"><a href="#L-327"><span class="linenos">327</span></a><span class="sd">| `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so unhandled tracebacks point directly to user code (see note below). |</span>
+</span><span id="L-328"><a href="#L-328"><span class="linenos">328</span></a><span class="sd">| `iterable_sample_pct` | `int or str` | `100` | Sampling mode or percentage (0–100) of iterable items to validate. `&#39;first&#39;` checks the first item, `&#39;last&#39;` checks the last item, `&#39;log&#39;` checks a sample of ceil(log2(n)) items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. |</span>
+</span><span id="L-329"><a href="#L-329"><span class="linenos">329</span></a><span class="sd">| `only_typed` | `bool` | `False` | When `True`, raises an exception upon decoration if any parameter or return value lacks a type hint. |</span>
+</span><span id="L-330"><a href="#L-330"><span class="linenos">330</span></a><span class="sd">| `submodules` *(ModuleEnforcer only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |</span>
+</span><span id="L-331"><a href="#L-331"><span class="linenos">331</span></a>
+</span><span id="L-332"><a href="#L-332"><span class="linenos">332</span></a><span class="sd">### Configuration Options in Depth</span>
+</span><span id="L-333"><a href="#L-333"><span class="linenos">333</span></a>
+</span><span id="L-334"><a href="#L-334"><span class="linenos">334</span></a><span class="sd">#### 1. Strict Typing Mode (`only_typed=True`)</span>
+</span><span id="L-335"><a href="#L-335"><span class="linenos">335</span></a><span class="sd">To catch unannotated parameters or missing return annotations across your codebase, enable `only_typed=True`. This raises a `TypeError` at definition time if any parameter (excluding `self`/`cls`) or the return type lacks an annotation:</span>
+</span><span id="L-336"><a href="#L-336"><span class="linenos">336</span></a>
+</span><span id="L-337"><a href="#L-337"><span class="linenos">337</span></a><span class="sd">```python</span>
+</span><span id="L-338"><a href="#L-338"><span class="linenos">338</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-339"><a href="#L-339"><span class="linenos">339</span></a>
+</span><span id="L-340"><a href="#L-340"><span class="linenos">340</span></a><span class="sd">@type_enforced.Enforcer(only_typed=True)</span>
+</span><span id="L-341"><a href="#L-341"><span class="linenos">341</span></a><span class="sd">def calculate(a: int, b: int) -&gt; int:</span>
+</span><span id="L-342"><a href="#L-342"><span class="linenos">342</span></a><span class="sd">    return a + b</span>
+</span><span id="L-343"><a href="#L-343"><span class="linenos">343</span></a>
+</span><span id="L-344"><a href="#L-344"><span class="linenos">344</span></a><span class="sd"># Missing annotation on parameter `b` or missing return annotation raises immediately:</span>
+</span><span id="L-345"><a href="#L-345"><span class="linenos">345</span></a><span class="sd">@type_enforced.Enforcer(only_typed=True)</span>
+</span><span id="L-346"><a href="#L-346"><span class="linenos">346</span></a><span class="sd">def invalid_fn(a: int, b):</span>
+</span><span id="L-347"><a href="#L-347"><span class="linenos">347</span></a><span class="sd">    return a</span>
+</span><span id="L-348"><a href="#L-348"><span class="linenos">348</span></a><span class="sd"># TypeError: TypeEnforced Exception (invalid_fn): Untyped variable `b` found in function/method `invalid_fn`.</span>
+</span><span id="L-349"><a href="#L-349"><span class="linenos">349</span></a><span class="sd">```</span>
+</span><span id="L-350"><a href="#L-350"><span class="linenos">350</span></a>
+</span><span id="L-351"><a href="#L-351"><span class="linenos">351</span></a><span class="sd">#### 2. Warning Mode (`strict=False`)</span>
+</span><span id="L-352"><a href="#L-352"><span class="linenos">352</span></a><span class="sd">Print warnings to the console instead of raising exceptions (useful for gradual adoption or debugging without breaking execution):</span>
+</span><span id="L-353"><a href="#L-353"><span class="linenos">353</span></a>
+</span><span id="L-354"><a href="#L-354"><span class="linenos">354</span></a><span class="sd">```python</span>
+</span><span id="L-355"><a href="#L-355"><span class="linenos">355</span></a><span class="sd">@type_enforced.Enforcer(strict=False)</span>
+</span><span id="L-356"><a href="#L-356"><span class="linenos">356</span></a><span class="sd">def lenient_fn(x: int) -&gt; int:</span>
+</span><span id="L-357"><a href="#L-357"><span class="linenos">357</span></a><span class="sd">    return x</span>
+</span><span id="L-358"><a href="#L-358"><span class="linenos">358</span></a>
+</span><span id="L-359"><a href="#L-359"><span class="linenos">359</span></a><span class="sd">lenient_fn(&quot;not_an_int&quot;)</span>
+</span><span id="L-360"><a href="#L-360"><span class="linenos">360</span></a><span class="sd"># Logs: TypeEnforced Warning (lenient_fn): Type mismatch for typed variable `x`...</span>
+</span><span id="L-361"><a href="#L-361"><span class="linenos">361</span></a><span class="sd"># Returns &quot;not_an_int&quot; without raising an exception.</span>
+</span><span id="L-362"><a href="#L-362"><span class="linenos">362</span></a><span class="sd">```</span>
+</span><span id="L-363"><a href="#L-363"><span class="linenos">363</span></a>
+</span><span id="L-364"><a href="#L-364"><span class="linenos">364</span></a><span class="sd">#### 3. Clean Tracebacks (`clean_traceback=True`)</span>
+</span><span id="L-365"><a href="#L-365"><span class="linenos">365</span></a><span class="sd">By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a type exception is raised, stripping internal `type_enforced` library frames so that unhandled script tracebacks point directly to the line of user code that caused the issue.</span>
+</span><span id="L-366"><a href="#L-366"><span class="linenos">366</span></a>
+</span><span id="L-367"><a href="#L-367"><span class="linenos">367</span></a><span class="sd">&gt; **Note on Interactive Terminals / REPLs:** In interactive environments (such as the Python REPL / PyREPL, IPython, or Jupyter notebooks), the shell wraps execution in an internal `try...except` loop and catches exceptions before they reach `sys.excepthook`. Consequently, interactive terminal sessions will still display the full traceback.</span>
+</span><span id="L-368"><a href="#L-368"><span class="linenos">368</span></a>
+</span><span id="L-369"><a href="#L-369"><span class="linenos">369</span></a><span class="sd">#### 4. Sampled Validation (`iterable_sample_pct`)</span>
+</span><span id="L-370"><a href="#L-370"><span class="linenos">370</span></a><span class="sd">For large or performance-critical collections, configure sampling instead of full iteration:</span>
+</span><span id="L-371"><a href="#L-371"><span class="linenos">371</span></a><span class="sd">- `&#39;first&#39;`: Validates the first element in O(1) time (runs up to 3x faster than Beartype).</span>
+</span><span id="L-372"><a href="#L-372"><span class="linenos">372</span></a><span class="sd">- `&#39;last&#39;`: Validates the last element in O(1) time.</span>
+</span><span id="L-373"><a href="#L-373"><span class="linenos">373</span></a><span class="sd">- `&#39;log&#39;`: Validates a sample of ceil(log2(n)) items across the collection.</span>
+</span><span id="L-374"><a href="#L-374"><span class="linenos">374</span></a><span class="sd">- `0`: Validates one element chosen at random.</span>
+</span><span id="L-375"><a href="#L-375"><span class="linenos">375</span></a><span class="sd">- `1..100` (int): Validates the specified percentage of items (rounding up).</span>
+</span><span id="L-376"><a href="#L-376"><span class="linenos">376</span></a>
+</span><span id="L-377"><a href="#L-377"><span class="linenos">377</span></a><span class="sd">```python</span>
+</span><span id="L-378"><a href="#L-378"><span class="linenos">378</span></a><span class="sd">@type_enforced.Enforcer(iterable_sample_pct=&quot;first&quot;)</span>
+</span><span id="L-379"><a href="#L-379"><span class="linenos">379</span></a><span class="sd">def fast_check(items: list[int]) -&gt; int:</span>
+</span><span id="L-380"><a href="#L-380"><span class="linenos">380</span></a><span class="sd">    return len(items)</span>
+</span><span id="L-381"><a href="#L-381"><span class="linenos">381</span></a>
+</span><span id="L-382"><a href="#L-382"><span class="linenos">382</span></a><span class="sd">fast_check([1, 2, 3])           # OK</span>
+</span><span id="L-383"><a href="#L-383"><span class="linenos">383</span></a><span class="sd">fast_check([&quot;bad_first&quot;, 2, 3])  # Raises TypeError</span>
+</span><span id="L-384"><a href="#L-384"><span class="linenos">384</span></a><span class="sd">```</span>
+</span><span id="L-385"><a href="#L-385"><span class="linenos">385</span></a>
+</span><span id="L-386"><a href="#L-386"><span class="linenos">386</span></a><span class="sd">---</span>
+</span><span id="L-387"><a href="#L-387"><span class="linenos">387</span></a>
+</span><span id="L-388"><a href="#L-388"><span class="linenos">388</span></a><span class="sd">## Production Best Practices</span>
+</span><span id="L-389"><a href="#L-389"><span class="linenos">389</span></a>
+</span><span id="L-390"><a href="#L-390"><span class="linenos">390</span></a><span class="sd">### Multi-Threaded Services &amp; Web Frameworks (`clean_traceback=False`)</span>
+</span><span id="L-391"><a href="#L-391"><span class="linenos">391</span></a><span class="sd">By default, `clean_traceback=True` temporarily hooks `sys.excepthook` to filter internal library frames for standalone scripts. In concurrent multi-threaded environments and applications using centralized error handlers, consider setting `clean_traceback=False`:</span>
+</span><span id="L-392"><a href="#L-392"><span class="linenos">392</span></a>
+</span><span id="L-393"><a href="#L-393"><span class="linenos">393</span></a><span class="sd">```python</span>
+</span><span id="L-394"><a href="#L-394"><span class="linenos">394</span></a><span class="sd">import type_enforced</span>
+</span><span id="L-395"><a href="#L-395"><span class="linenos">395</span></a>
+</span><span id="L-396"><a href="#L-396"><span class="linenos">396</span></a><span class="sd">@type_enforced.Enforcer(clean_traceback=False)</span>
+</span><span id="L-397"><a href="#L-397"><span class="linenos">397</span></a><span class="sd">def process_request(user_id: int, tags: list[str]) -&gt; dict:</span>
+</span><span id="L-398"><a href="#L-398"><span class="linenos">398</span></a><span class="sd">    return {&quot;user_id&quot;: user_id, &quot;tags&quot;: tags}</span>
+</span><span id="L-399"><a href="#L-399"><span class="linenos">399</span></a><span class="sd">```</span>
+</span><span id="L-400"><a href="#L-400"><span class="linenos">400</span></a>
+</span><span id="L-401"><a href="#L-401"><span class="linenos">401</span></a><span class="sd">---</span>
+</span><span id="L-402"><a href="#L-402"><span class="linenos">402</span></a>
+</span><span id="L-403"><a href="#L-403"><span class="linenos">403</span></a><span class="sd">## Contributing</span>
+</span><span id="L-404"><a href="#L-404"><span class="linenos">404</span></a>
+</span><span id="L-405"><a href="#L-405"><span class="linenos">405</span></a><span class="sd">Contributions are welcome!</span>
+</span><span id="L-406"><a href="#L-406"><span class="linenos">406</span></a>
+</span><span id="L-407"><a href="#L-407"><span class="linenos">407</span></a><span class="sd">### Development Setup</span>
+</span><span id="L-408"><a href="#L-408"><span class="linenos">408</span></a>
+</span><span id="L-409"><a href="#L-409"><span class="linenos">409</span></a><span class="sd">We use [uv](https://docs.astral.sh/uv/) for dependency management and testing in a Unix-based environment (Linux, macOS, or WSL2 on Windows).</span>
+</span><span id="L-410"><a href="#L-410"><span class="linenos">410</span></a>
+</span><span id="L-411"><a href="#L-411"><span class="linenos">411</span></a><span class="sd">```bash</span>
+</span><span id="L-412"><a href="#L-412"><span class="linenos">412</span></a><span class="sd"># Clone the repository</span>
+</span><span id="L-413"><a href="#L-413"><span class="linenos">413</span></a><span class="sd">git clone https://github.com/connor-makowski/type_enforced.git</span>
+</span><span id="L-414"><a href="#L-414"><span class="linenos">414</span></a><span class="sd">cd type_enforced</span>
+</span><span id="L-415"><a href="#L-415"><span class="linenos">415</span></a>
+</span><span id="L-416"><a href="#L-416"><span class="linenos">416</span></a><span class="sd"># Install dev dependencies</span>
+</span><span id="L-417"><a href="#L-417"><span class="linenos">417</span></a><span class="sd">uv sync --extra dev</span>
+</span><span id="L-418"><a href="#L-418"><span class="linenos">418</span></a><span class="sd">```</span>
+</span><span id="L-419"><a href="#L-419"><span class="linenos">419</span></a>
+</span><span id="L-420"><a href="#L-420"><span class="linenos">420</span></a><span class="sd">### Development Commands</span>
+</span><span id="L-421"><a href="#L-421"><span class="linenos">421</span></a>
+</span><span id="L-422"><a href="#L-422"><span class="linenos">422</span></a><span class="sd">| Command | Description |</span>
+</span><span id="L-423"><a href="#L-423"><span class="linenos">423</span></a><span class="sd">|:---|:---|</span>
+</span><span id="L-424"><a href="#L-424"><span class="linenos">424</span></a><span class="sd">| `uv run pytest` | Run tests in local environment |</span>
+</span><span id="L-425"><a href="#L-425"><span class="linenos">425</span></a><span class="sd">| `uv run pytest -v` | Run tests with verbose output |</span>
+</span><span id="L-426"><a href="#L-426"><span class="linenos">426</span></a><span class="sd">| `uv run nox` | Run test suite across Python 3.11–3.14 (C++ and pure-Python fallback) |</span>
+</span><span id="L-427"><a href="#L-427"><span class="linenos">427</span></a><span class="sd">| `uv run nox -s tests-3.14` | Run test suite on a specific Python version |</span>
+</span><span id="L-428"><a href="#L-428"><span class="linenos">428</span></a><span class="sd">| `uv run python utils/minibench.py` | Run quick performance at a glance benchmark |</span>
+</span><span id="L-429"><a href="#L-429"><span class="linenos">429</span></a><span class="sd">| `uv run python utils/cpp_vs_python_bench.py` | Run C++ accelerated vs pure Python benchmark |</span>
+</span><span id="L-430"><a href="#L-430"><span class="linenos">430</span></a><span class="sd">| `uv run python utils/prettify.py` | Auto-format with `autoflake` and `black` (80 col) |</span>
+</span><span id="L-431"><a href="#L-431"><span class="linenos">431</span></a>
+</span><span id="L-432"><a href="#L-432"><span class="linenos">432</span></a><span class="sd">### Guidelines</span>
+</span><span id="L-433"><a href="#L-433"><span class="linenos">433</span></a><span class="sd">1. Fork the repo and create your branch from `main`.</span>
+</span><span id="L-434"><a href="#L-434"><span class="linenos">434</span></a><span class="sd">2. Ensure all tests pass across versions (`uv run nox`).</span>
+</span><span id="L-435"><a href="#L-435"><span class="linenos">435</span></a><span class="sd">3. Format code before committing (`uv run python utils/prettify.py`).</span>
+</span><span id="L-436"><a href="#L-436"><span class="linenos">436</span></a><span class="sd">4. Keep commits atomic and clearly described.</span>
+</span><span id="L-437"><a href="#L-437"><span class="linenos">437</span></a><span class="sd">5. Submit a pull request.</span>
+</span><span id="L-438"><a href="#L-438"><span class="linenos">438</span></a>
+</span><span id="L-439"><a href="#L-439"><span class="linenos">439</span></a><span class="sd">---</span>
+</span><span id="L-440"><a href="#L-440"><span class="linenos">440</span></a>
+</span><span id="L-441"><a href="#L-441"><span class="linenos">441</span></a><span class="sd">## Academic Citation</span>
+</span><span id="L-442"><a href="#L-442"><span class="linenos">442</span></a>
+</span><span id="L-443"><a href="#L-443"><span class="linenos">443</span></a><span class="sd">If you use `type_enforced` in academic research, please cite our [JOSS paper](https://doi.org/10.21105/joss.08832):</span>
+</span><span id="L-444"><a href="#L-444"><span class="linenos">444</span></a>
+</span><span id="L-445"><a href="#L-445"><span class="linenos">445</span></a><span class="sd">```bibtex</span>
+</span><span id="L-446"><a href="#L-446"><span class="linenos">446</span></a><span class="sd">@article{Makowski2026,</span>
+</span><span id="L-447"><a href="#L-447"><span class="linenos">447</span></a><span class="sd">  doi = {10.21105/joss.08832},</span>
+</span><span id="L-448"><a href="#L-448"><span class="linenos">448</span></a><span class="sd">  url = {https://doi.org/10.21105/joss.08832},</span>
+</span><span id="L-449"><a href="#L-449"><span class="linenos">449</span></a><span class="sd">  year = {2026},</span>
+</span><span id="L-450"><a href="#L-450"><span class="linenos">450</span></a><span class="sd">  publisher = {The Open Journal},</span>
+</span><span id="L-451"><a href="#L-451"><span class="linenos">451</span></a><span class="sd">  volume = {11},</span>
+</span><span id="L-452"><a href="#L-452"><span class="linenos">452</span></a><span class="sd">  number = {118},</span>
+</span><span id="L-453"><a href="#L-453"><span class="linenos">453</span></a><span class="sd">  pages = {8832},</span>
+</span><span id="L-454"><a href="#L-454"><span class="linenos">454</span></a><span class="sd">  author = {Connor Makowski},</span>
+</span><span id="L-455"><a href="#L-455"><span class="linenos">455</span></a><span class="sd">  title = {type_enforced: A pure Python runtime type enforcer},</span>
+</span><span id="L-456"><a href="#L-456"><span class="linenos">456</span></a><span class="sd">  journal = {Journal of Open Source Software}</span>
+</span><span id="L-457"><a href="#L-457"><span class="linenos">457</span></a><span class="sd">}</span>
+</span><span id="L-458"><a href="#L-458"><span class="linenos">458</span></a><span class="sd">```</span>
+</span><span id="L-459"><a href="#L-459"><span class="linenos">459</span></a>
+</span><span id="L-460"><a href="#L-460"><span class="linenos">460</span></a><span class="sd">---</span>
+</span><span id="L-461"><a href="#L-461"><span class="linenos">461</span></a>
+</span><span id="L-462"><a href="#L-462"><span class="linenos">462</span></a><span class="sd">## License</span>
+</span><span id="L-463"><a href="#L-463"><span class="linenos">463</span></a>
+</span><span id="L-464"><a href="#L-464"><span class="linenos">464</span></a><span class="sd">Distributed under the [MIT License](https://opensource.org/licenses/MIT). See `LICENSE` for details.</span>
+</span><span id="L-465"><a href="#L-465"><span class="linenos">465</span></a><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-466"><a href="#L-466"><span class="linenos">466</span></a>
+</span><span id="L-467"><a href="#L-467"><span class="linenos">467</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.enforcer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enforcer</span><span class="p">,</span> <span class="n">FunctionMethodEnforcer</span>
+</span><span id="L-468"><a href="#L-468"><span class="linenos">468</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.module</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleEnforcer</span>
+</span><span id="L-469"><a href="#L-469"><span class="linenos">469</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">has_cpp</span>
 </span></pre></div>
 
 

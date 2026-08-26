@@ -5,7 +5,7 @@
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.08832/status.svg)](https://doi.org/10.21105/joss.08832)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/type-enforced?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=ORANGE&left_text=Downloads)](https://pepy.tech/projects/type-enforced)
 
-Fast, pure-Python runtime type enforcement for Python 3.11+ type annotations. Zero dependencies and uncompromising performance.
+Fast runtime type enforcement for Python 3.11+ type annotations. Zero dependencies and uncompromising performance.
 
 ---
 
@@ -47,20 +47,20 @@ Timings are averages of a single validation over 100 runs. ⚠ = checker did not
 
 | Type | Size | type_enforced (sample=1) | Beartype (sample=1) | type_enforced (100%) | Pydantic (100%) |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| `int` | — | 0.19 µs | 0.32 µs | 0.18 µs | 0.92 µs |
-| `Union[int, float]` | — | 0.19 µs | 0.37 µs | 0.19 µs | 0.73 µs |
-| `str` | — | 0.18 µs | 0.33 µs | 0.18 µs | 0.65 µs |
-| `list[int]` | 1 000 items | 0.20 µs ⚠ | 0.68 µs ⚠ | 1.91 µs | 11.25 µs |
-| `list[int]` | 10 000 items | 0.21 µs ⚠ | 0.65 µs ⚠ | 17.02 µs | 118.32 µs |
-| `dict[str, int]` | 1 000 keys | 0.27 µs ⚠ | 0.48 µs ⚠ | 5.18 µs | 46.11 µs |
-| `dict[str, int]` | 10 000 keys | 0.27 µs ⚠ | 0.48 µs ⚠ | 49.43 µs | 482.41 µs |
-| `list[list[int]]` | 100 x 100 items | 0.23 µs ⚠ | 0.69 µs ⚠ | 22.22 µs | 114.28 µs |
-| `dict[str, list[int]]` | 100 x 100 items | 0.33 µs ⚠ | 0.60 µs ⚠ | 25.75 µs | 104.87 µs |
-| `list[dict[str, int]]` | 100 x 100 items | 0.30 µs ⚠ | 1.04 µs ⚠ | 52.74 µs | 461.20 µs |
+| `int` | — | 0.18 µs | 0.33 µs | 0.18 µs | 0.66 µs |
+| `Union[int, float]` | — | 0.21 µs | 0.37 µs | 0.19 µs | 0.73 µs |
+| `str` | — | 0.17 µs | 0.33 µs | 0.18 µs | 0.64 µs |
+| `list[int]` | 1 000 items | 0.21 µs ⚠ | 0.60 µs ⚠ | 1.86 µs | 11.29 µs |
+| `list[int]` | 10 000 items | 0.21 µs ⚠ | 0.67 µs ⚠ | 17.01 µs | 113.66 µs |
+| `dict[str, int]` | 1 000 keys | 0.22 µs ⚠ | 0.49 µs ⚠ | 5.13 µs | 44.93 µs |
+| `dict[str, int]` | 10 000 keys | 0.22 µs ⚠ | 0.47 µs ⚠ | 53.59 µs | 473.11 µs |
+| `list[list[int]]` | 100 x 100 items | 0.24 µs ⚠ | 0.62 µs ⚠ | 17.40 µs | 96.83 µs |
+| `dict[str, list[int]]` | 100 x 100 items | 0.37 µs ⚠ | 0.60 µs ⚠ | 15.40 µs | 102.70 µs |
+| `list[dict[str, int]]` | 100 x 100 items | 0.25 µs ⚠ | 0.80 µs ⚠ | 54.07 µs | 444.42 µs |
 
 > **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 3x faster than Beartype**.
 
-> **Full Validation:** When full validation is required, `type_enforced` is **up to 10x faster than Pydantic**. 
+> **Full Validation:** When full validation is required, `type_enforced` is **up to 8x faster than Pydantic**. 
 
 ---
 
