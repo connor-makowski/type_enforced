@@ -667,6 +667,15 @@ wheels = [
 ]
 
 [[package]]
+name = "nanobind"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/37/5f136054cfdba93e763d956898048a21997b7478ccadcfec6dfebf4b72aa/nanobind-3.0.0.tar.gz", hash = "sha256:68583c41d58af77649b830407d2ba84627f21f07ad4ae2e32c6988fb96eaa71a", size = 1141160, upload-time = "2026-08-22T04:23:31.014Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/8b/cbd87788012d98179686ecdce7d73d154e277c50859458157ec5575c0352/nanobind-3.0.0-py3-none-any.whl", hash = "sha256:3808620334b1e7e647d71feb1bf525496216b48ee2a8cd4c4a31ae1f1cbb1c6f", size = 316362, upload-time = "2026-08-22T04:23:29.737Z" },
+]
+
+[[package]]
 name = "nh3"
 version = "0.3.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1070,6 +1079,19 @@ wheels = [
 ]
 
 [[package]]
+name = "scikit-build-core"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "pathspec" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8d/7c/0f69b0c7150ce4bcee78c199fe3b7e03a6e01578451bd5d5d1a58beb32f9/scikit_build_core-1.0.3.tar.gz", hash = "sha256:a4d7a05978ee37975c37743510c8991e2debce7ef83afb0a07c0c576fd4f16e8", size = 477539, upload-time = "2026-07-12T05:08:30.298Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/b0/7ad8fa9aebb0835b2e20afebf1483cbe175d1612fe01e85042ce9ced8755/scikit_build_core-1.0.3-py3-none-any.whl", hash = "sha256:ae95427b7d3c14a6cf8bbfd4d901f6138ab64c99e20cbe8ea7d75cd26093f085", size = 278294, upload-time = "2026-07-12T05:08:28.725Z" },
+]
+
+[[package]]
 name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1104,7 +1126,7 @@ wheels = [
 
 [[package]]
 name = "type-enforced"
-version = "2.8.1"
+version = "2.9.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -1115,11 +1137,13 @@ dev = [
     { name = "build" },
     { name = "cattrs" },
     { name = "msgspec" },
+    { name = "nanobind" },
     { name = "nox" },
     { name = "nox-uv" },
     { name = "pdoc" },
     { name = "pydantic" },
     { name = "pytest" },
+    { name = "scikit-build-core" },
     { name = "twine" },
     { name = "typeguard" },
 ]
@@ -1132,11 +1156,13 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2" },
     { name = "cattrs", marker = "extra == 'dev'", specifier = ">=26.1.0" },
     { name = "msgspec", marker = "extra == 'dev'", specifier = ">=0.21.1" },
+    { name = "nanobind", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "nox", marker = "extra == 'dev'", specifier = ">=2026.4.10" },
     { name = "nox-uv", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "pdoc", marker = "extra == 'dev'", specifier = ">=15.0.1" },
     { name = "pydantic", marker = "extra == 'dev'", specifier = "==2.13.4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
+    { name = "scikit-build-core", marker = "extra == 'dev'", specifier = ">=1.0.3" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=6.1.0" },
     { name = "typeguard", marker = "extra == 'dev'", specifier = "==4.6.0" },
 ]

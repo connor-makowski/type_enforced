@@ -441,3 +441,4 @@ Distributed under the [MIT License](https://opensource.org/licenses/MIT). See `L
 
 from .enforcer import Enforcer, FunctionMethodEnforcer
 from .module import ModuleEnforcer
+from .utils import has_cpp

@@ -1,7 +1,7 @@
 try:
     import sys, time
     from statistics import mean
-    from typing import Dict, List, Union, get_args, get_origin
+    from typing import Dict, List, Tuple, Union, get_args, get_origin
 
     from beartype import beartype
     import cattrs
@@ -26,6 +26,10 @@ try:
     five_item_list = [1, 2.0, 3, 4.0, 5]
     big_item_list = [float(i) if i % 2 else i for i in range(1000)]
     ten_thousand_item_list = [float(i) if i % 2 else i for i in range(10000)]
+
+    list_list_100x100 = [[j for j in range(100)] for _ in range(100)]
+    dict_list_100x100 = {f"k{i}": [j for j in range(100)] for i in range(100)}
+    list_tuple_1000 = [(i, f"str{i}", float(i)) for i in range(1000)]
 
     # --- Benchmark and Validation test cases
     test_cases = {
@@ -80,6 +84,18 @@ try:
             [{f"key{i}": i for i in range(100)} for _ in range(100)],
             [{"k1": 1, "k2": "two", "k3": 3}],
         ),
+        "list[list[int]] (100 x 100 items)": (
+            list_list_100x100,
+            [[1, "two"]],
+        ),
+        "dict[str,list[int]] (100 x 100 items)": (
+            dict_list_100x100,
+            {"k": [1, "two"]},
+        ),
+        "list[tuple[int,str,float]] (1000 items)": (
+            list_tuple_1000,
+            [(1, "s", "bad")],
+        ),
         "int (3 params)": (
             (1, 2, 3),
             (1, 2, "not an int"),
@@ -124,6 +140,14 @@ try:
             tuple(range(100)),
             tuple(range(99)) + ("not an int",),
         ),
+        "int (200 params)": (
+            tuple(range(200)),
+            tuple(range(199)) + ("not an int",),
+        ),
+        "int (500 params)": (
+            tuple(range(500)),
+            tuple(range(499)) + ("not an int",),
+        ),
     }
 
     # --- Typing definitions
@@ -143,6 +167,11 @@ try:
         "list[dict[str,int]] (5 x 5 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 10 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 100 items)": List[Dict[str, int]],
+        "list[list[int]] (100 x 100 items)": List[List[int]],
+        "dict[str,list[int]] (100 x 100 items)": Dict[str, List[int]],
+        "list[tuple[int,str,float]] (1000 items)": List[
+            Tuple[int, str, float]
+        ],
         "int (3 params)": "3_params",
         "int (3 params, *args)": "3_params_args",
         "int (3 params, **kwargs)": "3_params_kwargs",
@@ -154,11 +183,11 @@ try:
         "int (25 params)": "25_params",
         "int (50 params)": "50_params",
         "int (100 params)": "100_params",
+        "int (200 params)": "200_params",
+        "int (500 params)": "500_params",
     }
 
     # --- Multi-parameter benchmark functions
-    def f_3(a0: int, a1: int, a2: int) -> None:
-        pass
 
     def f_3_args(a0: int, a1: int, a2: int, *args) -> None:
         pass
@@ -167,20 +196,6 @@ try:
         pass
 
     def f_3_args_kwargs(a0: int, a1: int, a2: int, *args, **kwargs) -> None:
-        pass
-
-    def f_10(
-        a0: int,
-        a1: int,
-        a2: int,
-        a3: int,
-        a4: int,
-        a5: int,
-        a6: int,
-        a7: int,
-        a8: int,
-        a9: int,
-    ) -> None:
         pass
 
     def f_10_args(
@@ -229,192 +244,20 @@ try:
     ) -> None:
         pass
 
-    def f_25(
-        a0: int,
-        a1: int,
-        a2: int,
-        a3: int,
-        a4: int,
-        a5: int,
-        a6: int,
-        a7: int,
-        a8: int,
-        a9: int,
-        a10: int,
-        a11: int,
-        a12: int,
-        a13: int,
-        a14: int,
-        a15: int,
-        a16: int,
-        a17: int,
-        a18: int,
-        a19: int,
-        a20: int,
-        a21: int,
-        a22: int,
-        a23: int,
-        a24: int,
-    ) -> None:
-        pass
+    def _make_multi_param_fn(n):
+        params = ", ".join(f"a{i}: int" for i in range(n))
+        code = f"def f_{n}({params}) -> None: pass"
+        ns = {}
+        exec(code, globals(), ns)
+        return ns[f"f_{n}"]
 
-    def f_50(
-        a0: int,
-        a1: int,
-        a2: int,
-        a3: int,
-        a4: int,
-        a5: int,
-        a6: int,
-        a7: int,
-        a8: int,
-        a9: int,
-        a10: int,
-        a11: int,
-        a12: int,
-        a13: int,
-        a14: int,
-        a15: int,
-        a16: int,
-        a17: int,
-        a18: int,
-        a19: int,
-        a20: int,
-        a21: int,
-        a22: int,
-        a23: int,
-        a24: int,
-        a25: int,
-        a26: int,
-        a27: int,
-        a28: int,
-        a29: int,
-        a30: int,
-        a31: int,
-        a32: int,
-        a33: int,
-        a34: int,
-        a35: int,
-        a36: int,
-        a37: int,
-        a38: int,
-        a39: int,
-        a40: int,
-        a41: int,
-        a42: int,
-        a43: int,
-        a44: int,
-        a45: int,
-        a46: int,
-        a47: int,
-        a48: int,
-        a49: int,
-    ) -> None:
-        pass
-
-    def f_100(
-        a0: int,
-        a1: int,
-        a2: int,
-        a3: int,
-        a4: int,
-        a5: int,
-        a6: int,
-        a7: int,
-        a8: int,
-        a9: int,
-        a10: int,
-        a11: int,
-        a12: int,
-        a13: int,
-        a14: int,
-        a15: int,
-        a16: int,
-        a17: int,
-        a18: int,
-        a19: int,
-        a20: int,
-        a21: int,
-        a22: int,
-        a23: int,
-        a24: int,
-        a25: int,
-        a26: int,
-        a27: int,
-        a28: int,
-        a29: int,
-        a30: int,
-        a31: int,
-        a32: int,
-        a33: int,
-        a34: int,
-        a35: int,
-        a36: int,
-        a37: int,
-        a38: int,
-        a39: int,
-        a40: int,
-        a41: int,
-        a42: int,
-        a43: int,
-        a44: int,
-        a45: int,
-        a46: int,
-        a47: int,
-        a48: int,
-        a49: int,
-        a50: int,
-        a51: int,
-        a52: int,
-        a53: int,
-        a54: int,
-        a55: int,
-        a56: int,
-        a57: int,
-        a58: int,
-        a59: int,
-        a60: int,
-        a61: int,
-        a62: int,
-        a63: int,
-        a64: int,
-        a65: int,
-        a66: int,
-        a67: int,
-        a68: int,
-        a69: int,
-        a70: int,
-        a71: int,
-        a72: int,
-        a73: int,
-        a74: int,
-        a75: int,
-        a76: int,
-        a77: int,
-        a78: int,
-        a79: int,
-        a80: int,
-        a81: int,
-        a82: int,
-        a83: int,
-        a84: int,
-        a85: int,
-        a86: int,
-        a87: int,
-        a88: int,
-        a89: int,
-        a90: int,
-        a91: int,
-        a92: int,
-        a93: int,
-        a94: int,
-        a95: int,
-        a96: int,
-        a97: int,
-        a98: int,
-        a99: int,
-    ) -> None:
-        pass
+    f_3 = _make_multi_param_fn(3)
+    f_10 = _make_multi_param_fn(10)
+    f_25 = _make_multi_param_fn(25)
+    f_50 = _make_multi_param_fn(50)    
+    f_100 = _make_multi_param_fn(100)
+    f_200 = _make_multi_param_fn(200)
+    f_500 = _make_multi_param_fn(500)
 
     MULTI_PARAM_FUNCS = {
         "3_params": f_3,
@@ -428,19 +271,40 @@ try:
         "25_params": f_25,
         "50_params": f_50,
         "100_params": f_100,
+        "200_params": f_200,
+        "500_params": f_500,
     }
+
+    MIN_REPEATS = 3
+    MAX_REPEATS = 100
+    MAX_TIME_PER_CASE = 0.05  # 50 ms max per test case cell
 
     # --- Timing helper
     def timeit(func, arg, is_multi=False):
+        # Warmup run (ignored)
+        if is_multi:
+            func(*arg)
+        else:
+            func(arg)
+
         durations = []
-        for _ in range(REPEATS + 1):
-            start = time.perf_counter()
+        start_total = time.perf_counter()
+        for _ in range(MAX_REPEATS):
+            t0 = time.perf_counter()
             if is_multi:
                 func(*arg)
             else:
                 func(arg)
-            durations.append(time.perf_counter() - start)
-        return mean(durations[1:]) * 1e6  # microseconds (ignore first run)
+            durations.append(time.perf_counter() - t0)
+
+            # Adaptive termination if minimum runs met and budget exceeded
+            if (
+                len(durations) >= MIN_REPEATS
+                and (time.perf_counter() - start_total) >= MAX_TIME_PER_CASE
+            ):
+                break
+
+        return (sum(durations) / len(durations)) * 1e6  # microseconds
 
     # --- Factory functions
     def pydantic_factory(typ):
@@ -465,11 +329,30 @@ try:
 
     def typeguard_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
-            return typechecked(MULTI_PARAM_FUNCS[typ])
+            fn = MULTI_PARAM_FUNCS[typ]
+            hints = [
+                t
+                for k, t in getattr(fn, "__annotations__", {}).items()
+                if k != "return"
+            ]
 
-        @typechecked
-        def f(x: typ) -> None:
-            pass
+            def f(*args, **kwargs):
+                for t, v in zip(hints, args):
+                    typeguard.check_type(
+                        v,
+                        t,
+                        collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
+                    )
+                return fn(*args, **kwargs)
+
+            return f
+
+        def f(x):
+            return typeguard.check_type(
+                x,
+                typ,
+                collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
+            )
 
         return f
 
@@ -595,11 +478,11 @@ try:
 
     # --- Checkers groups
     full_checkers = {
-        "type_enforced (100%)": type_enforced_factory,
+        "type_enforced": type_enforced_factory,
         "Pydantic": pydantic_factory,
         "msgspec": msgspec_factory,
         "cattrs": cattrs_factory,
-        "Typeguard (Full)": typeguard_full_factory,
+        "Typeguard": typeguard_full_factory,
     }
 
     sampled_checkers = {
@@ -640,7 +523,7 @@ try:
     print("### Benchmark Methodology")
     print("- Every type checker is tested with the exact same data and test cases.")
     print(
-        f"- The reported time represents the average duration of a single validation (one function call), measured over {REPEATS} runs (ignoring the initial warmup run)."
+        "- The reported time represents the average duration of a single validation (one function call), measured with adaptive repeats (up to 100 runs, capped at 50ms per test case, ignoring the initial warmup run)."
     )
     print(
         "- Timings with warning symbols (⚠) indicate that the checker did not catch invalid data inside collections (e.g. invalid items placed outside a sampled subset)."
@@ -663,12 +546,10 @@ try:
                     fn = factory(typ)
                     avg_us = timeit(fn, valid_val, is_multi=is_multi)
                     passed = all(
-                        [
-                            test_validation(
-                                fn, valid_val, invalid_val, is_multi=is_multi
-                            )
-                            for _ in range(REPEATS)
-                        ]
+                        test_validation(
+                            fn, valid_val, invalid_val, is_multi=is_multi
+                        )
+                        for _ in range(15)
                     )
                     avg_us_colored = (
                         green_text(f"{avg_us:.2f} µs")
