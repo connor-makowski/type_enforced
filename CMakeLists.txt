@@ -67,8 +67,6 @@ else()
             type_enforced/cpp/src/validators.cpp
         )
 
-        target_include_directories(cpp PRIVATE type_enforced/cpp/include)
-
         install(TARGETS cpp DESTINATION type_enforced)
     else()
         message(WARNING

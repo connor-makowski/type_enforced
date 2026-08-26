@@ -1,9 +1,13 @@
+import os
 import pytest
 import type_enforced
 
 
 def test_cpp_check():
-    assert isinstance(type_enforced.has_cpp(), bool)
+    if os.environ.get("TYPE_ENFORCED_SKIP_CPP") == "1":
+        assert not type_enforced.has_cpp()
+    else:
+        assert isinstance(type_enforced.has_cpp(), bool)
 
 
 def test_cpp_accelerated_collections():

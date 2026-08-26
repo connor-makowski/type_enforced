@@ -20,4 +20,4 @@ def tests(session):
         external=True,
         env={"SKBUILD_CMAKE_ARGS": "-DSKIP_CPP_BUILD=ON"},
     )
-    session.run("pytest")
+    session.run("pytest", env={"TYPE_ENFORCED_SKIP_CPP": "1"})
