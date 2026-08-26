@@ -143,13 +143,19 @@ bool validate_set_single(nb::handle obj, nb::handle exp_type_handle) {
     PyObject* ptr = obj.ptr();
     if (!PySet_Check(ptr) && !PyFrozenSet_Check(ptr)) return false;
     PyTypeObject* exp_type = (PyTypeObject*)exp_type_handle.ptr();
-    Py_ssize_t pos = 0;
+    PyObject* it = PyObject_GetIter(ptr);
+    if (!it) return false;
     PyObject* key;
-    Py_hash_t hash;
 
-    while (_PySet_NextEntry(ptr, &pos, &key, &hash)) {
-        if (!check_item_type(key, exp_type)) return false;
+    while ((key = PyIter_Next(it)) != nullptr) {
+        bool ok = check_item_type(key, exp_type);
+        Py_DECREF(key);
+        if (!ok) {
+            Py_DECREF(it);
+            return false;
+        }
     }
+    Py_DECREF(it);
     return true;
 }
 
@@ -157,13 +163,19 @@ bool validate_set_union(nb::handle obj, nb::tuple exp_types) {
     PyObject* ptr = obj.ptr();
     if (!PySet_Check(ptr) && !PyFrozenSet_Check(ptr)) return false;
     size_t num_types = exp_types.size();
-    Py_ssize_t pos = 0;
+    PyObject* it = PyObject_GetIter(ptr);
+    if (!it) return false;
     PyObject* key;
-    Py_hash_t hash;
 
-    while (_PySet_NextEntry(ptr, &pos, &key, &hash)) {
-        if (!check_item_union(key, exp_types, num_types)) return false;
+    while ((key = PyIter_Next(it)) != nullptr) {
+        bool ok = check_item_union(key, exp_types, num_types);
+        Py_DECREF(key);
+        if (!ok) {
+            Py_DECREF(it);
+            return false;
+        }
     }
+    Py_DECREF(it);
     return true;
 }
 
@@ -171,15 +183,21 @@ bool validate_set_sample(nb::handle obj, nb::handle exp_type_handle, size_t coun
     PyObject* ptr = obj.ptr();
     if (!PySet_Check(ptr) && !PyFrozenSet_Check(ptr)) return false;
     PyTypeObject* exp_type = (PyTypeObject*)exp_type_handle.ptr();
-    Py_ssize_t pos = 0;
+    PyObject* it = PyObject_GetIter(ptr);
+    if (!it) return false;
     PyObject* key;
-    Py_hash_t hash;
     size_t checked = 0;
 
-    while (_PySet_NextEntry(ptr, &pos, &key, &hash)) {
-        if (!check_item_type(key, exp_type)) return false;
+    while ((key = PyIter_Next(it)) != nullptr) {
+        bool ok = check_item_type(key, exp_type);
+        Py_DECREF(key);
+        if (!ok) {
+            Py_DECREF(it);
+            return false;
+        }
         if (++checked >= count) break;
     }
+    Py_DECREF(it);
     return true;
 }
 
@@ -187,15 +205,21 @@ bool validate_set_sample_union(nb::handle obj, nb::tuple exp_types, size_t count
     PyObject* ptr = obj.ptr();
     if (!PySet_Check(ptr) && !PyFrozenSet_Check(ptr)) return false;
     size_t num_types = exp_types.size();
-    Py_ssize_t pos = 0;
+    PyObject* it = PyObject_GetIter(ptr);
+    if (!it) return false;
     PyObject* key;
-    Py_hash_t hash;
     size_t checked = 0;
 
-    while (_PySet_NextEntry(ptr, &pos, &key, &hash)) {
-        if (!check_item_union(key, exp_types, num_types)) return false;
+    while ((key = PyIter_Next(it)) != nullptr) {
+        bool ok = check_item_union(key, exp_types, num_types);
+        Py_DECREF(key);
+        if (!ok) {
+            Py_DECREF(it);
+            return false;
+        }
         if (++checked >= count) break;
     }
+    Py_DECREF(it);
     return true;
 }
 
@@ -390,44 +414,37 @@ bool validate_dict_first_unions(nb::handle obj, nb::tuple key_types, nb::tuple v
 bool validate_dict_last(nb::handle obj, nb::handle key_type_handle, nb::handle val_type_handle) {
     PyObject* ptr = obj.ptr();
     if (!PyDict_Check(ptr)) return false;
-    PyTypeObject* k_type = (PyTypeObject*)key_type_handle.ptr();
-    PyTypeObject* v_type = (PyTypeObject*)val_type_handle.ptr();
-    Py_ssize_t pos = 0;
-    PyObject* key;
-    PyObject* value;
-    PyObject* last_k = nullptr;
-    PyObject* last_v = nullptr;
+    if (PyDict_Size(ptr) == 0) return true;
 
-    while (PyDict_Next(ptr, &pos, &key, &value)) {
-        last_k = key;
-        last_v = value;
-    }
-    if (last_k != nullptr) {
-        if (!check_item_type(last_k, k_type) || !check_item_type(last_v, v_type)) return false;
-    }
-    return true;
+    PyObject* rev_it = PyObject_CallMethod(ptr, "__reversed__", NULL);
+    if (!rev_it) return false;
+    PyObject* last_key = PyIter_Next(rev_it);
+    Py_DECREF(rev_it);
+    if (!last_key) return false;
+
+    PyObject* last_val = PyDict_GetItem(ptr, last_key);
+    bool ok = check_item_type(last_key, (PyTypeObject*)key_type_handle.ptr()) &&
+              check_item_type(last_val, (PyTypeObject*)val_type_handle.ptr());
+    Py_DECREF(last_key);
+    return ok;
 }
 
 bool validate_dict_last_unions(nb::handle obj, nb::tuple key_types, nb::tuple val_types) {
     PyObject* ptr = obj.ptr();
     if (!PyDict_Check(ptr)) return false;
-    Py_ssize_t pos = 0;
-    PyObject* key;
-    PyObject* value;
-    PyObject* last_k = nullptr;
-    PyObject* last_v = nullptr;
+    if (PyDict_Size(ptr) == 0) return true;
 
-    while (PyDict_Next(ptr, &pos, &key, &value)) {
-        last_k = key;
-        last_v = value;
-    }
-    if (last_k != nullptr) {
-        if (!check_item_union(last_k, key_types, key_types.size()) ||
-            !check_item_union(last_v, val_types, val_types.size())) {
-            return false;
-        }
-    }
-    return true;
+    PyObject* rev_it = PyObject_CallMethod(ptr, "__reversed__", NULL);
+    if (!rev_it) return false;
+    PyObject* last_key = PyIter_Next(rev_it);
+    Py_DECREF(rev_it);
+    if (!last_key) return false;
+
+    PyObject* last_val = PyDict_GetItem(ptr, last_key);
+    bool ok = check_item_union(last_key, key_types, key_types.size()) &&
+              check_item_union(last_val, val_types, val_types.size());
+    Py_DECREF(last_key);
+    return ok;
 }
 
 bool validate_dict_sample(nb::handle obj, nb::handle key_type_handle, nb::handle val_type_handle, size_t count) {
