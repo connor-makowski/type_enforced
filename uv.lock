@@ -1126,7 +1126,7 @@ wheels = [
 
 [[package]]
 name = "type-enforced"
-version = "2.9.0"
+version = "2.9.0b1"
 source = { editable = "." }
 
 [package.optional-dependencies]
