@@ -59,7 +59,7 @@ Timings are averages of a single validation over 100 runs. ⚠ = checker did not
 
 > **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 2x faster than Beartype**.
 
-> **Full Validation:** When full validation is required, `type_enforced` is **up to 8x faster than Pydantic**. 
+> **Full Validation:** When full validation is required, `type_enforced` is **up to 8x faster than Pydantic**.
 
 ---
 

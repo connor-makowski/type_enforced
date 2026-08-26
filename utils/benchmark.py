@@ -1,13 +1,15 @@
 try:
-    import time, sys
-    from typing import Union, Dict, List
+    import sys, time
     from statistics import mean
+    from typing import Dict, List, Union, get_args, get_origin
 
     from beartype import beartype
-    from typeguard import typechecked
+    import cattrs
+    import msgspec
+    from pydantic import validate_call
     import type_enforced
-
-    from pydantic import BaseModel, validate_call
+    import typeguard
+    from typeguard import typechecked
 
     # Open the log file, clear it and redirect stdout to it
     log = open("benchmark.md", "w")
@@ -78,7 +80,35 @@ try:
             [{f"key{i}": i for i in range(100)} for _ in range(100)],
             [{"k1": 1, "k2": "two", "k3": 3}],
         ),
+        "int (3 params)": (
+            (1, 2, 3),
+            (1, 2, "not an int"),
+        ),
+        "int (3 params, *args)": (
+            (1, 2, 3),
+            (1, 2, "not an int"),
+        ),
+        "int (3 params, **kwargs)": (
+            (1, 2, 3),
+            (1, 2, "not an int"),
+        ),
+        "int (3 params, *args, **kwargs)": (
+            (1, 2, 3),
+            (1, 2, "not an int"),
+        ),
         "int (10 params)": (
+            tuple(range(10)),
+            tuple(range(9)) + ("not an int",),
+        ),
+        "int (10 params, *args)": (
+            tuple(range(10)),
+            tuple(range(9)) + ("not an int",),
+        ),
+        "int (10 params, **kwargs)": (
+            tuple(range(10)),
+            tuple(range(9)) + ("not an int",),
+        ),
+        "int (10 params, *args, **kwargs)": (
             tuple(range(10)),
             tuple(range(9)) + ("not an int",),
         ),
@@ -113,13 +143,32 @@ try:
         "list[dict[str,int]] (5 x 5 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 10 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 100 items)": List[Dict[str, int]],
+        "int (3 params)": "3_params",
+        "int (3 params, *args)": "3_params_args",
+        "int (3 params, **kwargs)": "3_params_kwargs",
+        "int (3 params, *args, **kwargs)": "3_params_args_kwargs",
         "int (10 params)": "10_params",
+        "int (10 params, *args)": "10_params_args",
+        "int (10 params, **kwargs)": "10_params_kwargs",
+        "int (10 params, *args, **kwargs)": "10_params_args_kwargs",
         "int (25 params)": "25_params",
         "int (50 params)": "50_params",
         "int (100 params)": "100_params",
     }
 
     # --- Multi-parameter benchmark functions
+    def f_3(a0: int, a1: int, a2: int) -> None:
+        pass
+
+    def f_3_args(a0: int, a1: int, a2: int, *args) -> None:
+        pass
+
+    def f_3_kwargs(a0: int, a1: int, a2: int, **kwargs) -> None:
+        pass
+
+    def f_3_args_kwargs(a0: int, a1: int, a2: int, *args, **kwargs) -> None:
+        pass
+
     def f_10(
         a0: int,
         a1: int,
@@ -131,6 +180,52 @@ try:
         a7: int,
         a8: int,
         a9: int,
+    ) -> None:
+        pass
+
+    def f_10_args(
+        a0: int,
+        a1: int,
+        a2: int,
+        a3: int,
+        a4: int,
+        a5: int,
+        a6: int,
+        a7: int,
+        a8: int,
+        a9: int,
+        *args,
+    ) -> None:
+        pass
+
+    def f_10_kwargs(
+        a0: int,
+        a1: int,
+        a2: int,
+        a3: int,
+        a4: int,
+        a5: int,
+        a6: int,
+        a7: int,
+        a8: int,
+        a9: int,
+        **kwargs,
+    ) -> None:
+        pass
+
+    def f_10_args_kwargs(
+        a0: int,
+        a1: int,
+        a2: int,
+        a3: int,
+        a4: int,
+        a5: int,
+        a6: int,
+        a7: int,
+        a8: int,
+        a9: int,
+        *args,
+        **kwargs,
     ) -> None:
         pass
 
@@ -322,7 +417,14 @@ try:
         pass
 
     MULTI_PARAM_FUNCS = {
+        "3_params": f_3,
+        "3_params_args": f_3_args,
+        "3_params_kwargs": f_3_kwargs,
+        "3_params_args_kwargs": f_3_args_kwargs,
         "10_params": f_10,
+        "10_params_args": f_10_args,
+        "10_params_kwargs": f_10_kwargs,
+        "10_params_args_kwargs": f_10_args_kwargs,
         "25_params": f_25,
         "50_params": f_50,
         "100_params": f_100,
@@ -345,12 +447,9 @@ try:
         if typ in MULTI_PARAM_FUNCS:
             return validate_call(MULTI_PARAM_FUNCS[typ])
 
-        class PModel(BaseModel):
-            x: typ
-
         @validate_call
         def f(x: typ) -> None:
-            PModel(x=x)
+            pass
 
         return f
 
@@ -371,6 +470,92 @@ try:
         @typechecked
         def f(x: typ) -> None:
             pass
+
+        return f
+
+    def typeguard_full_factory(typ):
+        if typ in MULTI_PARAM_FUNCS:
+            fn = MULTI_PARAM_FUNCS[typ]
+            hints = [
+                t
+                for k, t in getattr(fn, "__annotations__", {}).items()
+                if k != "return"
+            ]
+
+            def f(*args, **kwargs):
+                for t, v in zip(hints, args):
+                    typeguard.check_type(
+                        v,
+                        t,
+                        collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+                    )
+                return fn(*args, **kwargs)
+
+            return f
+
+        def f(x):
+            return typeguard.check_type(
+                x,
+                typ,
+                collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+            )
+
+        return f
+
+    def msgspec_factory(typ):
+        if typ in MULTI_PARAM_FUNCS:
+            fn = MULTI_PARAM_FUNCS[typ]
+            hints = [
+                t
+                for k, t in getattr(fn, "__annotations__", {}).items()
+                if k != "return"
+            ]
+
+            def f(*args, **kwargs):
+                for t, v in zip(hints, args):
+                    msgspec.convert(v, type=t)
+                return fn(*args, **kwargs)
+
+            return f
+
+        def f(x):
+            return msgspec.convert(x, type=typ)
+
+        return f
+
+    cattrs_conv = cattrs.Converter()
+
+    def structure_union(val, typ):
+        args = get_args(typ)
+        for arg in args:
+            try:
+                return cattrs_conv.structure(val, arg)
+            except Exception:
+                continue
+        raise TypeError(f"Cannot structure {val} into {typ}")
+
+    cattrs_conv.register_structure_hook_func(
+        lambda t: get_origin(t) is Union, structure_union
+    )
+
+    def cattrs_factory(typ):
+        if typ in MULTI_PARAM_FUNCS:
+            fn = MULTI_PARAM_FUNCS[typ]
+            hints = [
+                t
+                for k, t in getattr(fn, "__annotations__", {}).items()
+                if k != "return"
+            ]
+
+            def f(*args, **kwargs):
+                for t, v in zip(hints, args):
+                    cattrs_conv.structure(v, t)
+                return fn(*args, **kwargs)
+
+            return f
+
+        def f(x):
+            return cattrs_conv.structure(x, typ)
 
         return f
 
@@ -408,14 +593,20 @@ try:
 
         return f
 
-    # --- Checkers and factories
-    checkers = {
+    # --- Checkers groups
+    full_checkers = {
         "type_enforced (100%)": type_enforced_factory,
-        "type_enforced (5%)": type_enforced_5pct_factory,
-        "type_enforced (1 sample)": type_enforced_sampled_factory,
         "Pydantic": pydantic_factory,
-        "Beartype": beartype_factory,
-        "Typeguard": typeguard_factory,
+        "msgspec": msgspec_factory,
+        "cattrs": cattrs_factory,
+        "Typeguard (Full)": typeguard_full_factory,
+    }
+
+    sampled_checkers = {
+        "type_enforced (1 sample)": type_enforced_sampled_factory,
+        "type_enforced (5%)": type_enforced_5pct_factory,
+        "Beartype (1 sample)": beartype_factory,
+        "Typeguard (1 sample)": typeguard_factory,
     }
 
     # --- Validation helper
@@ -443,32 +634,16 @@ try:
     # --- Final output
     print(f"# Benchmark Results (python {sys.version.split(' ')[0]})\n")
     print(
-        "This file contains the results of the benchmark tests for various type checkers.\n"
+        "This file contains the benchmark results across various Python runtime type validation packages.\n"
     )
-    print("Generated by /utils/benchmark.py\n")
-    print("Each checker is tested with different data types and structures")
-    print("- Every checker gets the same data and test cases")
+    print("Generated by `/utils/benchmark.py`\n")
+    print("### Benchmark Methodology")
+    print("- Every type checker is tested with the exact same data and test cases.")
     print(
         f"- The reported time represents the average duration of a single validation (one function call), measured over {REPEATS} runs (ignoring the initial warmup run)."
     )
-    print("\n## Results Summary")
     print(
-        "The following table summarizes the average time taken per single validation by each type checker for different data types and structures.\n"
-    )
-    print(
-        "- Note: Timings with warning symbols(⚠) indicate that the checker did not consistently catch invalid types for the given type or structure."
-    )
-    print(
-        "    - This could be due to the type checker not raising an error when it should or raising an error when it shouldn't."
-    )
-    print(
-        f"    - The validation is run {REPEATS} times to ensure type checking results are consistent."
-    )
-    print(
-        "\n| Type                        | type_enforced (100%) | type_enforced (5%) | type_enforced (1 sample) | Pydantic (100%) | Beartype (1 sample) | Typeguard (1 sample) |"
-    )
-    print(
-        "|:-----------------------------|:----------------------|:--------------------|:--------------------------|:-----------------|:---------------------|:----------------------|"
+        "- Timings with warning symbols (⚠) indicate that the checker did not catch invalid data inside collections (e.g. invalid items placed outside a sampled subset)."
     )
 
     def green_text(text):
@@ -477,35 +652,70 @@ try:
     def red_text(text):
         return f"<span style='color: red;'>{text} ⚠</span>"
 
-    data = {}
+    def run_benchmark_group(checkers_dict):
+        results = {}
+        for case, (valid_val, invalid_val) in test_cases.items():
+            typ = types[case]
+            is_multi = typ in MULTI_PARAM_FUNCS
+            case_data = {}
+            for name, factory in checkers_dict.items():
+                try:
+                    fn = factory(typ)
+                    avg_us = timeit(fn, valid_val, is_multi=is_multi)
+                    passed = all(
+                        [
+                            test_validation(
+                                fn, valid_val, invalid_val, is_multi=is_multi
+                            )
+                            for _ in range(REPEATS)
+                        ]
+                    )
+                    avg_us_colored = (
+                        green_text(f"{avg_us:.2f} µs")
+                        if passed
+                        else red_text(f"{avg_us:.2f} µs")
+                    )
+                    case_data[name] = avg_us_colored
+                except Exception as e:
+                    case_data[name] = red_text("Error")
+            results[case] = case_data
+        return results
 
-    for case, (valid_val, invalid_val) in test_cases.items():
-        typ = types[case]
-        is_multi = typ in MULTI_PARAM_FUNCS
-        case_data = {}
-        for name, factory in checkers.items():
-            try:
-                fn = factory(typ)
-                avg_us = timeit(fn, valid_val, is_multi=is_multi)
-                passed = all(
-                    [
-                        test_validation(
-                            fn, valid_val, invalid_val, is_multi=is_multi
-                        )
-                        for _ in range(REPEATS)
-                    ]
-                )
-                avg_us_colored = (
-                    green_text(f"{avg_us:.2f} µs")
-                    if passed
-                    else red_text(f"{avg_us:.2f} µs")
-                )
-                case_data[name] = avg_us_colored
-            except Exception as e:
-                case_data[name] = red_text(f"Error")
-        data[case] = case_data
-    for case, results in data.items():
-        print(f"| {case:<30} | " + " | ".join(results.values()) + " |")
+    data_full = run_benchmark_group(full_checkers)
+    data_sampled = run_benchmark_group(sampled_checkers)
+
+    # --- Section 1: Full Validation
+    print("\n## 1. Full Validation (100% / Deep Validation)")
+    print(
+        "Checkers in this section perform full validation across all elements in collections (lists, dicts, tuples, sets)."
+    )
+    print(
+        "- Every element is guaranteed to be validated against its type annotation.\n"
+    )
+
+    full_headers = list(full_checkers.keys())
+    print("| Type | " + " | ".join(full_headers) + " |")
+    print("|:---| " + " | ".join([":---"] * len(full_headers)) + " |")
+    for case in test_cases:
+        row = [data_full[case][name] for name in full_headers]
+        print(f"| {case:<30} | " + " | ".join(row) + " |")
+
+    # --- Section 2: Sampled & O(1) Validation
+    print("\n## 2. Sampled & O(1) Validation")
+    print(
+        "Checkers in this section perform constant-time (O(1)) or fixed-percentage sampling of collections."
+    )
+    print(
+        "- Warning symbols (⚠) indicate that invalid items placed outside the sampled subset went undetected.\n"
+    )
+
+    sampled_headers = list(sampled_checkers.keys())
+    print("| Type | " + " | ".join(sampled_headers) + " |")
+    print("|:---| " + " | ".join([":---"] * len(sampled_headers)) + " |")
+    for case in test_cases:
+        row = [data_sampled[case][name] for name in sampled_headers]
+        print(f"| {case:<30} | " + " | ".join(row) + " |")
+
     sys.stdout = sys.__stdout__  # Reset stdout to original
     log.close()  # Close the log file
     print("benchmark.py passed")

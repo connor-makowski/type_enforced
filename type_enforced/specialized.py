@@ -80,13 +80,18 @@ def can_specialize_type(exp):
     return False
 
 
-def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
+def _generate_scalar_check(
+    var_expr, exp, fail_call, fn_globals, prefix, is_loop=False
+):
     """
     Generates AST statements for checking a simple scalar or union of scalar types.
     """
     tt = tuple(exp.keys())
     fn_globals[f"{prefix}_types"] = tt
     fn_globals[f"{prefix}_t0"] = tt[0]
+
+    t0_name = f"__loc_{prefix}_t0" if is_loop else f"{prefix}_t0"
+    types_name = f"__loc_{prefix}_types" if is_loop else f"{prefix}_types"
 
     var_class = ast.Attribute(value=var_expr, attr="__class__", ctx=ast.Load())
 
@@ -97,7 +102,7 @@ def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
                 ast.Compare(
                     left=var_class,
                     ops=[ast.IsNot()],
-                    comparators=[ast.Name(id=f"{prefix}_t0", ctx=ast.Load())],
+                    comparators=[ast.Name(id=t0_name, ctx=ast.Load())],
                 ),
                 ast.UnaryOp(
                     op=ast.Not(),
@@ -105,7 +110,7 @@ def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
                         func=ast.Name(id="isinstance", ctx=ast.Load()),
                         args=[
                             var_expr,
-                            ast.Name(id=f"{prefix}_types", ctx=ast.Load()),
+                            ast.Name(id=types_name, ctx=ast.Load()),
                         ],
                         keywords=[],
                     ),
@@ -114,18 +119,19 @@ def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
         )
     elif len(tt) == 2:
         fn_globals[f"{prefix}_t1"] = tt[1]
+        t1_name = f"__loc_{prefix}_t1" if is_loop else f"{prefix}_t1"
         test = ast.BoolOp(
             op=ast.And(),
             values=[
                 ast.Compare(
                     left=var_class,
                     ops=[ast.IsNot()],
-                    comparators=[ast.Name(id=f"{prefix}_t0", ctx=ast.Load())],
+                    comparators=[ast.Name(id=t0_name, ctx=ast.Load())],
                 ),
                 ast.Compare(
                     left=var_class,
                     ops=[ast.IsNot()],
-                    comparators=[ast.Name(id=f"{prefix}_t1", ctx=ast.Load())],
+                    comparators=[ast.Name(id=t1_name, ctx=ast.Load())],
                 ),
                 ast.UnaryOp(
                     op=ast.Not(),
@@ -133,7 +139,7 @@ def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
                         func=ast.Name(id="isinstance", ctx=ast.Load()),
                         args=[
                             var_expr,
-                            ast.Name(id=f"{prefix}_types", ctx=ast.Load()),
+                            ast.Name(id=types_name, ctx=ast.Load()),
                         ],
                         keywords=[],
                     ),
@@ -147,7 +153,7 @@ def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
                 func=ast.Name(id="isinstance", ctx=ast.Load()),
                 args=[
                     var_expr,
-                    ast.Name(id=f"{prefix}_types", ctx=ast.Load()),
+                    ast.Name(id=types_name, ctx=ast.Load()),
                 ],
                 keywords=[],
             ),
@@ -157,7 +163,14 @@ def _generate_scalar_check(var_expr, exp, fail_call, fn_globals, prefix):
 
 
 def generate_type_check_ast(
-    var_expr, exp, fail_call, fn_globals, prefix, sample_pct, is_loop=False
+    var_expr,
+    exp,
+    fail_call,
+    fn_globals,
+    prefix,
+    sample_pct,
+    is_loop=False,
+    use_local_t0=False,
 ):
     """
     Recursively generates AST check statements for an arbitrary type expression.
@@ -168,7 +181,7 @@ def generate_type_check_ast(
 
     if is_simple_type(exp):
         return _generate_scalar_check(
-            var_expr, exp, fail_call, fn_globals, prefix
+            var_expr, exp, fail_call, fn_globals, prefix, is_loop=use_local_t0
         )
 
     fail_stmt = fail_call
@@ -310,21 +323,68 @@ def generate_type_check_ast(
                 )
         elif sample_pct == 100:
             if elem_is_simple:
-                elem_set = frozenset(sub_exp.keys())
-                fn_globals[f"{prefix}_elem_set"] = elem_set
+                if len(sub_exp) == 1:
+                    sub_checks_fast = generate_type_check_ast(
+                        loop_var_expr,
+                        sub_exp,
+                        loop_fail,
+                        fn_globals,
+                        f"{prefix}_el",
+                        sample_pct,
+                        is_loop=True,
+                        use_local_t0=True,
+                    )
+                    assign_locs = [
+                        ast.Assign(
+                            targets=[
+                                ast.Name(
+                                    id=f"__loc_{prefix}_el_t0", ctx=ast.Store()
+                                )
+                            ],
+                            value=ast.Name(
+                                id=f"{prefix}_el_t0", ctx=ast.Load()
+                            ),
+                        ),
+                        ast.Assign(
+                            targets=[
+                                ast.Name(
+                                    id=f"__loc_{prefix}_el_types",
+                                    ctx=ast.Store(),
+                                )
+                            ],
+                            value=ast.Name(
+                                id=f"{prefix}_el_types", ctx=ast.Load()
+                            ),
+                        ),
+                    ]
+                    for_loop = ast.For(
+                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                        iter=var_expr,
+                        body=sub_checks_fast,
+                        orelse=[],
+                    )
+                    content_check = assign_locs + [for_loop]
+                else:
+                    elem_set = frozenset(sub_exp.keys())
+                    fn_globals[f"{prefix}_elem_set"] = elem_set
 
-                for_loop = ast.For(
-                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                    iter=var_expr,
-                    body=sub_checks,
-                    orelse=[],
-                )
-                set_check = ast.If(
-                    test=ast.UnaryOp(
-                        op=ast.Not(),
-                        operand=ast.Compare(
-                            left=ast.Call(
-                                func=ast.Name(id="set", ctx=ast.Load()),
+                    for_loop = ast.For(
+                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                        iter=var_expr,
+                        body=sub_checks,
+                        orelse=[],
+                    )
+                    set_check = ast.If(
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=ast.Call(
+                                func=ast.Attribute(
+                                    value=ast.Name(
+                                        id=f"{prefix}_elem_set", ctx=ast.Load()
+                                    ),
+                                    attr="issuperset",
+                                    ctx=ast.Load(),
+                                ),
                                 args=[
                                     ast.Call(
                                         func=ast.Name(id="map", ctx=ast.Load()),
@@ -337,37 +397,34 @@ def generate_type_check_ast(
                                 ],
                                 keywords=[],
                             ),
-                            ops=[ast.LtE()],
-                            comparators=[
-                                ast.Name(
-                                    id=f"{prefix}_elem_set", ctx=ast.Load()
-                                )
-                            ],
                         ),
-                    ),
-                    body=[fail_stmt],
-                    orelse=[],
-                )
-                content_check = ast.If(
-                    test=ast.Compare(
-                        left=ast.Call(
-                            func=ast.Name(id="len", ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        ),
-                        ops=[ast.LtE()],
-                        comparators=[ast.Constant(value=50)],
-                    ),
-                    body=[for_loop],
-                    orelse=[set_check],
-                )
+                        body=[fail_stmt],
+                        orelse=[],
+                    )
+                    content_check = [
+                        ast.If(
+                            test=ast.Compare(
+                                left=ast.Call(
+                                    func=ast.Name(id="len", ctx=ast.Load()),
+                                    args=[var_expr],
+                                    keywords=[],
+                                ),
+                                ops=[ast.LtE()],
+                                comparators=[ast.Constant(value=50)],
+                            ),
+                            body=[for_loop],
+                            orelse=[set_check],
+                        )
+                    ]
             else:
-                content_check = ast.For(
-                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                    iter=var_expr,
-                    body=sub_checks,
-                    orelse=[],
-                )
+                content_check = [
+                    ast.For(
+                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                        iter=var_expr,
+                        body=sub_checks,
+                        orelse=[],
+                    )
+                ]
         else:
             if sample_pct == "log":
                 count_expr = ast.Call(
@@ -548,7 +605,11 @@ def generate_type_check_ast(
                     orelse=[islice_loop],
                 )
 
-        return [outer_type_guard, content_check]
+        return [outer_type_guard] + (
+            content_check
+            if isinstance(content_check, list)
+            else [content_check]
+        )
 
     if k is dict:
         k_exp, v_exp = v
@@ -682,9 +743,21 @@ def generate_type_check_ast(
                 fn_globals[f"{prefix}_v_set"] = v_set
 
                 for_loop = ast.For(
-                    target=ast.Name(id=k_var_id, ctx=ast.Store()),
-                    iter=var_expr,
-                    body=dict_loop_body,
+                    target=ast.Tuple(
+                        elts=[
+                            ast.Name(id=k_var_id, ctx=ast.Store()),
+                            ast.Name(id=v_var_id, ctx=ast.Store()),
+                        ],
+                        ctx=ast.Store(),
+                    ),
+                    iter=ast.Call(
+                        func=ast.Attribute(
+                            value=var_expr, attr="items", ctx=ast.Load()
+                        ),
+                        args=[],
+                        keywords=[],
+                    ),
+                    body=k_checks + v_checks,
                     orelse=[],
                 )
                 set_check = ast.If(
@@ -693,69 +766,61 @@ def generate_type_check_ast(
                         operand=ast.BoolOp(
                             op=ast.And(),
                             values=[
-                                ast.Compare(
-                                    left=ast.Call(
-                                        func=ast.Name(id="set", ctx=ast.Load()),
-                                        args=[
-                                            ast.Call(
-                                                func=ast.Name(
-                                                    id="map", ctx=ast.Load()
-                                                ),
-                                                args=[
-                                                    ast.Name(
-                                                        id="type",
-                                                        ctx=ast.Load(),
-                                                    ),
-                                                    var_expr,
-                                                ],
-                                                keywords=[],
-                                            )
-                                        ],
-                                        keywords=[],
+                                ast.Call(
+                                    func=ast.Attribute(
+                                        value=ast.Name(
+                                            id=f"{prefix}_k_set", ctx=ast.Load()
+                                        ),
+                                        attr="issuperset",
+                                        ctx=ast.Load(),
                                     ),
-                                    ops=[ast.LtE()],
-                                    comparators=[
-                                        ast.Name(
-                                            id=f"{prefix}_k_set",
-                                            ctx=ast.Load(),
+                                    args=[
+                                        ast.Call(
+                                            func=ast.Name(
+                                                id="map", ctx=ast.Load()
+                                            ),
+                                            args=[
+                                                ast.Name(
+                                                    id="type", ctx=ast.Load()
+                                                ),
+                                                var_expr,
+                                            ],
+                                            keywords=[],
                                         )
                                     ],
+                                    keywords=[],
                                 ),
-                                ast.Compare(
-                                    left=ast.Call(
-                                        func=ast.Name(id="set", ctx=ast.Load()),
-                                        args=[
-                                            ast.Call(
-                                                func=ast.Name(
-                                                    id="map", ctx=ast.Load()
+                                ast.Call(
+                                    func=ast.Attribute(
+                                        value=ast.Name(
+                                            id=f"{prefix}_v_set", ctx=ast.Load()
+                                        ),
+                                        attr="issuperset",
+                                        ctx=ast.Load(),
+                                    ),
+                                    args=[
+                                        ast.Call(
+                                            func=ast.Name(
+                                                id="map", ctx=ast.Load()
+                                            ),
+                                            args=[
+                                                ast.Name(
+                                                    id="type", ctx=ast.Load()
                                                 ),
-                                                args=[
-                                                    ast.Name(
-                                                        id="type",
+                                                ast.Call(
+                                                    func=ast.Attribute(
+                                                        value=var_expr,
+                                                        attr="values",
                                                         ctx=ast.Load(),
                                                     ),
-                                                    ast.Call(
-                                                        func=ast.Attribute(
-                                                            value=var_expr,
-                                                            attr="values",
-                                                            ctx=ast.Load(),
-                                                        ),
-                                                        args=[],
-                                                        keywords=[],
-                                                    ),
-                                                ],
-                                                keywords=[],
-                                            )
-                                        ],
-                                        keywords=[],
-                                    ),
-                                    ops=[ast.LtE()],
-                                    comparators=[
-                                        ast.Name(
-                                            id=f"{prefix}_v_set",
-                                            ctx=ast.Load(),
+                                                    args=[],
+                                                    keywords=[],
+                                                ),
+                                            ],
+                                            keywords=[],
                                         )
                                     ],
+                                    keywords=[],
                                 ),
                             ],
                         ),
@@ -992,21 +1057,70 @@ def generate_type_check_ast(
                 )
             elif sample_pct == 100:
                 if elem_is_simple:
-                    elem_set = frozenset(sub_exp.keys())
-                    fn_globals[f"{prefix}_elem_set"] = elem_set
+                    if len(sub_exp) == 1:
+                        sub_checks_fast = generate_type_check_ast(
+                            loop_var_expr,
+                            sub_exp,
+                            loop_fail,
+                            fn_globals,
+                            f"{prefix}_el",
+                            sample_pct,
+                            is_loop=True,
+                            use_local_t0=True,
+                        )
+                        assign_locs = [
+                            ast.Assign(
+                                targets=[
+                                    ast.Name(
+                                        id=f"__loc_{prefix}_el_t0",
+                                        ctx=ast.Store(),
+                                    )
+                                ],
+                                value=ast.Name(
+                                    id=f"{prefix}_el_t0", ctx=ast.Load()
+                                ),
+                            ),
+                            ast.Assign(
+                                targets=[
+                                    ast.Name(
+                                        id=f"__loc_{prefix}_el_types",
+                                        ctx=ast.Store(),
+                                    )
+                                ],
+                                value=ast.Name(
+                                    id=f"{prefix}_el_types", ctx=ast.Load()
+                                ),
+                            ),
+                        ]
+                        for_loop = ast.For(
+                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                            iter=var_expr,
+                            body=sub_checks_fast,
+                            orelse=[],
+                        )
+                        content_check = assign_locs + [for_loop]
+                    else:
+                        elem_set = frozenset(sub_exp.keys())
+                        fn_globals[f"{prefix}_elem_set"] = elem_set
 
-                    for_loop = ast.For(
-                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                        iter=var_expr,
-                        body=sub_checks,
-                        orelse=[],
-                    )
-                    set_check = ast.If(
-                        test=ast.UnaryOp(
-                            op=ast.Not(),
-                            operand=ast.Compare(
-                                left=ast.Call(
-                                    func=ast.Name(id="set", ctx=ast.Load()),
+                        for_loop = ast.For(
+                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                            iter=var_expr,
+                            body=sub_checks,
+                            orelse=[],
+                        )
+                        set_check = ast.If(
+                            test=ast.UnaryOp(
+                                op=ast.Not(),
+                                operand=ast.Call(
+                                    func=ast.Attribute(
+                                        value=ast.Name(
+                                            id=f"{prefix}_elem_set",
+                                            ctx=ast.Load(),
+                                        ),
+                                        attr="issuperset",
+                                        ctx=ast.Load(),
+                                    ),
                                     args=[
                                         ast.Call(
                                             func=ast.Name(
@@ -1023,38 +1137,34 @@ def generate_type_check_ast(
                                     ],
                                     keywords=[],
                                 ),
-                                ops=[ast.LtE()],
-                                comparators=[
-                                    ast.Name(
-                                        id=f"{prefix}_elem_set",
-                                        ctx=ast.Load(),
-                                    )
-                                ],
                             ),
-                        ),
-                        body=[fail_stmt],
-                        orelse=[],
-                    )
-                    content_check = ast.If(
-                        test=ast.Compare(
-                            left=ast.Call(
-                                func=ast.Name(id="len", ctx=ast.Load()),
-                                args=[var_expr],
-                                keywords=[],
-                            ),
-                            ops=[ast.LtE()],
-                            comparators=[ast.Constant(value=50)],
-                        ),
-                        body=[for_loop],
-                        orelse=[set_check],
-                    )
+                            body=[fail_stmt],
+                            orelse=[],
+                        )
+                        content_check = [
+                            ast.If(
+                                test=ast.Compare(
+                                    left=ast.Call(
+                                        func=ast.Name(id="len", ctx=ast.Load()),
+                                        args=[var_expr],
+                                        keywords=[],
+                                    ),
+                                    ops=[ast.LtE()],
+                                    comparators=[ast.Constant(value=50)],
+                                ),
+                                body=[for_loop],
+                                orelse=[set_check],
+                            )
+                        ]
                 else:
-                    content_check = ast.For(
-                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                        iter=var_expr,
-                        body=sub_checks,
-                        orelse=[],
-                    )
+                    content_check = [
+                        ast.For(
+                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                            iter=var_expr,
+                            body=sub_checks,
+                            orelse=[],
+                        )
+                    ]
             else:
                 if sample_pct == "log":
                     count_expr = ast.Call(
@@ -1065,6 +1175,31 @@ def generate_type_check_ast(
                                 args=[var_expr],
                                 keywords=[],
                             )
+                        ],
+                        keywords=[],
+                    )
+                elif sample_pct == "sqrt":
+                    count_expr = ast.Call(
+                        func=ast.Name(id="max", ctx=ast.Load()),
+                        args=[
+                            ast.Constant(value=1),
+                            ast.Call(
+                                func=ast.Name(id="int", ctx=ast.Load()),
+                                args=[
+                                    ast.BinOp(
+                                        left=ast.Call(
+                                            func=ast.Name(
+                                                id="len", ctx=ast.Load()
+                                            ),
+                                            args=[var_expr],
+                                            keywords=[],
+                                        ),
+                                        op=ast.Pow(),
+                                        right=ast.Constant(value=0.5),
+                                    )
+                                ],
+                                keywords=[],
+                            ),
                         ],
                         keywords=[],
                     )
@@ -1099,12 +1234,7 @@ def generate_type_check_ast(
                         keywords=[],
                     )
 
-                short_loop = ast.For(
-                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                    iter=var_expr,
-                    body=sub_checks,
-                    orelse=[],
-                )
+                idx_var_id = f"{prefix}_idx"
                 assign_0 = ast.Assign(
                     targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
                     value=ast.Subscript(
@@ -1121,7 +1251,12 @@ def generate_type_check_ast(
                         ctx=ast.Load(),
                     ),
                 )
-                idx_var_id = f"{prefix}_idx"
+                short_loop = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks,
+                    orelse=[],
+                )
                 step_expr = ast.Call(
                     func=ast.Name(id="max", ctx=ast.Load()),
                     args=[
@@ -1206,7 +1341,11 @@ def generate_type_check_ast(
                     orelse=long_check,
                 )
 
-            return [outer_type_guard, content_check]
+            return [outer_type_guard] + (
+                content_check
+                if isinstance(content_check, list)
+                else [content_check]
+            )
 
         elif (
             isinstance(v, tuple)
@@ -1271,8 +1410,13 @@ def generate_type_check_ast(
 
 def build_specialized_call(
     fn,
-    param_names,
+    posonly_names,
+    pos_names,
+    kwonly_names,
+    vararg_name,
+    kwarg_name,
     defaults,
+    kwdefaults,
     param_exps,
     check_type_fn,
     sample_pct,
@@ -1286,7 +1430,7 @@ def build_specialized_call(
 ):
     """
     Generates a specialized __call__ method using dynamic AST compilation.
-    Supports any arity N >= 0 with any scalar or nested container parameters.
+    Supports positional, positional-only, keyword-only, and variadic (*args, **kwargs) parameters.
     Zero eval() or exec().
     """
     fn_globals = {
@@ -1316,12 +1460,32 @@ def build_specialized_call(
         "_get_sample_keys": get_sample_keys_fn,
     }
 
-    args = [ast.arg(arg="__enf_self__")] + [
-        ast.arg(arg=name) for name in param_names
-    ]
+    if posonly_names:
+        posonlyargs = [ast.arg(arg="__enf_self__")] + [
+            ast.arg(arg=name) for name in posonly_names
+        ]
+        args = [ast.arg(arg=name) for name in pos_names]
+    else:
+        posonlyargs = []
+        args = [ast.arg(arg="__enf_self__")] + [
+            ast.arg(arg=name) for name in pos_names
+        ]
+
+    kwonlyargs = [ast.arg(arg=name) for name in kwonly_names]
+    kw_defaults = [None] * len(kwonly_names)
+    vararg = ast.arg(arg=vararg_name) if vararg_name else None
+    kwarg = ast.arg(arg=kwarg_name) if kwarg_name else None
+
     body = []
 
-    for i, (name, exp) in enumerate(zip(param_names, param_exps)):
+    check_params = list(posonly_names) + list(pos_names) + list(kwonly_names)
+    if vararg_name and vararg_name in param_exps:
+        check_params.append(vararg_name)
+    if kwarg_name and kwarg_name in param_exps:
+        check_params.append(kwarg_name)
+
+    for i, name in enumerate(check_params):
+        exp = param_exps.get(name)
         if exp is None:
             continue
 
@@ -1350,10 +1514,85 @@ def build_specialized_call(
         )
         body.extend(param_checks)
 
-    call_args = [ast.Name(id=name, ctx=ast.Load()) for name in param_names]
-    fn_call = ast.Call(
-        func=ast.Name(id="_fn", ctx=ast.Load()), args=call_args, keywords=[]
-    )
+    call_args_fixed = [
+        ast.Name(id=name, ctx=ast.Load())
+        for name in list(posonly_names) + list(pos_names)
+    ]
+    call_kw_fixed = [
+        ast.keyword(arg=name, value=ast.Name(id=name, ctx=ast.Load()))
+        for name in kwonly_names
+    ]
+
+    if not vararg_name and not kwarg_name:
+        fn_call = ast.Call(
+            func=ast.Name(id="_fn", ctx=ast.Load()),
+            args=call_args_fixed,
+            keywords=call_kw_fixed,
+        )
+    elif vararg_name and not kwarg_name:
+        call_args_starred = list(call_args_fixed) + [
+            ast.Starred(
+                value=ast.Name(id=vararg_name, ctx=ast.Load()), ctx=ast.Load()
+            )
+        ]
+        fn_call = ast.IfExp(
+            test=ast.Name(id=vararg_name, ctx=ast.Load()),
+            body=ast.Call(
+                func=ast.Name(id="_fn", ctx=ast.Load()),
+                args=call_args_starred,
+                keywords=call_kw_fixed,
+            ),
+            orelse=ast.Call(
+                func=ast.Name(id="_fn", ctx=ast.Load()),
+                args=call_args_fixed,
+                keywords=call_kw_fixed,
+            ),
+        )
+    elif kwarg_name and not vararg_name:
+        call_kw_starred = list(call_kw_fixed) + [
+            ast.keyword(arg=None, value=ast.Name(id=kwarg_name, ctx=ast.Load()))
+        ]
+        fn_call = ast.IfExp(
+            test=ast.Name(id=kwarg_name, ctx=ast.Load()),
+            body=ast.Call(
+                func=ast.Name(id="_fn", ctx=ast.Load()),
+                args=call_args_fixed,
+                keywords=call_kw_starred,
+            ),
+            orelse=ast.Call(
+                func=ast.Name(id="_fn", ctx=ast.Load()),
+                args=call_args_fixed,
+                keywords=call_kw_fixed,
+            ),
+        )
+    else:
+        call_args_starred = list(call_args_fixed) + [
+            ast.Starred(
+                value=ast.Name(id=vararg_name, ctx=ast.Load()), ctx=ast.Load()
+            )
+        ]
+        call_kw_starred = list(call_kw_fixed) + [
+            ast.keyword(arg=None, value=ast.Name(id=kwarg_name, ctx=ast.Load()))
+        ]
+        fn_call = ast.IfExp(
+            test=ast.BoolOp(
+                op=ast.Or(),
+                values=[
+                    ast.Name(id=vararg_name, ctx=ast.Load()),
+                    ast.Name(id=kwarg_name, ctx=ast.Load()),
+                ],
+            ),
+            body=ast.Call(
+                func=ast.Name(id="_fn", ctx=ast.Load()),
+                args=call_args_starred,
+                keywords=call_kw_starred,
+            ),
+            orelse=ast.Call(
+                func=ast.Name(id="_fn", ctx=ast.Load()),
+                args=call_args_fixed,
+                keywords=call_kw_fixed,
+            ),
+        )
 
     if ret_mode == 0:
         body.append(ast.Return(value=fn_call))
@@ -1465,10 +1704,12 @@ def build_specialized_call(
     fn_def = ast.FunctionDef(
         name="__call__",
         args=ast.arguments(
-            posonlyargs=[],
+            posonlyargs=posonlyargs,
             args=args,
-            kwonlyargs=[],
-            kw_defaults=[],
+            vararg=vararg,
+            kwonlyargs=kwonlyargs,
+            kw_defaults=kw_defaults,
+            kwarg=kwarg,
             defaults=[],
         ),
         body=body,
@@ -1483,6 +1724,10 @@ def build_specialized_call(
         if isinstance(c, types.CodeType) and c.co_name == "__call__"
     ][0]
 
-    return types.FunctionType(
+    call_method = types.FunctionType(
         func_code, fn_globals, name="__call__", argdefs=defaults
     )
+    if kwdefaults:
+        call_method.__kwdefaults__ = kwdefaults
+
+    return call_method

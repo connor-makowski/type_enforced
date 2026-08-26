@@ -39,6 +39,8 @@ dev = [
     "pydantic==2.13.4",
     "beartype==0.22.9",
     "typeguard==4.6.0",
+    "msgspec>=0.21.1",
+    "cattrs>=26.1.0",
 ]
 
 [project.urls]
