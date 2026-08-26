@@ -78,9 +78,15 @@ Or using `uv`:
 uv add type_enforced
 ```
 
-### Requirements
+### Requirements & Build Options
 - **Python 3.11+**
-- Zero external runtime dependencies
+- **Zero Runtime Dependencies**: Self contained package with zero external dependencies.
+- **C++ Acceleration**: If available, `type_enforced` leverages high-performance C++ validators via `nanobind`. 
+- **Pure Python Fallback**: If compiling from source on a system without a C++ compiler, `type_enforced` automatically falls back to a pure-Python engine.
+- **Pure Python Installation**: To explicitly skip C++ compilation when installing from source:
+  ```bash
+  pip install type_enforced --no-binary type_enforced -Ccmake.define.SKIP_CPP_BUILD=ON
+  ```
 
 <details>
 <summary>Legacy Python Compatibility</summary>
@@ -416,8 +422,10 @@ uv sync --extra dev
 |:---|:---|
 | `uv run pytest` | Run tests in local environment |
 | `uv run pytest -v` | Run tests with verbose output |
-| `uv run nox` | Run test suite across Python 3.11, 3.12, 3.13, 3.14 |
+| `uv run nox` | Run test suite across Python 3.11–3.14 (C++ and pure-Python fallback) |
 | `uv run nox -s tests-3.14` | Run test suite on a specific Python version |
+| `uv run python utils/minibench.py` | Run quick performance at a glance benchmark |
+| `uv run python utils/cpp_vs_python_bench.py` | Run C++ accelerated vs pure Python benchmark |
 | `uv run python utils/prettify.py` | Auto-format with `autoflake` and `black` (80 col) |
 
 ### Guidelines
