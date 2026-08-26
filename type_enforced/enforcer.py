@@ -554,14 +554,24 @@ class FunctionMethodEnforcer:
         and type annotations to achieve maximum validation performance without code generation.
         """
         code = self.__fn__.__code__
-        argcount = code.co_argcount
-        kwonlyargcount = code.co_kwonlyargcount
+        posonly_count = code.co_posonlyargcount
+        arg_count = code.co_argcount
+        kwonly_count = code.co_kwonlyargcount
         flags = code.co_flags
         has_varargs = bool(flags & __CO_VARARGS__)
         has_varkw = bool(flags & __CO_VARKEYWORDS__)
 
-        if has_varargs or has_varkw or kwonlyargcount > 0:
-            return
+        posonly_names = tuple(self.__fn_varnames__[:posonly_count])
+        pos_names = tuple(self.__fn_varnames__[posonly_count:arg_count])
+        kwonly_names = tuple(
+            self.__fn_varnames__[arg_count : arg_count + kwonly_count]
+        )
+
+        idx = arg_count + kwonly_count
+        vararg_name = self.__fn_varnames__[idx] if has_varargs else None
+        if has_varargs:
+            idx += 1
+        kwarg_name = self.__fn_varnames__[idx] if has_varkw else None
 
         ret_mode = 0
         ret_t0 = None
@@ -585,23 +595,39 @@ class FunctionMethodEnforcer:
             else:
                 return
 
-        defaults = self.__fn_defaults_tuple__
-        check_fn = FunctionMethodEnforcer.__check_type__
-
-        param_names = []
-        param_exps = []
-        for i in range(argcount):
-            pn = self.__fn_varnames__[i]
+        param_exps = {}
+        for pn in posonly_names + pos_names + kwonly_names:
             exp = self.__checkable_types__.get(pn)
             if not can_specialize_type(exp):
                 return
-            param_names.append(pn)
-            param_exps.append(exp)
+            if exp is not None:
+                param_exps[pn] = exp
+
+        if vararg_name is not None and vararg_name in self.__checkable_types__:
+            raw_exp = self.__checkable_types__[vararg_name]
+            if not can_specialize_type(raw_exp):
+                return
+            param_exps[vararg_name] = {tuple: (raw_exp, True)}
+
+        if kwarg_name is not None and kwarg_name in self.__checkable_types__:
+            raw_exp = self.__checkable_types__[kwarg_name]
+            if not can_specialize_type(raw_exp):
+                return
+            param_exps[kwarg_name] = {dict: ({str: None}, raw_exp)}
+
+        defaults = self.__fn_defaults_tuple__
+        kwdefaults = getattr(self.__fn__, "__kwdefaults__", None)
+        check_fn = FunctionMethodEnforcer.__check_type__
 
         call_method = build_specialized_call(
             self.__fn__,
-            tuple(param_names),
+            posonly_names,
+            pos_names,
+            kwonly_names,
+            vararg_name,
+            kwarg_name,
             defaults,
+            kwdefaults,
             param_exps,
             check_fn,
             self.__iterable_sample_pct__,
@@ -716,8 +742,7 @@ class FunctionMethodEnforcer:
                             return False
                     return True
             else:
-                if set(map(type, obj)) <= flat_set:
-                    return True
+                return flat_set.issuperset(map(type, obj))
         return False
 
     def __check_type__(self, obj, expected, key):

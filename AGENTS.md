@@ -17,21 +17,28 @@ It supports functions, methods, classes, dataclasses, and modules. It has zero e
 
 ```
 type_enforced/
-  __init__.py        # Package exports (Enforcer, FunctionMethodEnforcer, ModuleEnforcer) + README as docstring
+  __init__.py        # Package exports (Enforcer, FunctionMethodEnforcer, ModuleEnforcer, has_cpp) + README as docstring
   enforcer.py        # Core: Enforcer decorator, FunctionMethodEnforcer class
   module.py          # Module-level enforcement: ModuleEnforcer class/function
+  specialized.py     # AST code generation for specialized validators
   utils.py           # Utilities: Constraint, GenericConstraint, Partial, DeepMerge, WithSubclasses
+  cpp/
+    bindings/        # nanobind module entry point (type_enforced_bindings.cpp)
+    src/             # C++ validators (validators.cpp, validators.hpp)
 test/
-  test_fn_*.py       # Function/method enforcement tests (23 files)
-  test_class_*.py    # Class enforcement tests (15 files)
+  test_fn_*.py       # Function/method enforcement tests (31 files)
+  test_class_*.py    # Class enforcement tests (17 files)
   test_class_12_utils/ # Helper for delayed binding test
   test_module_*.py   # Module-level enforcement tests (3 files)
   test_module_*_utils/ # Helpers for module enforcement tests
 utils/
   benchmark.py       # Performance benchmarks vs pydantic, beartype, typeguard
+  minibench.py       # Quick performance-at-a-glance generator
+  cpp_vs_python_bench.py # Side-by-side C++ vs Pure Python benchmark
   prettify.py        # autoflake (unused imports) + black (line-length=80)
   docs.py            # Generate pdoc HTML docs — DO NOT RUN (release only)
-noxfile.py           # nox sessions: runs pytest across Python 3.11–3.14
+CMakeLists.txt       # CMake build configuration with pure Python fallback
+noxfile.py           # nox sessions: runs pytest across Python 3.11–3.14 (C++ and no-C++)
 pyproject.toml       # project metadata, black + pytest config, dependencies
 setup.cfg            # version mirrored here (both must match pyproject.toml on release)
 publish.sh           # PyPI publishing script — DO NOT RUN
@@ -57,7 +64,15 @@ publish.sh           # PyPI publishing script — DO NOT RUN
 
 **`enforcer.py`** — the heart of the library:
 - `Enforcer` — public decorator (wrapped with `Partial` to allow `@Enforcer` or `@Enforcer()`). When applied to a class, recursively wraps all annotated methods. When applied to a function/method, returns a `FunctionMethodEnforcer`.
-- `FunctionMethodEnforcer` — wraps a single callable. Lazily parses type hints on first call, validates all annotated inputs and the return value.
+- `FunctionMethodEnforcer` — wraps a single callable. Lazily parses type hints on first call, compiles specialized AST validator routines or dispatches to C++ extension.
+
+**`specialized.py`** — dynamic AST compilation:
+- Generates high-performance Python AST validator functions for annotated types, inlining fast type checks and calling C++ extension validators when available.
+
+**`cpp/`** — optional C++ acceleration:
+- `nanobind`-based extension (`type_enforced.cpp`) accelerating collection validation (`list`, `dict`, `set`, `tuple`, nested collections).
+- Falls back automatically to pure Python AST compilation when no C++ compiler is present or when built with `SKIP_CPP_BUILD=ON`.
+- `has_cpp()` — returns `True` if compiled C++ acceleration is active, `False` otherwise.
 
 **`module.py`** — module enforcement:
 - `ModuleEnforcer` — wrapped with `Partial`. Enforces all functions and classes in a module (top-of-file lazy proxy, bottom-of-file immediate, or on imported module). Supports `submodules=True` (default) for package trees while isolating external imports.

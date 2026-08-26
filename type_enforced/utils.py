@@ -320,3 +320,21 @@ def WithSubclasses(cls):
 
 
 iterable_types = frozenset({list, tuple, set, dict})
+
+
+def has_cpp():
+    try:
+        from type_enforced.cpp import validate_list_single  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def cpp_check():
+    try:
+        from type_enforced.cpp import validate_list_single  # noqa: F401
+
+        print("Using C++ & Python implementation of type_enforced.")
+    except ImportError:
+        print("Using Pure Python implementation of type_enforced.")
