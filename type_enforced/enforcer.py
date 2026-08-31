@@ -745,6 +745,163 @@ class FunctionMethodEnforcer:
                 return flat_set.issuperset(map(type, obj))
         return False
 
+    def __is_valid_item__(self, item, expected):
+        """
+        Check whether item satisfies expected type dict without raising exceptions.
+        """
+        if item is None and __NoneType__ in expected:
+            return True
+        extra = expected.get("__extra__")
+
+        if isinstance(item, type):
+            obj_type = Type[item]
+            is_present = obj_type in expected or type in expected
+        else:
+            obj_type = type(item)
+            expected_id = id(expected)
+            keys_tuple = self.__keys_tuples__.get(expected_id)
+            if keys_tuple is None:
+                keys_tuple = tuple(
+                    k
+                    for k in expected.keys()
+                    if k != "__extra__" and isinstance(k, type)
+                )
+                self.__keys_tuples__[expected_id] = keys_tuple
+            is_present = obj_type in expected or (
+                bool(keys_tuple) and isinstance(item, keys_tuple)
+            )
+
+        if not is_present:
+            literal = extra.get("__literal__", ()) if extra is not None else ()
+            if literal and item in literal:
+                pass
+            else:
+                return False
+
+        if obj_type in iterable_types:
+            subtype = expected.get(obj_type, None)
+            if subtype is not None:
+                if isinstance(subtype, list):
+                    if not any(
+                        self.__validate_collection_variant__(item, obj_type, v)
+                        for v in subtype
+                    ):
+                        return False
+                else:
+                    if not self.__validate_collection_variant__(
+                        item, obj_type, subtype
+                    ):
+                        return False
+
+        if extra is not None:
+            constraints = extra.get("__constraints__", ())
+            for constraint in constraints:
+                if constraint.__validate__("", item) is not True:
+                    return False
+        return True
+
+    def __validate_collection_variant__(self, obj, obj_type, variant):
+        """
+        Check whether an iterable object matches a specific collection schema variant.
+        """
+        if obj_type == list:
+            if self.__iterable_sample_pct__ != 100:
+                for idx in self.__get_sample_indices__(len(obj)):
+                    if not self.__is_valid_item__(obj[idx], variant):
+                        return False
+                return True
+            if self.__quick_check__(variant, obj):
+                return True
+            for item in obj:
+                if not self.__is_valid_item__(item, variant):
+                    return False
+            return True
+
+        elif obj_type == dict:
+            key_type, val_type = variant
+            if self.__iterable_sample_pct__ != 100:
+                sampled_keys = self.__get_sample_keys__(obj)
+                if not isinstance(sampled_keys, list):
+                    sampled_keys = list(sampled_keys)
+                for dk in sampled_keys:
+                    if not self.__is_valid_item__(dk, key_type):
+                        return False
+                    if not self.__is_valid_item__(obj[dk], val_type):
+                        return False
+                return True
+            for dk, dv in obj.items():
+                if not self.__is_valid_item__(dk, key_type):
+                    return False
+                if not self.__is_valid_item__(dv, val_type):
+                    return False
+            return True
+
+        elif obj_type == tuple:
+            expected_args, is_ellipsis = variant
+            if is_ellipsis:
+                if self.__iterable_sample_pct__ != 100:
+                    for idx in self.__get_sample_indices__(len(obj)):
+                        if not self.__is_valid_item__(obj[idx], expected_args):
+                            return False
+                    return True
+                if self.__quick_check__(expected_args, obj):
+                    return True
+                for item in obj:
+                    if not self.__is_valid_item__(item, expected_args):
+                        return False
+                return True
+            else:
+                if len(obj) != len(expected_args):
+                    return False
+                for idx in range(len(expected_args)):
+                    if not self.__is_valid_item__(obj[idx], expected_args[idx]):
+                        return False
+                return True
+
+        elif obj_type == set:
+            if self.__iterable_sample_pct__ != 100:
+                if self.__iterable_sample_pct__ == "first":
+                    if len(obj) > 0:
+                        return self.__is_valid_item__(next(iter(obj)), variant)
+                    return True
+                elif self.__iterable_sample_pct__ == "last":
+                    if len(obj) > 0:
+                        item = None
+                        for item in obj:
+                            pass
+                        return self.__is_valid_item__(item, variant)
+                    return True
+                elif self.__iterable_sample_pct__ == 0:
+                    if len(obj) > 0:
+                        item = next(
+                            islice(obj, random.randrange(len(obj)), None)
+                        )
+                        return self.__is_valid_item__(item, variant)
+                    return True
+                elif self.__iterable_sample_pct__ == "log":
+                    count = max(1, (len(obj) - 1).bit_length())
+                    for item in islice(obj, count):
+                        if not self.__is_valid_item__(item, variant):
+                            return False
+                    return True
+                else:
+                    count = max(
+                        1,
+                        (len(obj) * self.__iterable_sample_pct__ + 99) // 100,
+                    )
+                    for item in islice(obj, count):
+                        if not self.__is_valid_item__(item, variant):
+                            return False
+                    return True
+            if self.__quick_check__(variant, obj):
+                return True
+            for item in obj:
+                if not self.__is_valid_item__(item, variant):
+                    return False
+            return True
+
+        return False
+
     def __check_type__(self, obj, expected, key):
         """
         Raises an exception if the type of a passed `obj` (parameter) is not in the list of supplied `acceptable_types` for the argument.
@@ -802,6 +959,23 @@ class FunctionMethodEnforcer:
             subtype = expected.get(obj_type, None)
             if subtype is None:
                 pass
+            elif isinstance(subtype, list):
+                # Multi-variant collection union: obj must match at least one variant
+                if not any(
+                    self.__validate_collection_variant__(obj, obj_type, v)
+                    for v in subtype
+                ):
+                    if isinstance(key, tuple):
+
+                        def flatten_key(k):
+                            if isinstance(k, tuple):
+                                return "".join(flatten_key(x) for x in k)
+                            return str(k)
+
+                        key = flatten_key(key)
+                    self.__exception__(
+                        f"Type mismatch for typed variable `{key}`. Value `{obj}` did not match any of the expected `{obj_type.__name__}` variants."
+                    )
             # Recursive validation
             elif obj_type == list:
                 if self.__iterable_sample_pct__ != 100:

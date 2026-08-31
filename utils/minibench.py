@@ -67,6 +67,13 @@ CASES = [
         [1, "two", 3] * 3333,
     ),
     (
+        "`list[int] | list[str]`",
+        "1 000 items",
+        Union[List[int], List[str]],
+        list_1000,
+        [1, "two", 3] * 333,
+    ),
+    (
         "`dict[str, int]`",
         "1 000 keys",
         Dict[str, int],

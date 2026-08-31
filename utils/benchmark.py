@@ -72,6 +72,18 @@ try:
             ten_thousand_item_list,
             [1, "two", 3, 4, 5] * 2000,
         ),
+        "list[int] | list[str] (5 items)": (
+            [1, 2, 3, 4, 5],
+            [1, "two", 3, 4, 5],
+        ),
+        "list[int] | list[str] (1000 items)": (
+            list(range(1000)),
+            [1, "two", 3, 4, 5] * 200,
+        ),
+        "list[int] | list[str] (10000 items)": (
+            list(range(10000)),
+            [1, "two", 3, 4, 5] * 2000,
+        ),
         "list[dict[str,int]] (5 x 5 items)": (
             [{f"key{i}": i for i in range(5)} for _ in range(5)],
             [{"k1": 1, "k2": "two", "k3": 3}],
@@ -164,6 +176,9 @@ try:
         "list[Union[int,float]] (5 items)": List[Union[int, float]],
         "list[Union[int,float]] (1000 items)": List[Union[int, float]],
         "list[Union[int,float]] (10000 items)": List[Union[int, float]],
+        "list[int] | list[str] (5 items)": Union[List[int], List[str]],
+        "list[int] | list[str] (1000 items)": Union[List[int], List[str]],
+        "list[int] | list[str] (10000 items)": Union[List[int], List[str]],
         "list[dict[str,int]] (5 x 5 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 10 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 100 items)": List[Dict[str, int]],

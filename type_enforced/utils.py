@@ -257,9 +257,58 @@ class Constraint(GenericConstraint):
             )
 
 
+iterable_types = frozenset({list, tuple, set, dict})
+
+
+def merge_type_dicts(target, source):
+    """Merge source type dict into target in-place.
+
+    Preserves multiple schema variants for collection types (list, tuple, dict, set)
+    when distinct collection schemas are united.
+    """
+    for key, value in source.items():
+        if key not in target:
+            target[key] = value
+        elif key == "__extra__":
+            if isinstance(target[key], dict) and isinstance(value, dict):
+                for ek, ev in value.items():
+                    if ek not in target[key]:
+                        target[key][ek] = ev
+                    elif isinstance(target[key][ek], list) and isinstance(
+                        ev, list
+                    ):
+                        target[key][ek] = list(
+                            dict.fromkeys(target[key][ek] + ev)
+                        )
+        elif target[key] == value:
+            continue
+        elif key in iterable_types:
+            if isinstance(target[key], list):
+                if isinstance(value, list):
+                    for v in value:
+                        if v not in target[key]:
+                            target[key].append(v)
+                else:
+                    if value not in target[key]:
+                        target[key].append(value)
+            else:
+                if isinstance(value, list):
+                    new_list = [target[key]]
+                    for v in value:
+                        if v not in new_list:
+                            new_list.append(v)
+                    target[key] = new_list
+                else:
+                    target[key] = [target[key], value]
+        elif isinstance(target[key], dict) and isinstance(value, dict):
+            merge_type_dicts(target[key], value)
+        else:
+            target[key] = value
+
+
 def DeepMerge(original: dict, update: dict):
     """
-    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.
+    Merge two dictionaries together, recursively merging any nested dictionaries and preserving collection variant schemas.
 
     Required Arguments:
 
@@ -271,39 +320,8 @@ def DeepMerge(original: dict, update: dict):
         - Type: dict
     """
     original = copy.deepcopy(original)
-    for key, value in update.items():
-        if (
-            key in original
-            and isinstance(original[key], dict)
-            and isinstance(value, dict)
-        ):
-            original[key] = DeepMerge(original[key], value)
-        elif (
-            key in original
-            and isinstance(original[key], list)
-            and isinstance(value, list)
-        ):
-            original[key].extend(value)
-        else:
-            original[key] = value
+    merge_type_dicts(original, update)
     return original
-
-
-def merge_type_dicts(target, source):
-    """Merge source type dict into target in-place.
-
-    Like DeepMerge but without copy.deepcopy
-    Safe because both dicts are freshly created during type parsing.
-    """
-    for key, value in source.items():
-        if key not in target:
-            target[key] = value
-        elif isinstance(target[key], dict) and isinstance(value, dict):
-            merge_type_dicts(target[key], value)
-        elif isinstance(target[key], list) and isinstance(value, list):
-            target[key].extend(value)
-        else:
-            target[key] = value
 
 
 def WithSubclasses(cls):
@@ -317,9 +335,6 @@ def WithSubclasses(cls):
     """
     # TODO: Remove this in the next major version of type_enforced
     return cls
-
-
-iterable_types = frozenset({list, tuple, set, dict})
 
 
 def has_cpp():
