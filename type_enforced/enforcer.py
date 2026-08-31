@@ -1080,3 +1080,70 @@ def Enforcer(
         raise Exception(
             "Enforcer can only be used on classes, methods, or functions."
         )
+
+
+FAST_SAMPLE_OPTIONS = frozenset({"first", "last", "log", 0})
+
+
+@Partial
+def FastEnforcer(
+    clsFnMethod,
+    enabled=True,
+    strict=True,
+    clean_traceback=True,
+    iterable_sample_pct="first",
+    only_typed=False,
+):
+    """
+    A fast wrapper to enforce types within a function, method, or class with fast sampling by default.
+
+    Validates scalar types strictly and samples collections in constant or logarithmic time (checking the first item by default).
+
+    Allowed iterable_sample_pct values: 'first', 'last', 'log', 0.
+
+    Requires:
+
+    - `clsFnMethod`:
+        - What: The class, function, or method that should have types enforced.
+        - Type: function | method | class
+
+    Optional:
+
+    - `enabled`:
+        - What: A boolean to enable or disable the enforcer
+        - Type: bool
+        - Default: True
+    - `strict`:
+        - What: A boolean to enable or disable exceptions. If True, exceptions will be raised when type checking fails. If False, exceptions will not be raised but instead a warning will be printed to the console.
+        - Type: bool
+        - Default: True
+    - `clean_traceback`:
+        - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.
+        - Type: bool
+        - Default: True
+    - `iterable_sample_pct`:
+        - What: Control how many items in iterables are checked during type enforcement.
+            FastEnforcer strictly supports 'first' (first element), 'last' (last element),
+            'log' (sample of log n items), or 0 (1 random sample).
+        - Type: int | str
+        - Default: 'first'
+    - `only_typed`:
+        - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.
+        - Type: bool
+        - Default: False
+    """
+    if iterable_sample_pct not in FAST_SAMPLE_OPTIONS or isinstance(
+        iterable_sample_pct, bool
+    ):
+        raise TypeError(
+            f"Invalid iterable_sample_pct `{iterable_sample_pct}` for FastEnforcer. "
+            f"FastEnforcer only supports fast sampling options: 'first', 'last', 'log', or 0."
+        )
+    return Enforcer(
+        clsFnMethod,
+        enabled=enabled,
+        strict=strict,
+        clean_traceback=clean_traceback,
+        iterable_sample_pct=iterable_sample_pct,
+        only_typed=only_typed,
+    )

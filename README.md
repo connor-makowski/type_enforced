@@ -14,13 +14,36 @@ Fast runtime type enforcement for Python 3.11+ type annotations. Zero dependenci
 ```python
 import type_enforced
 
+# Complete validation (validates all elements in collections)
 @type_enforced.Enforcer
 def greet(name: str, repeat: int = 1) -> str:
     return f"Hello {name}!" * repeat
 
 greet("Alice", 2)       # Returns "Hello Alice!Hello Alice!"
 greet("Alice", "twice")  # Raises TypeError at runtime!
+
+# Fast O(1) sampled validation for collections (validates first item by default)
+@type_enforced.FastEnforcer
+def process_tags(tags: list[str]) -> int:
+    return len(tags)
+
+process_tags(["admin", "user"])  # Returns 2
+process_tags([123, "user"])       # Raises TypeError at runtime!
 ```
+
+Enforce an entire module (complete or fast O(1) sampled validation):
+
+```python
+import my_package
+import type_enforced
+
+# Enforce all functions and classes across my_package
+type_enforced.ModuleEnforcer(my_package)
+
+# Or for fast O(1) sampled validation across my_package:
+# type_enforced.FastModuleEnforcer(my_package)
+```
+
 
 ---
 
@@ -37,7 +60,7 @@ Existing runtime type checkers force an unnecessary compromise:
 - **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
 - **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.
 - **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 3x faster than Beartype.
-- **Pure Python, Zero Dependencies**: A lightweight decorator with zero external packages, C-extensions, or compilation steps. Compatible everywhere Python 3.11+ runs.
+- **Pure Python Supported, Zero Dependencies**: A lightweight decorator with zero external packages and no required C-extensions or compilation steps. Compatible everywhere Python 3.11+ runs.
 - **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
 - **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
 
@@ -58,9 +81,9 @@ Timings are averages of a single validation over 100 runs. ⚠ = checker did not
 | `dict[str, list[int]]` | 100 x 100 items | 0.37 µs ⚠ | 0.60 µs ⚠ | 15.40 µs | 102.70 µs |
 | `list[dict[str, int]]` | 100 x 100 items | 0.25 µs ⚠ | 0.80 µs ⚠ | 54.07 µs | 444.42 µs |
 
-> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced` is **up to 3x faster than Beartype**.
+> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to 3x faster than Beartype**.
 
-> **Full Validation:** When full validation is required, `type_enforced` is **up to 8x faster than Pydantic**. 
+> **Full Validation:** When full validation is required, `type_enforced.Enforcer` is **up to 8x faster than Pydantic**.
 
 ---
 
@@ -103,7 +126,7 @@ For older Python versions, pin to legacy releases:
 
 ### 1. Functions and Methods
 
-Apply `@type_enforced.Enforcer` to any callable. It validates positional arguments, keyword arguments, default parameters, and the return type.
+Apply `@type_enforced.Enforcer` or `@type_enforced.FastEnforcer` to any callable. It validates positional arguments, keyword arguments, default parameters, and the return type.
 
 ```python
 import type_enforced
@@ -120,7 +143,7 @@ process_user("123", ["admin"])
 
 ### 2. Classes and Dataclasses
 
-Decorating a class automatically enforces types on all annotated methods (including `__init__`, `@classmethod`, and `@staticmethod`):
+Decorating a class with `@type_enforced.Enforcer` or `@type_enforced.FastEnforcer` automatically enforces types on all annotated methods (including `__init__`, `@classmethod`, and `@staticmethod`):
 
 ```python
 import type_enforced
@@ -162,7 +185,7 @@ class Worker:
         pass
 ```
 
-### 3. Module-Level Enforcement (`ModuleEnforcer`)
+### 3. Module-Level Enforcement (`ModuleEnforcer` or `FastModuleEnforcer`)
 
 Enforce typing across an entire module in a single line without decorating every function and class individually:
 
@@ -170,7 +193,9 @@ Enforce typing across an entire module in a single line without decorating every
 # Place at the top of your module file (e.g., my_package/core.py)
 import type_enforced
 
-type_enforced.ModuleEnforcer()
+type_enforced.ModuleEnforcer()      # Complete validation across module
+# Or for fast O(1) sampled validation across the module:
+# type_enforced.FastModuleEnforcer()
 
 def add(a: int, b: int) -> int:
     return a + b
@@ -187,7 +212,9 @@ import my_package
 import type_enforced
 
 type_enforced.ModuleEnforcer(my_package)
+# Or: type_enforced.FastModuleEnforcer(my_package)
 ```
+
 
 > **Note:** By default, `submodules=True`, which recursively enforces all sub-packages/sub-modules in the same namespace (e.g. `mypkg.submodule`), while safely ignoring third-party and standard library imports.
 
@@ -317,16 +344,16 @@ render("red")      # Raises TypeError (Constraint `valid_hex_color` not met)
 
 ## Configuration Reference
 
-Both `@Enforcer` and `ModuleEnforcer` accept the following configuration arguments:
+`@Enforcer`, `@FastEnforcer`, `ModuleEnforcer`, and `FastModuleEnforcer` accept the following configuration arguments:
 
 | Parameter | Type | Default | Description |
 |:---|:---:|:---:|:---|
 | `enabled` | `bool` | `True` | Toggle enforcement. Set `False` to bypass type checks (useful for production vs. debugging or per-method overrides). |
 | `strict` | `bool` | `True` | When `True`, raises `TypeError` on mismatch. When `False`, logs a warning to the console instead of raising. |
 | `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so unhandled tracebacks point directly to user code (see note below). |
-| `iterable_sample_pct` | `int or str` | `100` | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'log'` checks a sample of ceil(log2(n)) items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. |
+| `iterable_sample_pct` | `int or str` | `100` (`'first'` for `Fast*`) | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'log'` checks a sample of ceil(log2(n)) items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. Note: `FastEnforcer` and `FastModuleEnforcer` strictly accept `'first'`, `'last'`, `'log'`, or `0`. |
 | `only_typed` | `bool` | `False` | When `True`, raises an exception upon decoration if any parameter or return value lacks a type hint. |
-| `submodules` *(ModuleEnforcer only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |
+| `submodules` *(ModuleEnforcers only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |
 
 ### Configuration Options in Depth
 
@@ -365,22 +392,30 @@ By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a typ
 
 > **Note on Interactive Terminals / REPLs:** In interactive environments (such as the Python REPL / PyREPL, IPython, or Jupyter notebooks), the shell wraps execution in an internal `try...except` loop and catches exceptions before they reach `sys.excepthook`. Consequently, interactive terminal sessions will still display the full traceback.
 
-#### 4. Sampled Validation (`iterable_sample_pct`)
-For large or performance-critical collections, configure sampling instead of full iteration:
-- `'first'`: Validates the first element in O(1) time (runs up to 3x faster than Beartype).
+#### 4. Sampled Validation (`FastEnforcer`, `FastModuleEnforcer`, `iterable_sample_pct`)
+For large or performance-critical collections, use `@type_enforced.FastEnforcer` or configure sampling instead of full iteration:
+- `'first'` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to 3x faster than Beartype).
 - `'last'`: Validates the last element in O(1) time.
 - `'log'`: Validates a sample of ceil(log2(n)) items across the collection.
 - `0`: Validates one element chosen at random.
-- `1..100` (int): Validates the specified percentage of items (rounding up).
+- `1..100` (int, `Enforcer` / `ModuleEnforcer` only): Validates the specified percentage of items (rounding up).
 
 ```python
-@type_enforced.Enforcer(iterable_sample_pct="first")
+# Using FastEnforcer directly:
+@type_enforced.FastEnforcer
 def fast_check(items: list[int]) -> int:
     return len(items)
 
 fast_check([1, 2, 3])           # OK
 fast_check(["bad_first", 2, 3])  # Raises TypeError
+
+# Or configure Enforcer with a specific sample mode:
+@type_enforced.Enforcer(iterable_sample_pct="last")
+def check_last(items: list[int]) -> int:
+    return len(items)
 ```
+
+
 
 ---
 

@@ -17,6 +17,43 @@ def test_readme_quick_start():
     with pytest.raises(TypeError, match="Type mismatch"):
         greet("Alice", "twice")
 
+    @type_enforced.FastEnforcer
+    def process_tags(tags: list[str]) -> int:
+        return len(tags)
+
+    assert process_tags(["admin", "user"]) == 2
+
+    with pytest.raises(TypeError, match="Type mismatch"):
+        process_tags([123, "user"])
+
+    import types
+
+    my_package = types.ModuleType("my_package")
+    exec(
+        """
+def add(a: int, b: int) -> int:
+    return a + b
+""",
+        my_package.__dict__,
+    )
+    type_enforced.ModuleEnforcer(my_package)
+    assert my_package.add(1, 2) == 3
+    with pytest.raises(TypeError, match="Type mismatch"):
+        my_package.add("1", 2)
+
+    my_fast_package = types.ModuleType("my_fast_package")
+    exec(
+        """
+def process(tags: list[str]) -> int:
+    return len(tags)
+""",
+        my_fast_package.__dict__,
+    )
+    type_enforced.FastModuleEnforcer(my_fast_package)
+    assert my_fast_package.process(["admin", "user"]) == 2
+    with pytest.raises(TypeError, match="Type mismatch"):
+        my_fast_package.process([123, "user"])
+
 
 def test_readme_functions_and_methods():
     @type_enforced.Enforcer

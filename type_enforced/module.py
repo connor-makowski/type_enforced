@@ -180,3 +180,81 @@ def ModuleEnforcer(
     module.__dict__["__type_enforced_initialized__"] = False
     module.__class__ = LazyEnforcedModule
     return module
+
+
+FAST_SAMPLE_OPTIONS = frozenset({"first", "last", "log", 0})
+
+
+@__ModuleEnforcer__
+def FastModuleEnforcer(
+    module,
+    enabled=True,
+    strict=True,
+    clean_traceback=True,
+    iterable_sample_pct="first",
+    submodules=True,
+    only_typed=False,
+):
+    """
+    Enforce types across an entire module with fast sampling by default.
+
+    Allowed iterable_sample_pct values: 'first', 'last', 'log', 0.
+
+    Can be called within a module (e.g. `FastModuleEnforcer()`),
+    or directly on an imported module object or module name.
+
+    Requires (or resolves to caller module if omitted):
+
+    - `module`:
+        - What: The module or module name to enforce.
+        - Type: types.ModuleType | str
+
+    Optional:
+
+    - `enabled`:
+        - What: A boolean to enable or disable the enforcer.
+        - Type: bool
+        - Default: True
+    - `strict`:
+        - What: A boolean to enable or disable exceptions. If True, exceptions will be raised
+            when type checking fails. If False, exceptions will not be raised but instead a warning
+            will be printed to the console.
+        - Type: bool
+        - Default: True
+    - `clean_traceback`:
+        - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.
+        - Type: bool
+        - Default: True
+    - `iterable_sample_pct`:
+        - What: Control how many items in iterables are checked during type enforcement.
+            FastModuleEnforcer strictly supports 'first' (first element), 'last' (last element),
+            'log' (sample of log n items), or 0 (1 random sample).
+        - Type: int | str
+        - Default: 'first'
+    - `submodules`:
+        - What: A boolean to enable or disable recursive enforcement on submodules under the
+            same package namespace.
+        - Type: bool
+        - Default: True
+    - `only_typed`:
+        - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.
+        - Type: bool
+        - Default: False
+    """
+    if iterable_sample_pct not in FAST_SAMPLE_OPTIONS or isinstance(
+        iterable_sample_pct, bool
+    ):
+        raise TypeError(
+            f"Invalid iterable_sample_pct `{iterable_sample_pct}` for FastModuleEnforcer. "
+            f"FastModuleEnforcer only supports fast sampling options: 'first', 'last', 'log', or 0."
+        )
+
+    return ModuleEnforcer(
+        module,
+        enabled=enabled,
+        strict=strict,
+        clean_traceback=clean_traceback,
+        iterable_sample_pct=iterable_sample_pct,
+        submodules=submodules,
+        only_typed=only_typed,
+    )
