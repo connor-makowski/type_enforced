@@ -6,8 +6,8 @@ from pathlib import Path
 root = Path(__file__).parent.parent
 type_enforced = root / "type_enforced" / "__init__.py"
 
-VERSION = "2.9.0"
-OLD_DOC_VERSIONS = ["2.8.1", "2.7.0", "2.6.0", "2.5.0", "2.4.0", "2.3.0", "2.2.3", "2.1.0", "2.0.0", "1.10.2", "1.9.0", "1.8.1", "1.7.0", "1.6.0", "1.5.0", "1.4.0", "1.3.0", "1.2.0", "1.1.1", "0.0.16"]
+VERSION = "2.10.0"
+OLD_DOC_VERSIONS = ["2.9.0", "2.8.1", "2.7.0", "2.6.0", "2.5.0", "2.4.0", "2.3.0", "2.2.3", "2.1.0", "2.0.0", "1.10.2", "1.9.0", "1.8.1", "1.7.0", "1.6.0", "1.5.0", "1.4.0", "1.3.0", "1.2.0", "1.1.1", "0.0.16"]
 
 env = {
     **os.environ,
@@ -44,7 +44,7 @@ def generate_docs(version):
 
 # Build __init__.py from README
 readme = (root / "README.md").read_text()
-type_enforced.write_text(f'"""\n{readme}\n"""\n\nfrom .enforcer import Enforcer, FunctionMethodEnforcer\nfrom .module import ModuleEnforcer\nfrom .utils import has_cpp\n')
+type_enforced.write_text(f'"""\n{readme}\n"""\n\nfrom .enforcer import Enforcer, FastEnforcer, FunctionMethodEnforcer\nfrom .module import ModuleEnforcer, FastModuleEnforcer\nfrom .utils import has_cpp\n')
 
 generate_docs("./")
 generate_docs(VERSION)

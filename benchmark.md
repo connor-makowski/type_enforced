@@ -15,37 +15,43 @@ Checkers in this section perform full validation across all elements in collecti
 
 | Type | type_enforced | Pydantic | msgspec | cattrs | Typeguard |
 |:---| :--- | :--- | :--- | :--- | :--- |
-| int                            | <span style='color: green;'>0.18 µs</span> | <span style='color: green;'>0.66 µs</span> | <span style='color: green;'>0.42 µs</span> | <span style='color: green;'>0.26 µs</span> | <span style='color: green;'>2.74 µs</span> |
-| Union[int,float]               | <span style='color: green;'>0.19 µs</span> | <span style='color: green;'>0.73 µs</span> | <span style='color: green;'>0.87 µs</span> | <span style='color: green;'>0.90 µs</span> | <span style='color: green;'>6.39 µs</span> |
-| str                            | <span style='color: green;'>0.18 µs</span> | <span style='color: green;'>0.66 µs</span> | <span style='color: green;'>0.42 µs</span> | <span style='color: red;'>0.26 µs ⚠</span> | <span style='color: green;'>2.67 µs</span> |
-| dict[str,int] (5 keys)         | <span style='color: green;'>0.25 µs</span> | <span style='color: green;'>0.92 µs</span> | <span style='color: green;'>1.12 µs</span> | <span style='color: green;'>1.07 µs</span> | <span style='color: green;'>16.01 µs</span> |
-| dict[str,int] (1000 keys)      | <span style='color: green;'>5.06 µs</span> | <span style='color: green;'>47.50 µs</span> | <span style='color: green;'>33.99 µs</span> | <span style='color: green;'>119.64 µs</span> | <span style='color: green;'>2495.43 µs</span> |
-| dict[str,int] (10000 keys)     | <span style='color: green;'>48.85 µs</span> | <span style='color: green;'>609.35 µs</span> | <span style='color: green;'>479.46 µs</span> | <span style='color: green;'>1296.26 µs</span> | <span style='color: green;'>24770.05 µs</span> |
-| list[int] (5 items)            | <span style='color: green;'>0.23 µs</span> | <span style='color: green;'>0.80 µs</span> | <span style='color: green;'>0.94 µs</span> | <span style='color: green;'>0.99 µs</span> | <span style='color: green;'>9.32 µs</span> |
-| list[int] (1000 items)         | <span style='color: green;'>1.87 µs</span> | <span style='color: green;'>11.30 µs</span> | <span style='color: green;'>5.21 µs</span> | <span style='color: green;'>104.49 µs</span> | <span style='color: green;'>1288.34 µs</span> |
-| list[int] (10000 items)        | <span style='color: green;'>17.23 µs</span> | <span style='color: green;'>111.67 µs</span> | <span style='color: green;'>46.31 µs</span> | <span style='color: green;'>1065.75 µs</span> | <span style='color: green;'>12574.01 µs</span> |
-| list[Union[int,float]] (5 items) | <span style='color: green;'>0.25 µs</span> | <span style='color: green;'>0.92 µs</span> | <span style='color: green;'>1.54 µs</span> | <span style='color: green;'>3.52 µs</span> | <span style='color: green;'>20.72 µs</span> |
-| list[Union[int,float]] (1000 items) | <span style='color: green;'>4.44 µs</span> | <span style='color: green;'>45.96 µs</span> | <span style='color: green;'>6.43 µs</span> | <span style='color: green;'>506.36 µs</span> | <span style='color: green;'>3651.16 µs</span> |
-| list[Union[int,float]] (10000 items) | <span style='color: green;'>42.12 µs</span> | <span style='color: green;'>489.59 µs</span> | <span style='color: green;'>51.25 µs</span> | <span style='color: green;'>5091.92 µs</span> | <span style='color: green;'>35848.11 µs</span> |
-| list[dict[str,int]] (5 x 5 items) | <span style='color: green;'>0.37 µs</span> | <span style='color: green;'>2.06 µs</span> | <span style='color: green;'>2.28 µs</span> | <span style='color: green;'>4.59 µs</span> | <span style='color: green;'>74.43 µs</span> |
-| list[dict[str,int]] (100 x 10 items) | <span style='color: green;'>7.07 µs</span> | <span style='color: green;'>46.49 µs</span> | <span style='color: green;'>31.91 µs</span> | <span style='color: green;'>135.84 µs</span> | <span style='color: green;'>2688.16 µs</span> |
-| list[dict[str,int]] (100 x 100 items) | <span style='color: green;'>51.93 µs</span> | <span style='color: green;'>444.35 µs</span> | <span style='color: green;'>312.24 µs</span> | <span style='color: green;'>1206.64 µs</span> | <span style='color: green;'>24932.47 µs</span> |
-| list[list[int]] (100 x 100 items) | <span style='color: green;'>22.06 µs</span> | <span style='color: green;'>97.06 µs</span> | <span style='color: green;'>50.83 µs</span> | <span style='color: green;'>908.67 µs</span> | <span style='color: green;'>12435.71 µs</span> |
-| dict[str,list[int]] (100 x 100 items) | <span style='color: green;'>25.34 µs</span> | <span style='color: green;'>103.27 µs</span> | <span style='color: green;'>54.29 µs</span> | <span style='color: green;'>927.95 µs</span> | <span style='color: green;'>12512.73 µs</span> |
-| list[tuple[int,str,float]] (1000 items) | <span style='color: green;'>48.46 µs</span> | <span style='color: green;'>103.93 µs</span> | <span style='color: green;'>45.23 µs</span> | <span style='color: green;'>1340.29 µs</span> | <span style='color: green;'>5194.95 µs</span> |
-| int (3 params)                 | <span style='color: green;'>0.18 µs</span> | <span style='color: green;'>0.91 µs</span> | <span style='color: green;'>1.48 µs</span> | <span style='color: green;'>0.92 µs</span> | <span style='color: green;'>8.30 µs</span> |
-| int (3 params, *args)          | <span style='color: green;'>0.20 µs</span> | <span style='color: green;'>0.73 µs</span> | <span style='color: green;'>1.47 µs</span> | <span style='color: green;'>0.91 µs</span> | <span style='color: green;'>8.20 µs</span> |
-| int (3 params, **kwargs)       | <span style='color: green;'>0.25 µs</span> | <span style='color: green;'>0.73 µs</span> | <span style='color: green;'>1.54 µs</span> | <span style='color: green;'>0.92 µs</span> | <span style='color: green;'>8.42 µs</span> |
-| int (3 params, *args, **kwargs) | <span style='color: green;'>0.25 µs</span> | <span style='color: green;'>0.73 µs</span> | <span style='color: green;'>1.43 µs</span> | <span style='color: green;'>0.91 µs</span> | <span style='color: green;'>8.27 µs</span> |
-| int (10 params)                | <span style='color: green;'>0.29 µs</span> | <span style='color: green;'>0.85 µs</span> | <span style='color: green;'>3.83 µs</span> | <span style='color: green;'>2.30 µs</span> | <span style='color: green;'>25.95 µs</span> |
-| int (10 params, *args)         | <span style='color: green;'>0.33 µs</span> | <span style='color: green;'>0.85 µs</span> | <span style='color: green;'>3.73 µs</span> | <span style='color: green;'>2.06 µs</span> | <span style='color: green;'>26.03 µs</span> |
-| int (10 params, **kwargs)      | <span style='color: green;'>0.52 µs</span> | <span style='color: green;'>0.87 µs</span> | <span style='color: green;'>3.98 µs</span> | <span style='color: green;'>2.13 µs</span> | <span style='color: green;'>25.93 µs</span> |
-| int (10 params, *args, **kwargs) | <span style='color: green;'>0.36 µs</span> | <span style='color: green;'>0.85 µs</span> | <span style='color: green;'>3.77 µs</span> | <span style='color: green;'>2.18 µs</span> | <span style='color: green;'>26.17 µs</span> |
-| int (25 params)                | <span style='color: green;'>0.46 µs</span> | <span style='color: green;'>1.14 µs</span> | <span style='color: green;'>8.62 µs</span> | <span style='color: green;'>4.78 µs</span> | <span style='color: green;'>64.07 µs</span> |
-| int (50 params)                | <span style='color: green;'>1.36 µs</span> | <span style='color: green;'>1.53 µs</span> | <span style='color: green;'>17.25 µs</span> | <span style='color: green;'>9.25 µs</span> | <span style='color: green;'>126.49 µs</span> |
-| int (100 params)               | <span style='color: green;'>2.36 µs</span> | <span style='color: green;'>2.59 µs</span> | <span style='color: green;'>34.16 µs</span> | <span style='color: green;'>17.81 µs</span> | <span style='color: green;'>248.78 µs</span> |
-| int (200 params)               | <span style='color: green;'>4.48 µs</span> | <span style='color: green;'>3.90 µs</span> | <span style='color: green;'>67.78 µs</span> | <span style='color: green;'>35.10 µs</span> | <span style='color: green;'>496.48 µs</span> |
-| int (500 params)               | <span style='color: green;'>10.75 µs</span> | <span style='color: green;'>8.70 µs</span> | <span style='color: green;'>166.30 µs</span> | <span style='color: green;'>88.58 µs</span> | <span style='color: green;'>1240.74 µs</span> |
+| int                                      | 0.18 µs    | 0.66 µs    | 0.41 µs    | 0.27 µs    | 2.98 µs    |
+| Union[int,float]                         | 0.19 µs    | 0.73 µs    | 0.85 µs    | 0.90 µs    | 6.73 µs    |
+| str                                      | 0.18 µs    | 0.66 µs    | 0.41 µs    | 0.26 µs    | 2.86 µs    |
+| dict[str,int] (5 keys)                   | 0.25 µs    | 0.90 µs    | 1.09 µs    | 1.26 µs    | 15.67 µs   |
+| dict[str,int] (1000 keys)                | 5.49 µs    | 45.32 µs   | 33.70 µs   | 118.92 µs  | 2502.25 µs |
+| dict[str,int] (10000 keys)               | 53.54 µs   | 601.80 µs  | 489.78 µs  | 1303.15 µs | 24463.03 µs |
+| class method dict[str,int] (5 keys)      | 0.26 µs    | 0.91 µs    | 1.36 µs    | 1.31 µs    | 16.02 µs   |
+| class method dict[str,int] (1000 keys)   | 5.41 µs    | 46.15 µs   | 33.59 µs   | 118.40 µs  | 2468.47 µs |
+| class method dict[str,int] (10000 keys)  | 53.52 µs   | 604.87 µs  | 493.90 µs  | 1324.49 µs | 24642.38 µs |
+| list[int] (5 items)                      | 0.23 µs    | 0.80 µs    | 0.91 µs    | 1.15 µs    | 9.07 µs    |
+| list[int] (1000 items)                   | 2.37 µs    | 11.34 µs   | 5.35 µs    | 99.66 µs   | 1307.37 µs |
+| list[int] (10000 items)                  | 21.84 µs   | 111.87 µs  | 43.54 µs   | 1070.23 µs | 12500.13 µs |
+| list[Union[int,float]] (5 items)         | 0.25 µs    | 0.94 µs    | 1.56 µs    | 3.55 µs    | 21.01 µs   |
+| list[Union[int,float]] (1000 items)      | 4.32 µs    | 45.66 µs   | 6.17 µs    | 523.22 µs  | 3625.56 µs |
+| list[Union[int,float]] (10000 items)     | 34.26 µs   | 499.45 µs  | 50.80 µs   | 5147.07 µs | 35473.81 µs |
+| list[int] \| list[str] (5 items)         | 0.22 µs    | 0.81 µs    | Error      | 1.98 µs    | 10.31 µs   |
+| list[int] \| list[str] (1000 items)      | 2.40 µs    | 11.36 µs   | Error      | 104.67 µs  | 1286.53 µs |
+| list[int] \| list[str] (10000 items)     | 22.05 µs   | 111.67 µs  | Error      | 1038.81 µs | 12669.00 µs |
+| list[dict[str,int]] (5 x 5 items)        | 0.37 µs    | 1.92 µs    | 2.43 µs    | 4.33 µs    | 74.80 µs   |
+| list[dict[str,int]] (100 x 10 items)     | 6.43 µs    | 46.33 µs   | 31.81 µs   | 132.76 µs  | 2672.99 µs |
+| list[dict[str,int]] (100 x 100 items)    | 55.24 µs   | 453.83 µs  | 318.98 µs  | 1190.46 µs | 24830.91 µs |
+| list[list[int]] (100 x 100 items)        | 15.26 µs   | 97.93 µs   | 52.16 µs   | 915.26 µs  | 12444.65 µs |
+| dict[str,list[int]] (100 x 100 items)    | 15.74 µs   | 102.84 µs  | 55.18 µs   | 966.69 µs  | 12642.07 µs |
+| list[tuple[int,str,float]] (1000 items)  | 6.43 µs    | 102.74 µs  | 43.62 µs   | 1535.18 µs | 5125.57 µs |
+| int (3 params)                           | 0.19 µs    | 0.71 µs    | 1.42 µs    | 0.92 µs    | 8.27 µs    |
+| int (3 params, *args)                    | 0.21 µs    | 0.92 µs    | 1.40 µs    | 0.91 µs    | 8.16 µs    |
+| int (3 params, **kwargs)                 | 0.24 µs    | 0.73 µs    | 1.44 µs    | 0.94 µs    | 8.23 µs    |
+| int (3 params, *args, **kwargs)          | 0.26 µs    | 0.93 µs    | 1.41 µs    | 0.91 µs    | 8.16 µs    |
+| int (10 params)                          | 0.30 µs    | 0.83 µs    | 3.52 µs    | 2.10 µs    | 25.15 µs   |
+| int (10 params, *args)                   | 0.32 µs    | 0.92 µs    | 3.62 µs    | 2.17 µs    | 25.77 µs   |
+| int (10 params, **kwargs)                | 0.36 µs    | 1.06 µs    | 3.51 µs    | 2.16 µs    | 25.46 µs   |
+| int (10 params, *args, **kwargs)         | 0.40 µs    | 0.86 µs    | 3.68 µs    | 2.16 µs    | 25.59 µs   |
+| int (25 params)                          | 0.47 µs    | 1.14 µs    | 8.48 µs    | 4.76 µs    | 62.27 µs   |
+| int (50 params)                          | 1.25 µs    | 1.58 µs    | 16.62 µs   | 9.35 µs    | 118.06 µs  |
+| int (100 params)                         | 2.36 µs    | 2.45 µs    | 32.18 µs   | 18.56 µs   | 246.66 µs  |
+| int (200 params)                         | 4.33 µs    | 3.82 µs    | 64.53 µs   | 36.88 µs   | 473.85 µs  |
+| int (500 params)                         | 10.54 µs   | 8.52 µs    | 157.89 µs  | 90.93 µs   | 1173.82 µs |
 
 ## 2. Sampled & O(1) Validation
 Checkers in this section perform constant-time (O(1)) or fixed-percentage sampling of collections.
@@ -53,34 +59,40 @@ Checkers in this section perform constant-time (O(1)) or fixed-percentage sampli
 
 | Type | type_enforced (1 sample) | type_enforced (5%) | Beartype (1 sample) | Typeguard (1 sample) |
 |:---| :--- | :--- | :--- | :--- |
-| int                            | <span style='color: green;'>0.18 µs</span> | <span style='color: green;'>0.18 µs</span> | <span style='color: green;'>0.32 µs</span> | <span style='color: green;'>2.63 µs</span> |
-| Union[int,float]               | <span style='color: green;'>0.19 µs</span> | <span style='color: green;'>0.19 µs</span> | <span style='color: green;'>0.36 µs</span> | <span style='color: green;'>6.54 µs</span> |
-| str                            | <span style='color: green;'>0.17 µs</span> | <span style='color: green;'>0.17 µs</span> | <span style='color: green;'>0.33 µs</span> | <span style='color: green;'>2.77 µs</span> |
-| dict[str,int] (5 keys)         | <span style='color: red;'>0.27 µs ⚠</span> | <span style='color: red;'>0.84 µs ⚠</span> | <span style='color: red;'>0.48 µs ⚠</span> | <span style='color: red;'>5.53 µs ⚠</span> |
-| dict[str,int] (1000 keys)      | <span style='color: red;'>0.28 µs ⚠</span> | <span style='color: red;'>3.37 µs ⚠</span> | <span style='color: red;'>0.49 µs ⚠</span> | <span style='color: red;'>5.69 µs ⚠</span> |
-| dict[str,int] (10000 keys)     | <span style='color: red;'>0.28 µs ⚠</span> | <span style='color: red;'>24.61 µs ⚠</span> | <span style='color: red;'>0.48 µs ⚠</span> | <span style='color: red;'>5.76 µs ⚠</span> |
-| list[int] (5 items)            | <span style='color: red;'>0.21 µs ⚠</span> | <span style='color: red;'>1.12 µs ⚠</span> | <span style='color: red;'>0.47 µs ⚠</span> | <span style='color: red;'>4.09 µs ⚠</span> |
-| list[int] (1000 items)         | <span style='color: red;'>0.21 µs ⚠</span> | <span style='color: red;'>2.51 µs ⚠</span> | <span style='color: red;'>0.54 µs ⚠</span> | <span style='color: red;'>4.10 µs ⚠</span> |
-| list[int] (10000 items)        | <span style='color: red;'>0.22 µs ⚠</span> | <span style='color: red;'>13.97 µs ⚠</span> | <span style='color: red;'>0.56 µs ⚠</span> | <span style='color: red;'>4.07 µs ⚠</span> |
-| list[Union[int,float]] (5 items) | <span style='color: red;'>0.20 µs ⚠</span> | <span style='color: red;'>1.32 µs ⚠</span> | <span style='color: red;'>0.51 µs ⚠</span> | <span style='color: red;'>5.47 µs ⚠</span> |
-| list[Union[int,float]] (1000 items) | <span style='color: red;'>0.22 µs ⚠</span> | <span style='color: red;'>2.48 µs ⚠</span> | <span style='color: red;'>0.58 µs ⚠</span> | <span style='color: red;'>5.39 µs ⚠</span> |
-| list[Union[int,float]] (10000 items) | <span style='color: red;'>0.21 µs ⚠</span> | <span style='color: red;'>15.06 µs ⚠</span> | <span style='color: red;'>0.60 µs ⚠</span> | <span style='color: red;'>5.59 µs ⚠</span> |
-| list[dict[str,int]] (5 x 5 items) | <span style='color: red;'>0.30 µs ⚠</span> | <span style='color: red;'>2.48 µs ⚠</span> | <span style='color: red;'>0.61 µs ⚠</span> | <span style='color: red;'>7.11 µs ⚠</span> |
-| list[dict[str,int]] (100 x 10 items) | <span style='color: red;'>0.30 µs ⚠</span> | <span style='color: red;'>5.34 µs ⚠</span> | <span style='color: red;'>0.74 µs ⚠</span> | <span style='color: red;'>7.23 µs ⚠</span> |
-| list[dict[str,int]] (100 x 100 items) | <span style='color: red;'>0.29 µs ⚠</span> | <span style='color: red;'>6.01 µs ⚠</span> | <span style='color: red;'>0.75 µs ⚠</span> | <span style='color: red;'>7.24 µs ⚠</span> |
-| list[list[int]] (100 x 100 items) | <span style='color: red;'>0.24 µs ⚠</span> | <span style='color: red;'>7.72 µs ⚠</span> | <span style='color: red;'>0.64 µs ⚠</span> | <span style='color: red;'>5.52 µs ⚠</span> |
-| dict[str,list[int]] (100 x 100 items) | <span style='color: red;'>0.31 µs ⚠</span> | <span style='color: red;'>5.47 µs ⚠</span> | <span style='color: red;'>0.76 µs ⚠</span> | <span style='color: red;'>6.89 µs ⚠</span> |
-| list[tuple[int,str,float]] (1000 items) | <span style='color: green;'>0.24 µs</span> | <span style='color: green;'>4.68 µs</span> | <span style='color: green;'>0.80 µs</span> | <span style='color: green;'>8.49 µs</span> |
-| int (3 params)                 | <span style='color: green;'>0.18 µs</span> | <span style='color: green;'>0.18 µs</span> | <span style='color: green;'>0.42 µs</span> | <span style='color: green;'>8.18 µs</span> |
-| int (3 params, *args)          | <span style='color: green;'>0.20 µs</span> | <span style='color: green;'>0.21 µs</span> | <span style='color: green;'>0.42 µs</span> | <span style='color: green;'>8.21 µs</span> |
-| int (3 params, **kwargs)       | <span style='color: green;'>0.42 µs</span> | <span style='color: green;'>0.25 µs</span> | <span style='color: green;'>0.46 µs</span> | <span style='color: green;'>8.37 µs</span> |
-| int (3 params, *args, **kwargs) | <span style='color: green;'>0.26 µs</span> | <span style='color: green;'>0.26 µs</span> | <span style='color: green;'>0.46 µs</span> | <span style='color: green;'>8.37 µs</span> |
-| int (10 params)                | <span style='color: green;'>0.29 µs</span> | <span style='color: green;'>0.30 µs</span> | <span style='color: green;'>0.64 µs</span> | <span style='color: green;'>25.81 µs</span> |
-| int (10 params, *args)         | <span style='color: green;'>0.32 µs</span> | <span style='color: green;'>0.32 µs</span> | <span style='color: green;'>0.64 µs</span> | <span style='color: green;'>25.75 µs</span> |
-| int (10 params, **kwargs)      | <span style='color: green;'>0.35 µs</span> | <span style='color: green;'>0.36 µs</span> | <span style='color: green;'>0.68 µs</span> | <span style='color: green;'>25.46 µs</span> |
-| int (10 params, *args, **kwargs) | <span style='color: green;'>0.37 µs</span> | <span style='color: green;'>0.37 µs</span> | <span style='color: green;'>0.68 µs</span> | <span style='color: green;'>25.53 µs</span> |
-| int (25 params)                | <span style='color: green;'>0.46 µs</span> | <span style='color: green;'>0.45 µs</span> | <span style='color: green;'>1.12 µs</span> | <span style='color: green;'>63.17 µs</span> |
-| int (50 params)                | <span style='color: green;'>1.26 µs</span> | <span style='color: green;'>1.40 µs</span> | <span style='color: green;'>1.92 µs</span> | <span style='color: green;'>120.68 µs</span> |
-| int (100 params)               | <span style='color: green;'>2.50 µs</span> | <span style='color: green;'>2.50 µs</span> | <span style='color: green;'>3.82 µs</span> | <span style='color: green;'>248.05 µs</span> |
-| int (200 params)               | <span style='color: green;'>4.13 µs</span> | <span style='color: green;'>4.26 µs</span> | <span style='color: green;'>6.81 µs</span> | <span style='color: green;'>496.76 µs</span> |
-| int (500 params)               | <span style='color: green;'>10.35 µs</span> | <span style='color: green;'>10.70 µs</span> | <span style='color: green;'>18.09 µs</span> | <span style='color: green;'>1251.67 µs</span> |
+| int                                      | 0.18 µs    | 0.17 µs    | 0.31 µs    | 2.83 µs    |
+| Union[int,float]                         | 0.19 µs    | 0.18 µs    | 0.37 µs    | 6.52 µs    |
+| str                                      | 0.18 µs    | 0.18 µs    | 0.32 µs    | 2.75 µs    |
+| dict[str,int] (5 keys)                   | 0.22 µs    | 0.37 µs    | 0.45 µs    | 5.76 µs    |
+| dict[str,int] (1000 keys)                | 0.26 µs    | 0.76 µs    | 0.46 µs    | 5.82 µs    |
+| dict[str,int] (10000 keys)               | 0.27 µs    | 3.45 µs    | 0.46 µs    | 5.73 µs    |
+| class method dict[str,int] (5 keys)      | 0.24 µs    | 0.40 µs    | 0.47 µs    | 5.90 µs    |
+| class method dict[str,int] (1000 keys)   | 0.44 µs    | 0.77 µs    | 0.48 µs    | 6.03 µs    |
+| class method dict[str,int] (10000 keys)  | 0.26 µs    | 3.21 µs    | 0.48 µs    | 5.81 µs    |
+| list[int] (5 items)                      | 0.20 µs    | 0.36 µs    | 0.63 µs    | 4.07 µs    |
+| list[int] (1000 items)                   | 0.24 µs    | 0.54 µs    | 0.54 µs    | 3.95 µs    |
+| list[int] (10000 items)                  | 0.23 µs    | 1.33 µs    | 0.58 µs    | 4.02 µs    |
+| list[Union[int,float]] (5 items)         | 0.23 µs    | 0.39 µs    | 0.49 µs    | 5.44 µs    |
+| list[Union[int,float]] (1000 items)      | 0.25 µs    | 0.58 µs    | 0.55 µs    | 5.22 µs    |
+| list[Union[int,float]] (10000 items)     | 0.25 µs    | 1.59 µs    | 0.60 µs    | 5.28 µs    |
+| list[int] \| list[str] (5 items)         | 0.21 µs    | 0.37 µs    | 0.46 µs    | 5.01 µs    |
+| list[int] \| list[str] (1000 items)      | 0.23 µs    | 0.85 µs    | 0.55 µs    | 5.30 µs    |
+| list[int] \| list[str] (10000 items)     | 0.23 µs    | 1.33 µs    | 0.59 µs    | 5.37 µs    |
+| list[dict[str,int]] (5 x 5 items)        | 0.26 µs    | 1.54 µs    | 0.61 µs    | 7.35 µs    |
+| list[dict[str,int]] (100 x 10 items)     | 0.29 µs    | 2.66 µs    | 0.71 µs    | 7.09 µs    |
+| list[dict[str,int]] (100 x 100 items)    | 0.29 µs    | 2.90 µs    | 1.00 µs    | 7.02 µs    |
+| list[list[int]] (100 x 100 items)        | 0.24 µs    | 2.87 µs    | 0.60 µs    | 5.75 µs    |
+| dict[str,list[int]] (100 x 100 items)    | 0.38 µs    | 1.75 µs    | 0.58 µs    | 7.17 µs    |
+| list[tuple[int,str,float]] (1000 items)  | 0.28 µs    | 6.04 µs    | 0.73 µs    | 8.31 µs    |
+| int (3 params)                           | 0.18 µs    | 0.18 µs    | 0.43 µs    | 8.05 µs    |
+| int (3 params, *args)                    | 0.21 µs    | 0.20 µs    | 0.42 µs    | 7.92 µs    |
+| int (3 params, **kwargs)                 | 0.24 µs    | 0.24 µs    | 0.45 µs    | 8.08 µs    |
+| int (3 params, *args, **kwargs)          | 0.25 µs    | 0.25 µs    | 0.45 µs    | 8.23 µs    |
+| int (10 params)                          | 0.34 µs    | 0.29 µs    | 0.64 µs    | 25.05 µs   |
+| int (10 params, *args)                   | 0.32 µs    | 0.33 µs    | 0.65 µs    | 25.12 µs   |
+| int (10 params, **kwargs)                | 0.36 µs    | 0.34 µs    | 0.68 µs    | 25.07 µs   |
+| int (10 params, *args, **kwargs)         | 0.36 µs    | 0.36 µs    | 0.66 µs    | 25.11 µs   |
+| int (25 params)                          | 0.46 µs    | 0.46 µs    | 1.16 µs    | 62.27 µs   |
+| int (50 params)                          | 1.41 µs    | 1.30 µs    | 1.92 µs    | 123.61 µs  |
+| int (100 params)                         | 2.34 µs    | 2.39 µs    | 3.56 µs    | 243.72 µs  |
+| int (200 params)                         | 4.54 µs    | 4.17 µs    | 6.87 µs    | 492.50 µs  |
+| int (500 params)                         | 10.42 µs   | 11.13 µs   | 18.29 µs   | 1246.07 µs |

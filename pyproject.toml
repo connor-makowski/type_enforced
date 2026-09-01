@@ -28,8 +28,8 @@ include = [
 
 [project]
 name = "type_enforced"
-version = "2.9.0"
-description = "A pure python type enforcer for python type annotations"
+version = "2.10.0"
+description = "A dependency free type enforcer for python type annotations"
 authors = [
     {name="Connor Makowski", email="conmak@mit.edu"}
 ]
@@ -73,3 +73,4 @@ no-build-isolation-package = []
 [tool.pytest.ini_options]
 testpaths = ["test"]
 python_files = ["*.py"]
+pythonpath = ["."]

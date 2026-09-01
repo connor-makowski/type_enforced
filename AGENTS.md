@@ -142,7 +142,6 @@ dict[str, int]   → {dict: ({str: None}, {int: None})}
 - `from __future__ import annotations` — string annotation style is supported
 
 **Not supported:**
-- `tuple[int, str] | tuple[str, int]` (union of two tuples)
 - `Sized[int]` (nested type inside Sized)
 
 ---
