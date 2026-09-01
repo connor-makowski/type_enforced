@@ -21,6 +21,14 @@ NB_MODULE(cpp, m) {
           nb::arg("obj"), nb::arg("exp_type"));
     m.def("validate_list_last_union", &type_enforced::validate_list_last_union,
           nb::arg("obj"), nb::arg("exp_types"));
+    m.def("validate_list_bookend", &type_enforced::validate_list_bookend,
+          nb::arg("obj"), nb::arg("exp_type"));
+    m.def("validate_list_bookend_union", &type_enforced::validate_list_bookend_union,
+          nb::arg("obj"), nb::arg("exp_types"));
+    m.def("validate_list_bookend_plus", &type_enforced::validate_list_bookend_plus,
+          nb::arg("obj"), nb::arg("exp_type"));
+    m.def("validate_list_bookend_plus_union", &type_enforced::validate_list_bookend_plus_union,
+          nb::arg("obj"), nb::arg("exp_types"));
     m.def("validate_list_sample", &type_enforced::validate_list_sample,
           nb::arg("obj"), nb::arg("exp_type"), nb::arg("count"));
     m.def("validate_list_sample_union", &type_enforced::validate_list_sample_union,
@@ -49,6 +57,14 @@ NB_MODULE(cpp, m) {
           nb::arg("obj"), nb::arg("exp_type"));
     m.def("validate_tuple_last_union", &type_enforced::validate_tuple_last_union,
           nb::arg("obj"), nb::arg("exp_types"));
+    m.def("validate_tuple_bookend", &type_enforced::validate_tuple_bookend,
+          nb::arg("obj"), nb::arg("exp_type"));
+    m.def("validate_tuple_bookend_union", &type_enforced::validate_tuple_bookend_union,
+          nb::arg("obj"), nb::arg("exp_types"));
+    m.def("validate_tuple_bookend_plus", &type_enforced::validate_tuple_bookend_plus,
+          nb::arg("obj"), nb::arg("exp_type"));
+    m.def("validate_tuple_bookend_plus_union", &type_enforced::validate_tuple_bookend_plus_union,
+          nb::arg("obj"), nb::arg("exp_types"));
     m.def("validate_tuple_sample", &type_enforced::validate_tuple_sample,
           nb::arg("obj"), nb::arg("exp_type"), nb::arg("count"));
     m.def("validate_tuple_sample_union", &type_enforced::validate_tuple_sample_union,
@@ -60,14 +76,6 @@ NB_MODULE(cpp, m) {
     m.def("validate_dict_single", &type_enforced::validate_dict_single,
           nb::arg("obj"), nb::arg("key_type"), nb::arg("val_type"));
     m.def("validate_dict_unions", &type_enforced::validate_dict_unions,
-          nb::arg("obj"), nb::arg("key_types"), nb::arg("val_types"));
-    m.def("validate_dict_first", &type_enforced::validate_dict_first,
-          nb::arg("obj"), nb::arg("key_type"), nb::arg("val_type"));
-    m.def("validate_dict_first_unions", &type_enforced::validate_dict_first_unions,
-          nb::arg("obj"), nb::arg("key_types"), nb::arg("val_types"));
-    m.def("validate_dict_last", &type_enforced::validate_dict_last,
-          nb::arg("obj"), nb::arg("key_type"), nb::arg("val_type"));
-    m.def("validate_dict_last_unions", &type_enforced::validate_dict_last_unions,
           nb::arg("obj"), nb::arg("key_types"), nb::arg("val_types"));
     m.def("validate_dict_sample", &type_enforced::validate_dict_sample,
           nb::arg("obj"), nb::arg("key_type"), nb::arg("val_type"), nb::arg("count"));

@@ -48,6 +48,18 @@ try:
             ten_thousand_key_dict,
             {"k1": 1, "k2": "two", "k3": 3},
         ),
+        "class method dict[str,int] (5 keys)": (
+            five_key_dict,
+            {"k1": 1, "k2": "two", "k3": 3},
+        ),
+        "class method dict[str,int] (1000 keys)": (
+            big_key_dict,
+            {"k1": 1, "k2": "two", "k3": 3},
+        ),
+        "class method dict[str,int] (10000 keys)": (
+            ten_thousand_key_dict,
+            {"k1": 1, "k2": "two", "k3": 3},
+        ),
         "list[int] (5 items)": (
             [1, 2, 3, 4, 5],
             [1, "two", 3, 4, 5],
@@ -170,6 +182,9 @@ try:
         "dict[str,int] (5 keys)": Dict[str, int],
         "dict[str,int] (1000 keys)": Dict[str, int],
         "dict[str,int] (10000 keys)": Dict[str, int],
+        "class method dict[str,int] (5 keys)": "method_dict_str_int",
+        "class method dict[str,int] (1000 keys)": "method_dict_str_int",
+        "class method dict[str,int] (10000 keys)": "method_dict_str_int",
         "list[int] (5 items)": List[int],
         "list[int] (1000 items)": List[int],
         "list[int] (10000 items)": List[int],
@@ -325,6 +340,14 @@ try:
     def pydantic_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return validate_call(MULTI_PARAM_FUNCS[typ])
+        if typ == "method_dict_str_int":
+            class _PydanticCls:
+                @validate_call
+                def method(self, x: Dict[str, int]) -> None:
+                    pass
+
+            _inst = _PydanticCls()
+            return _inst.method
 
         @validate_call
         def f(x: typ) -> None:
@@ -335,6 +358,14 @@ try:
     def beartype_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return beartype(MULTI_PARAM_FUNCS[typ])
+        if typ == "method_dict_str_int":
+            class _BeartypeCls:
+                @beartype
+                def method(self, x: Dict[str, int]) -> None:
+                    pass
+
+            _inst = _BeartypeCls()
+            return _inst.method
 
         @beartype
         def f(x: typ) -> None:
@@ -359,6 +390,16 @@ try:
                         collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
                     )
                 return fn(*args, **kwargs)
+
+            return f
+
+        if typ == "method_dict_str_int":
+            def f(x):
+                return typeguard.check_type(
+                    x,
+                    Dict[str, int],
+                    collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
+                )
 
             return f
 
@@ -391,6 +432,16 @@ try:
 
             return f
 
+        if typ == "method_dict_str_int":
+            def f(x):
+                return typeguard.check_type(
+                    x,
+                    Dict[str, int],
+                    collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+                )
+
+            return f
+
         def f(x):
             return typeguard.check_type(
                 x,
@@ -415,6 +466,14 @@ try:
                 return fn(*args, **kwargs)
 
             return f
+
+        if typ == "method_dict_str_int":
+            class _MsgspecCls:
+                def method(self, x: Dict[str, int]) -> None:
+                    msgspec.convert(x, type=Dict[str, int])
+
+            _inst = _MsgspecCls()
+            return _inst.method
 
         def f(x):
             return msgspec.convert(x, type=typ)
@@ -452,6 +511,14 @@ try:
 
             return f
 
+        if typ == "method_dict_str_int":
+            class _CattrsCls:
+                def method(self, x: Dict[str, int]) -> None:
+                    cattrs_conv.structure(x, Dict[str, int])
+
+            _inst = _CattrsCls()
+            return _inst.method
+
         def f(x):
             return cattrs_conv.structure(x, typ)
 
@@ -460,6 +527,14 @@ try:
     def type_enforced_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return type_enforced.Enforcer()(MULTI_PARAM_FUNCS[typ])
+        if typ == "method_dict_str_int":
+            @type_enforced.Enforcer
+            class _TECls:
+                def method(self, x: Dict[str, int]) -> None:
+                    pass
+
+            _inst = _TECls()
+            return _inst.method
 
         @type_enforced.Enforcer()
         def f(x: typ) -> None:
@@ -472,6 +547,14 @@ try:
             return type_enforced.Enforcer(iterable_sample_pct=5)(
                 MULTI_PARAM_FUNCS[typ]
             )
+        if typ == "method_dict_str_int":
+            @type_enforced.Enforcer(iterable_sample_pct=5)
+            class _TE5Cls:
+                def method(self, x: Dict[str, int]) -> None:
+                    pass
+
+            _inst = _TE5Cls()
+            return _inst.method
 
         @type_enforced.Enforcer(iterable_sample_pct=5)
         def f(x: typ) -> None:
@@ -484,6 +567,14 @@ try:
             return type_enforced.Enforcer(iterable_sample_pct="first")(
                 MULTI_PARAM_FUNCS[typ]
             )
+        if typ == "method_dict_str_int":
+            @type_enforced.Enforcer(iterable_sample_pct="first")
+            class _TESampleCls:
+                def method(self, x: Dict[str, int]) -> None:
+                    pass
+
+            _inst = _TESampleCls()
+            return _inst.method
 
         @type_enforced.Enforcer(iterable_sample_pct="first")
         def f(x: typ) -> None:
@@ -594,7 +685,8 @@ try:
     print("|:---| " + " | ".join([":---"] * len(full_headers)) + " |")
     for case in test_cases:
         row = [data_full[case][name] for name in full_headers]
-        print(f"| {case:<30} | " + " | ".join(row) + " |")
+        case_display = case.replace("|", "\\|")
+        print(f"| {case_display:<30} | " + " | ".join(row) + " |")
 
     # --- Section 2: Sampled & O(1) Validation
     print("\n## 2. Sampled & O(1) Validation")
@@ -610,7 +702,8 @@ try:
     print("|:---| " + " | ".join([":---"] * len(sampled_headers)) + " |")
     for case in test_cases:
         row = [data_sampled[case][name] for name in sampled_headers]
-        print(f"| {case:<30} | " + " | ".join(row) + " |")
+        case_display = case.replace("|", "\\|")
+        print(f"| {case_display:<30} | " + " | ".join(row) + " |")
 
     sys.stdout = sys.__stdout__  # Reset stdout to original
     log.close()  # Close the log file

@@ -67,7 +67,7 @@ CASES = [
         [1, "two", 3] * 3333,
     ),
     (
-        "`list[int] | list[str]`",
+        "`list[int] \\| list[str]`",
         "1 000 items",
         Union[List[int], List[str]],
         list_1000,

@@ -182,7 +182,9 @@ def ModuleEnforcer(
     return module
 
 
-FAST_SAMPLE_OPTIONS = frozenset({"first", "last", "log", 0})
+FAST_SAMPLE_OPTIONS = frozenset(
+    {"first", "last", "bookend", "bookend_plus", "log", 0}
+)
 
 
 @__ModuleEnforcer__
@@ -198,7 +200,7 @@ def FastModuleEnforcer(
     """
     Enforce types across an entire module with fast sampling by default.
 
-    Allowed iterable_sample_pct values: 'first', 'last', 'log', 0.
+    Allowed iterable_sample_pct values: 'first', 'last', 'bookend', 'bookend_plus', 'log', 0.
 
     Can be called within a module (e.g. `FastModuleEnforcer()`),
     or directly on an imported module object or module name.
@@ -228,6 +230,7 @@ def FastModuleEnforcer(
     - `iterable_sample_pct`:
         - What: Control how many items in iterables are checked during type enforcement.
             FastModuleEnforcer strictly supports 'first' (first element), 'last' (last element),
+            'bookend' (first and last), 'bookend_plus' (first, last, plus one random),
             'log' (sample of log n items), or 0 (1 random sample).
         - Type: int | str
         - Default: 'first'
@@ -246,7 +249,7 @@ def FastModuleEnforcer(
     ):
         raise TypeError(
             f"Invalid iterable_sample_pct `{iterable_sample_pct}` for FastModuleEnforcer. "
-            f"FastModuleEnforcer only supports fast sampling options: 'first', 'last', 'log', or 0."
+            f"FastModuleEnforcer only supports fast sampling options: 'first', 'last', 'bookend', 'bookend_plus', 'log', or 0."
         )
 
     return ModuleEnforcer(
