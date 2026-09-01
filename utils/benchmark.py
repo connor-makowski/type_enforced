@@ -636,10 +636,12 @@ try:
     )
 
     def green_text(text):
-        return f"<span style='color: green;'>{text}</span>"
+        # return f"<span style='color: green;'>{text}</span>"
+        return f"{text:<10}"
 
     def red_text(text):
-        return f"<span style='color: red;'>{text} ⚠</span>"
+        # return f"<span style='color: red;'>{text} ⚠</span>"
+        return f"{text:<10}"
 
     def run_benchmark_group(checkers_dict):
         results = {}
@@ -686,7 +688,7 @@ try:
     for case in test_cases:
         row = [data_full[case][name] for name in full_headers]
         case_display = case.replace("|", "\\|")
-        print(f"| {case_display:<30} | " + " | ".join(row) + " |")
+        print(f"| {case_display:<40} | " + " | ".join(row) + " |")
 
     # --- Section 2: Sampled & O(1) Validation
     print("\n## 2. Sampled & O(1) Validation")
@@ -703,7 +705,7 @@ try:
     for case in test_cases:
         row = [data_sampled[case][name] for name in sampled_headers]
         case_display = case.replace("|", "\\|")
-        print(f"| {case_display:<30} | " + " | ".join(row) + " |")
+        print(f"| {case_display:<40} | " + " | ".join(row) + " |")
 
     sys.stdout = sys.__stdout__  # Reset stdout to original
     log.close()  # Close the log file
