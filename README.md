@@ -80,7 +80,7 @@ Existing runtime type checkers force an unnecessary compromise:
 
 - **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
 - **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of Pydantic's overhead.
-- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 3x faster than Beartype.
+- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 3x faster than Beartype.
 - **Zero Dependencies & Pure Python Compatible**: Zero external runtime dependencies. Runs everywhere standard Python 3.11+ runs, with optional automatic C++ acceleration via nanobind when available.
 - **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
 - **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
@@ -418,7 +418,7 @@ render("red")      # Raises TypeError (Constraint `valid_hex_color` not met)
 | `enabled` | `bool` | `True` | Toggle enforcement. Set `False` to bypass type checks (useful for production vs. debugging or per-method overrides). |
 | `strict` | `bool` | `True` | When `True`, raises `TypeError` on mismatch. When `False`, logs a warning to the console instead of raising. |
 | `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so unhandled tracebacks point directly to user code (see note below). |
-| `iterable_sample_pct` | `int or str` | `100` (`'first'` for `Fast*`) | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'log'` checks a sample of ceil(log2(n)) items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. Note: `FastEnforcer` and `FastModuleEnforcer` strictly accept `'first'`, `'last'`, `'log'`, or `0`. |
+| `iterable_sample_pct` | `int or str` | `100` (`'first'` for `Fast*`) | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item, `'bookend'` checks first and last items, `'bookend_plus'` checks first, last, and a random middle item, `'log'` checks a sample of ceil(log2(n)) items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. Note: `FastEnforcer` and `FastModuleEnforcer` strictly accept `'first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, or `0`. |
 | `only_typed` | `bool` | `False` | When `True`, raises an exception upon decoration if any parameter or return value lacks a type hint. |
 | `submodules` *(ModuleEnforcers only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |
 
@@ -463,6 +463,8 @@ By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a typ
 For large or performance-critical collections, use `@type_enforced.FastEnforcer` or configure sampling instead of full iteration:
 - `'first'` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to 3x faster than Beartype).
 - `'last'`: Validates the last element in O(1) time.
+- `'bookend'`: Validates the first and last elements in O(1) time (first 2 items for sets/dicts).
+- `'bookend_plus'`: Validates the first, last, and a random middle element in O(1) time (first 3 items for sets/dicts).
 - `'log'`: Validates a sample of ceil(log2(n)) items across the collection.
 - `0`: Validates one element chosen at random.
 - `1..100` (int, `Enforcer` / `ModuleEnforcer` only): Validates the specified percentage of items (rounding up).
