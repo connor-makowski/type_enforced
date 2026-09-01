@@ -127,10 +127,31 @@ uv add type_enforced
 - **Zero Runtime Dependencies**: Self-contained package with zero external runtime dependencies.
 - **C++ Acceleration**: If available, `type_enforced` leverages high-performance C++ validators via `nanobind`.
 - **Pure Python Fallback**: If compiling from source on a system without a C++ compiler, `type_enforced` automatically falls back to a pure-Python engine.
-- **Pure Python Installation**: To explicitly skip C++ compilation when installing from source:
+- **Force Pure Python Fallback**: To explicitly skip C++ compilation and force pure Python mode:
+
+  **`uv` (in `pyproject.toml`)**:
+  ```toml
+  [tool.uv]
+  no-binary-package = ["type-enforced"]
+  config-settings-package = { type-enforced = { "cmake.define.SKIP_CPP_BUILD" = "ON" } }
+  ```
+
+  **`pip` (in `pyproject.toml` when building from source)**:
+  ```toml
+  [tool.scikit-build.cmake.define]
+  SKIP_CPP_BUILD = "ON"
+  ```
+
+  **`pip` (in `requirements.txt`)**:
+  ```text
+  type_enforced --config-settings=cmake.define.SKIP_CPP_BUILD=ON --no-binary type_enforced
+  ```
+
+  **`pip` (CLI)**:
   ```bash
   pip install type_enforced --no-binary type_enforced -Ccmake.define.SKIP_CPP_BUILD=ON
   ```
+  *(Or set `SKBUILD_CMAKE_ARGS="-DSKIP_CPP_BUILD=ON"` and `PIP_NO_BINARY="type_enforced"` in your environment)*
 - **Verify C++ Acceleration Status**: Check whether C++ acceleration is active in the current environment:
   ```python
   import type_enforced
