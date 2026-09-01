@@ -58,16 +58,16 @@
 
             </li>
             <li>
-                    <a class="function" href="#DeepMerge">DeepMerge</a>
+                    <a class="variable" href="#iterable_types">iterable_types</a>
             </li>
             <li>
                     <a class="function" href="#merge_type_dicts">merge_type_dicts</a>
             </li>
             <li>
-                    <a class="function" href="#WithSubclasses">WithSubclasses</a>
+                    <a class="function" href="#DeepMerge">DeepMerge</a>
             </li>
             <li>
-                    <a class="variable" href="#iterable_types">iterable_types</a>
+                    <a class="function" href="#WithSubclasses">WithSubclasses</a>
             </li>
             <li>
                     <a class="function" href="#has_cpp">has_cpp</a>
@@ -81,6 +81,7 @@
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
+        <option value="2.10.0">2.10.0</option>
         <option value="2.9.0">2.9.0</option>
         <option value="2.8.1">2.8.1</option>
         <option value="2.7.0">2.7.0</option>
@@ -408,87 +409,102 @@
 </span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a>            <span class="p">)</span>
 </span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a>
 </span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a>
-</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.</span>
-</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a>
-</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="sd">    Required Arguments:</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="n">iterable_types</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">dict</span><span class="p">})</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a>
+</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a>
+</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a><span class="k">def</span><span class="w"> </span><span class="nf">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
+</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge source type dict into target in-place.</span>
 </span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a>
-</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a><span class="sd">    - `original`:</span>
-</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
-</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a><span class="sd">        - Type: dict</span>
-</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a><span class="sd">    - `update`:</span>
-</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
-</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a><span class="sd">        - Type: dict</span>
-</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-273"><a href="#L-273"><span class="linenos">273</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
-</span><span id="L-274"><a href="#L-274"><span class="linenos">274</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">update</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="L-275"><a href="#L-275"><span class="linenos">275</span></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="L-276"><a href="#L-276"><span class="linenos">276</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="L-277"><a href="#L-277"><span class="linenos">277</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="L-278"><a href="#L-278"><span class="linenos">278</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="L-279"><a href="#L-279"><span class="linenos">279</span></a>        <span class="p">):</span>
-</span><span id="L-280"><a href="#L-280"><span class="linenos">280</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
-</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a>        <span class="k">elif</span> <span class="p">(</span>
-</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a>        <span class="p">):</span>
-</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a>    <span class="k">return</span> <span class="n">original</span>
-</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a>
-</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a>
-</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a><span class="k">def</span><span class="w"> </span><span class="nf">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
-</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge source type dict into target in-place.</span>
-</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a>
-</span><span id="L-295"><a href="#L-295"><span class="linenos">295</span></a><span class="sd">    Like DeepMerge but without copy.deepcopy</span>
-</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a><span class="sd">    Safe because both dicts are freshly created during type parsing.</span>
-</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-298"><a href="#L-298"><span class="linenos">298</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">source</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="L-299"><a href="#L-299"><span class="linenos">299</span></a>        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
-</span><span id="L-300"><a href="#L-300"><span class="linenos">300</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span><span id="L-301"><a href="#L-301"><span class="linenos">301</span></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span id="L-302"><a href="#L-302"><span class="linenos">302</span></a>            <span class="n">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
-</span><span id="L-303"><a href="#L-303"><span class="linenos">303</span></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span id="L-304"><a href="#L-304"><span class="linenos">304</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a><span class="sd">    Preserves multiple schema variants for collection types (list, tuple, dict, set)</span>
+</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a><span class="sd">    when distinct collection schemas are united.</span>
+</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">source</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a>        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a>        <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;__extra__&quot;</span><span class="p">:</span>
+</span><span id="L-273"><a href="#L-273"><span class="linenos">273</span></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="L-274"><a href="#L-274"><span class="linenos">274</span></a>                <span class="k">for</span> <span class="n">ek</span><span class="p">,</span> <span class="n">ev</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="L-275"><a href="#L-275"><span class="linenos">275</span></a>                    <span class="k">if</span> <span class="n">ek</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+</span><span id="L-276"><a href="#L-276"><span class="linenos">276</span></a>                        <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">]</span> <span class="o">=</span> <span class="n">ev</span>
+</span><span id="L-277"><a href="#L-277"><span class="linenos">277</span></a>                    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span>
+</span><span id="L-278"><a href="#L-278"><span class="linenos">278</span></a>                        <span class="n">ev</span><span class="p">,</span> <span class="nb">list</span>
+</span><span id="L-279"><a href="#L-279"><span class="linenos">279</span></a>                    <span class="p">):</span>
+</span><span id="L-280"><a href="#L-280"><span class="linenos">280</span></a>                        <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a>                            <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">]</span> <span class="o">+</span> <span class="n">ev</span><span class="p">)</span>
+</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a>                        <span class="p">)</span>
+</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a>        <span class="k">elif</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">==</span> <span class="n">value</span><span class="p">:</span>
+</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a>            <span class="k">continue</span>
+</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a>        <span class="k">elif</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">iterable_types</span><span class="p">:</span>
+</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a>                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a>                    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a>                        <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a>                            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a>                <span class="k">else</span><span class="p">:</span>
+</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a>                    <span class="k">if</span> <span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a>                        <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a>            <span class="k">else</span><span class="p">:</span>
+</span><span id="L-295"><a href="#L-295"><span class="linenos">295</span></a>                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a>                    <span class="n">new_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span>
+</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a>                    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+</span><span id="L-298"><a href="#L-298"><span class="linenos">298</span></a>                        <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">new_list</span><span class="p">:</span>
+</span><span id="L-299"><a href="#L-299"><span class="linenos">299</span></a>                            <span class="n">new_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span id="L-300"><a href="#L-300"><span class="linenos">300</span></a>                    <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_list</span>
+</span><span id="L-301"><a href="#L-301"><span class="linenos">301</span></a>                <span class="k">else</span><span class="p">:</span>
+</span><span id="L-302"><a href="#L-302"><span class="linenos">302</span></a>                    <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">]</span>
+</span><span id="L-303"><a href="#L-303"><span class="linenos">303</span></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="L-304"><a href="#L-304"><span class="linenos">304</span></a>            <span class="n">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
 </span><span id="L-305"><a href="#L-305"><span class="linenos">305</span></a>        <span class="k">else</span><span class="p">:</span>
 </span><span id="L-306"><a href="#L-306"><span class="linenos">306</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
 </span><span id="L-307"><a href="#L-307"><span class="linenos">307</span></a>
 </span><span id="L-308"><a href="#L-308"><span class="linenos">308</span></a>
-</span><span id="L-309"><a href="#L-309"><span class="linenos">309</span></a><span class="k">def</span><span class="w"> </span><span class="nf">WithSubclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span id="L-309"><a href="#L-309"><span class="linenos">309</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
 </span><span id="L-310"><a href="#L-310"><span class="linenos">310</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-311"><a href="#L-311"><span class="linenos">311</span></a><span class="sd">    A utility class to preserve backwards compatibility</span>
-</span><span id="L-312"><a href="#L-312"><span class="linenos">312</span></a><span class="sd">    with the older versions of type_enforced.</span>
-</span><span id="L-313"><a href="#L-313"><span class="linenos">313</span></a>
-</span><span id="L-314"><a href="#L-314"><span class="linenos">314</span></a><span class="sd">    By default subclasses of all classes are now enforced by type_enforced.</span>
-</span><span id="L-315"><a href="#L-315"><span class="linenos">315</span></a>
-</span><span id="L-316"><a href="#L-316"><span class="linenos">316</span></a><span class="sd">    It is slated to be removed in the next major version.</span>
-</span><span id="L-317"><a href="#L-317"><span class="linenos">317</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-318"><a href="#L-318"><span class="linenos">318</span></a>    <span class="c1"># TODO: Remove this in the next major version of type_enforced</span>
-</span><span id="L-319"><a href="#L-319"><span class="linenos">319</span></a>    <span class="k">return</span> <span class="bp">cls</span>
-</span><span id="L-320"><a href="#L-320"><span class="linenos">320</span></a>
-</span><span id="L-321"><a href="#L-321"><span class="linenos">321</span></a>
-</span><span id="L-322"><a href="#L-322"><span class="linenos">322</span></a><span class="n">iterable_types</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">dict</span><span class="p">})</span>
-</span><span id="L-323"><a href="#L-323"><span class="linenos">323</span></a>
-</span><span id="L-324"><a href="#L-324"><span class="linenos">324</span></a>
-</span><span id="L-325"><a href="#L-325"><span class="linenos">325</span></a><span class="k">def</span><span class="w"> </span><span class="nf">has_cpp</span><span class="p">():</span>
-</span><span id="L-326"><a href="#L-326"><span class="linenos">326</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="L-327"><a href="#L-327"><span class="linenos">327</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
-</span><span id="L-328"><a href="#L-328"><span class="linenos">328</span></a>
-</span><span id="L-329"><a href="#L-329"><span class="linenos">329</span></a>        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="L-330"><a href="#L-330"><span class="linenos">330</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="L-331"><a href="#L-331"><span class="linenos">331</span></a>        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="L-332"><a href="#L-332"><span class="linenos">332</span></a>
+</span><span id="L-311"><a href="#L-311"><span class="linenos">311</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and preserving collection variant schemas.</span>
+</span><span id="L-312"><a href="#L-312"><span class="linenos">312</span></a>
+</span><span id="L-313"><a href="#L-313"><span class="linenos">313</span></a><span class="sd">    Required Arguments:</span>
+</span><span id="L-314"><a href="#L-314"><span class="linenos">314</span></a>
+</span><span id="L-315"><a href="#L-315"><span class="linenos">315</span></a><span class="sd">    - `original`:</span>
+</span><span id="L-316"><a href="#L-316"><span class="linenos">316</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
+</span><span id="L-317"><a href="#L-317"><span class="linenos">317</span></a><span class="sd">        - Type: dict</span>
+</span><span id="L-318"><a href="#L-318"><span class="linenos">318</span></a><span class="sd">    - `update`:</span>
+</span><span id="L-319"><a href="#L-319"><span class="linenos">319</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
+</span><span id="L-320"><a href="#L-320"><span class="linenos">320</span></a><span class="sd">        - Type: dict</span>
+</span><span id="L-321"><a href="#L-321"><span class="linenos">321</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-322"><a href="#L-322"><span class="linenos">322</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+</span><span id="L-323"><a href="#L-323"><span class="linenos">323</span></a>    <span class="n">merge_type_dicts</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="n">update</span><span class="p">)</span>
+</span><span id="L-324"><a href="#L-324"><span class="linenos">324</span></a>    <span class="k">return</span> <span class="n">original</span>
+</span><span id="L-325"><a href="#L-325"><span class="linenos">325</span></a>
+</span><span id="L-326"><a href="#L-326"><span class="linenos">326</span></a>
+</span><span id="L-327"><a href="#L-327"><span class="linenos">327</span></a><span class="k">def</span><span class="w"> </span><span class="nf">WithSubclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span id="L-328"><a href="#L-328"><span class="linenos">328</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-329"><a href="#L-329"><span class="linenos">329</span></a><span class="sd">    A utility class to preserve backwards compatibility</span>
+</span><span id="L-330"><a href="#L-330"><span class="linenos">330</span></a><span class="sd">    with the older versions of type_enforced.</span>
+</span><span id="L-331"><a href="#L-331"><span class="linenos">331</span></a>
+</span><span id="L-332"><a href="#L-332"><span class="linenos">332</span></a><span class="sd">    By default subclasses of all classes are now enforced by type_enforced.</span>
 </span><span id="L-333"><a href="#L-333"><span class="linenos">333</span></a>
-</span><span id="L-334"><a href="#L-334"><span class="linenos">334</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
-</span><span id="L-335"><a href="#L-335"><span class="linenos">335</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="L-336"><a href="#L-336"><span class="linenos">336</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
-</span><span id="L-337"><a href="#L-337"><span class="linenos">337</span></a>
-</span><span id="L-338"><a href="#L-338"><span class="linenos">338</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
-</span><span id="L-339"><a href="#L-339"><span class="linenos">339</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="L-340"><a href="#L-340"><span class="linenos">340</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+</span><span id="L-334"><a href="#L-334"><span class="linenos">334</span></a><span class="sd">    It is slated to be removed in the next major version.</span>
+</span><span id="L-335"><a href="#L-335"><span class="linenos">335</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-336"><a href="#L-336"><span class="linenos">336</span></a>    <span class="c1"># TODO: Remove this in the next major version of type_enforced</span>
+</span><span id="L-337"><a href="#L-337"><span class="linenos">337</span></a>    <span class="k">return</span> <span class="bp">cls</span>
+</span><span id="L-338"><a href="#L-338"><span class="linenos">338</span></a>
+</span><span id="L-339"><a href="#L-339"><span class="linenos">339</span></a>
+</span><span id="L-340"><a href="#L-340"><span class="linenos">340</span></a><span class="k">def</span><span class="w"> </span><span class="nf">has_cpp</span><span class="p">():</span>
+</span><span id="L-341"><a href="#L-341"><span class="linenos">341</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="L-342"><a href="#L-342"><span class="linenos">342</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
+</span><span id="L-343"><a href="#L-343"><span class="linenos">343</span></a>
+</span><span id="L-344"><a href="#L-344"><span class="linenos">344</span></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="L-345"><a href="#L-345"><span class="linenos">345</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="L-346"><a href="#L-346"><span class="linenos">346</span></a>        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="L-347"><a href="#L-347"><span class="linenos">347</span></a>
+</span><span id="L-348"><a href="#L-348"><span class="linenos">348</span></a>
+</span><span id="L-349"><a href="#L-349"><span class="linenos">349</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
+</span><span id="L-350"><a href="#L-350"><span class="linenos">350</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="L-351"><a href="#L-351"><span class="linenos">351</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
+</span><span id="L-352"><a href="#L-352"><span class="linenos">352</span></a>
+</span><span id="L-353"><a href="#L-353"><span class="linenos">353</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+</span><span id="L-354"><a href="#L-354"><span class="linenos">354</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="L-355"><a href="#L-355"><span class="linenos">355</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -1063,6 +1079,84 @@
 
                             </div>
                 </section>
+                <section id="iterable_types">
+                    <div class="attr variable">
+            <span class="name">iterable_types</span>        =
+<span class="default_value">frozenset({&lt;class &#39;set&#39;&gt;, &lt;class &#39;list&#39;&gt;, &lt;class &#39;tuple&#39;&gt;, &lt;class &#39;dict&#39;&gt;})</span>
+
+        
+    </div>
+    <a class="headerlink" href="#iterable_types"></a>
+    
+    
+
+                </section>
+                <section id="merge_type_dicts">
+                            <input id="merge_type_dicts-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">merge_type_dicts</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">target</span>, </span><span class="param"><span class="n">source</span></span><span class="return-annotation">):</span></span>
+
+                <label class="view-source-button" for="merge_type_dicts-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#merge_type_dicts"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="merge_type_dicts-264"><a href="#merge_type_dicts-264"><span class="linenos">264</span></a><span class="k">def</span><span class="w"> </span><span class="nf">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
+</span><span id="merge_type_dicts-265"><a href="#merge_type_dicts-265"><span class="linenos">265</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge source type dict into target in-place.</span>
+</span><span id="merge_type_dicts-266"><a href="#merge_type_dicts-266"><span class="linenos">266</span></a>
+</span><span id="merge_type_dicts-267"><a href="#merge_type_dicts-267"><span class="linenos">267</span></a><span class="sd">    Preserves multiple schema variants for collection types (list, tuple, dict, set)</span>
+</span><span id="merge_type_dicts-268"><a href="#merge_type_dicts-268"><span class="linenos">268</span></a><span class="sd">    when distinct collection schemas are united.</span>
+</span><span id="merge_type_dicts-269"><a href="#merge_type_dicts-269"><span class="linenos">269</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="merge_type_dicts-270"><a href="#merge_type_dicts-270"><span class="linenos">270</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">source</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="merge_type_dicts-271"><a href="#merge_type_dicts-271"><span class="linenos">271</span></a>        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
+</span><span id="merge_type_dicts-272"><a href="#merge_type_dicts-272"><span class="linenos">272</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</span><span id="merge_type_dicts-273"><a href="#merge_type_dicts-273"><span class="linenos">273</span></a>        <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;__extra__&quot;</span><span class="p">:</span>
+</span><span id="merge_type_dicts-274"><a href="#merge_type_dicts-274"><span class="linenos">274</span></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="merge_type_dicts-275"><a href="#merge_type_dicts-275"><span class="linenos">275</span></a>                <span class="k">for</span> <span class="n">ek</span><span class="p">,</span> <span class="n">ev</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="merge_type_dicts-276"><a href="#merge_type_dicts-276"><span class="linenos">276</span></a>                    <span class="k">if</span> <span class="n">ek</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+</span><span id="merge_type_dicts-277"><a href="#merge_type_dicts-277"><span class="linenos">277</span></a>                        <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">]</span> <span class="o">=</span> <span class="n">ev</span>
+</span><span id="merge_type_dicts-278"><a href="#merge_type_dicts-278"><span class="linenos">278</span></a>                    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span>
+</span><span id="merge_type_dicts-279"><a href="#merge_type_dicts-279"><span class="linenos">279</span></a>                        <span class="n">ev</span><span class="p">,</span> <span class="nb">list</span>
+</span><span id="merge_type_dicts-280"><a href="#merge_type_dicts-280"><span class="linenos">280</span></a>                    <span class="p">):</span>
+</span><span id="merge_type_dicts-281"><a href="#merge_type_dicts-281"><span class="linenos">281</span></a>                        <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+</span><span id="merge_type_dicts-282"><a href="#merge_type_dicts-282"><span class="linenos">282</span></a>                            <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">ek</span><span class="p">]</span> <span class="o">+</span> <span class="n">ev</span><span class="p">)</span>
+</span><span id="merge_type_dicts-283"><a href="#merge_type_dicts-283"><span class="linenos">283</span></a>                        <span class="p">)</span>
+</span><span id="merge_type_dicts-284"><a href="#merge_type_dicts-284"><span class="linenos">284</span></a>        <span class="k">elif</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">==</span> <span class="n">value</span><span class="p">:</span>
+</span><span id="merge_type_dicts-285"><a href="#merge_type_dicts-285"><span class="linenos">285</span></a>            <span class="k">continue</span>
+</span><span id="merge_type_dicts-286"><a href="#merge_type_dicts-286"><span class="linenos">286</span></a>        <span class="k">elif</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">iterable_types</span><span class="p">:</span>
+</span><span id="merge_type_dicts-287"><a href="#merge_type_dicts-287"><span class="linenos">287</span></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="merge_type_dicts-288"><a href="#merge_type_dicts-288"><span class="linenos">288</span></a>                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="merge_type_dicts-289"><a href="#merge_type_dicts-289"><span class="linenos">289</span></a>                    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+</span><span id="merge_type_dicts-290"><a href="#merge_type_dicts-290"><span class="linenos">290</span></a>                        <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+</span><span id="merge_type_dicts-291"><a href="#merge_type_dicts-291"><span class="linenos">291</span></a>                            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span id="merge_type_dicts-292"><a href="#merge_type_dicts-292"><span class="linenos">292</span></a>                <span class="k">else</span><span class="p">:</span>
+</span><span id="merge_type_dicts-293"><a href="#merge_type_dicts-293"><span class="linenos">293</span></a>                    <span class="k">if</span> <span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+</span><span id="merge_type_dicts-294"><a href="#merge_type_dicts-294"><span class="linenos">294</span></a>                        <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span id="merge_type_dicts-295"><a href="#merge_type_dicts-295"><span class="linenos">295</span></a>            <span class="k">else</span><span class="p">:</span>
+</span><span id="merge_type_dicts-296"><a href="#merge_type_dicts-296"><span class="linenos">296</span></a>                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span id="merge_type_dicts-297"><a href="#merge_type_dicts-297"><span class="linenos">297</span></a>                    <span class="n">new_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span>
+</span><span id="merge_type_dicts-298"><a href="#merge_type_dicts-298"><span class="linenos">298</span></a>                    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+</span><span id="merge_type_dicts-299"><a href="#merge_type_dicts-299"><span class="linenos">299</span></a>                        <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">new_list</span><span class="p">:</span>
+</span><span id="merge_type_dicts-300"><a href="#merge_type_dicts-300"><span class="linenos">300</span></a>                            <span class="n">new_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</span><span id="merge_type_dicts-301"><a href="#merge_type_dicts-301"><span class="linenos">301</span></a>                    <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_list</span>
+</span><span id="merge_type_dicts-302"><a href="#merge_type_dicts-302"><span class="linenos">302</span></a>                <span class="k">else</span><span class="p">:</span>
+</span><span id="merge_type_dicts-303"><a href="#merge_type_dicts-303"><span class="linenos">303</span></a>                    <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">]</span>
+</span><span id="merge_type_dicts-304"><a href="#merge_type_dicts-304"><span class="linenos">304</span></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="merge_type_dicts-305"><a href="#merge_type_dicts-305"><span class="linenos">305</span></a>            <span class="n">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
+</span><span id="merge_type_dicts-306"><a href="#merge_type_dicts-306"><span class="linenos">306</span></a>        <span class="k">else</span><span class="p">:</span>
+</span><span id="merge_type_dicts-307"><a href="#merge_type_dicts-307"><span class="linenos">307</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Merge source type dict into target in-place.</p>
+
+<p>Preserves multiple schema variants for collection types (list, tuple, dict, set)
+when distinct collection schemas are united.</p>
+</div>
+
+
+                </section>
                 <section id="DeepMerge">
                             <input id="DeepMerge-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -1074,40 +1168,26 @@
 
     </div>
     <a class="headerlink" href="#DeepMerge"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="DeepMerge-261"><a href="#DeepMerge-261"><span class="linenos">261</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span id="DeepMerge-262"><a href="#DeepMerge-262"><span class="linenos">262</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="DeepMerge-263"><a href="#DeepMerge-263"><span class="linenos">263</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.</span>
-</span><span id="DeepMerge-264"><a href="#DeepMerge-264"><span class="linenos">264</span></a>
-</span><span id="DeepMerge-265"><a href="#DeepMerge-265"><span class="linenos">265</span></a><span class="sd">    Required Arguments:</span>
-</span><span id="DeepMerge-266"><a href="#DeepMerge-266"><span class="linenos">266</span></a>
-</span><span id="DeepMerge-267"><a href="#DeepMerge-267"><span class="linenos">267</span></a><span class="sd">    - `original`:</span>
-</span><span id="DeepMerge-268"><a href="#DeepMerge-268"><span class="linenos">268</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
-</span><span id="DeepMerge-269"><a href="#DeepMerge-269"><span class="linenos">269</span></a><span class="sd">        - Type: dict</span>
-</span><span id="DeepMerge-270"><a href="#DeepMerge-270"><span class="linenos">270</span></a><span class="sd">    - `update`:</span>
-</span><span id="DeepMerge-271"><a href="#DeepMerge-271"><span class="linenos">271</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
-</span><span id="DeepMerge-272"><a href="#DeepMerge-272"><span class="linenos">272</span></a><span class="sd">        - Type: dict</span>
-</span><span id="DeepMerge-273"><a href="#DeepMerge-273"><span class="linenos">273</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="DeepMerge-274"><a href="#DeepMerge-274"><span class="linenos">274</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
-</span><span id="DeepMerge-275"><a href="#DeepMerge-275"><span class="linenos">275</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">update</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="DeepMerge-276"><a href="#DeepMerge-276"><span class="linenos">276</span></a>        <span class="k">if</span> <span class="p">(</span>
-</span><span id="DeepMerge-277"><a href="#DeepMerge-277"><span class="linenos">277</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="DeepMerge-278"><a href="#DeepMerge-278"><span class="linenos">278</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="DeepMerge-279"><a href="#DeepMerge-279"><span class="linenos">279</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
-</span><span id="DeepMerge-280"><a href="#DeepMerge-280"><span class="linenos">280</span></a>        <span class="p">):</span>
-</span><span id="DeepMerge-281"><a href="#DeepMerge-281"><span class="linenos">281</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
-</span><span id="DeepMerge-282"><a href="#DeepMerge-282"><span class="linenos">282</span></a>        <span class="k">elif</span> <span class="p">(</span>
-</span><span id="DeepMerge-283"><a href="#DeepMerge-283"><span class="linenos">283</span></a>            <span class="n">key</span> <span class="ow">in</span> <span class="n">original</span>
-</span><span id="DeepMerge-284"><a href="#DeepMerge-284"><span class="linenos">284</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="DeepMerge-285"><a href="#DeepMerge-285"><span class="linenos">285</span></a>            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-</span><span id="DeepMerge-286"><a href="#DeepMerge-286"><span class="linenos">286</span></a>        <span class="p">):</span>
-</span><span id="DeepMerge-287"><a href="#DeepMerge-287"><span class="linenos">287</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-</span><span id="DeepMerge-288"><a href="#DeepMerge-288"><span class="linenos">288</span></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="DeepMerge-289"><a href="#DeepMerge-289"><span class="linenos">289</span></a>            <span class="n">original</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span><span id="DeepMerge-290"><a href="#DeepMerge-290"><span class="linenos">290</span></a>    <span class="k">return</span> <span class="n">original</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="DeepMerge-310"><a href="#DeepMerge-310"><span class="linenos">310</span></a><span class="k">def</span><span class="w"> </span><span class="nf">DeepMerge</span><span class="p">(</span><span class="n">original</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span id="DeepMerge-311"><a href="#DeepMerge-311"><span class="linenos">311</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="DeepMerge-312"><a href="#DeepMerge-312"><span class="linenos">312</span></a><span class="sd">    Merge two dictionaries together, recursively merging any nested dictionaries and preserving collection variant schemas.</span>
+</span><span id="DeepMerge-313"><a href="#DeepMerge-313"><span class="linenos">313</span></a>
+</span><span id="DeepMerge-314"><a href="#DeepMerge-314"><span class="linenos">314</span></a><span class="sd">    Required Arguments:</span>
+</span><span id="DeepMerge-315"><a href="#DeepMerge-315"><span class="linenos">315</span></a>
+</span><span id="DeepMerge-316"><a href="#DeepMerge-316"><span class="linenos">316</span></a><span class="sd">    - `original`:</span>
+</span><span id="DeepMerge-317"><a href="#DeepMerge-317"><span class="linenos">317</span></a><span class="sd">        - What: The original dictionary to merge the update into.</span>
+</span><span id="DeepMerge-318"><a href="#DeepMerge-318"><span class="linenos">318</span></a><span class="sd">        - Type: dict</span>
+</span><span id="DeepMerge-319"><a href="#DeepMerge-319"><span class="linenos">319</span></a><span class="sd">    - `update`:</span>
+</span><span id="DeepMerge-320"><a href="#DeepMerge-320"><span class="linenos">320</span></a><span class="sd">        - What: The dictionary to merge into the original dictionary.</span>
+</span><span id="DeepMerge-321"><a href="#DeepMerge-321"><span class="linenos">321</span></a><span class="sd">        - Type: dict</span>
+</span><span id="DeepMerge-322"><a href="#DeepMerge-322"><span class="linenos">322</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="DeepMerge-323"><a href="#DeepMerge-323"><span class="linenos">323</span></a>    <span class="n">original</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">original</span><span class="p">)</span>
+</span><span id="DeepMerge-324"><a href="#DeepMerge-324"><span class="linenos">324</span></a>    <span class="n">merge_type_dicts</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="n">update</span><span class="p">)</span>
+</span><span id="DeepMerge-325"><a href="#DeepMerge-325"><span class="linenos">325</span></a>    <span class="k">return</span> <span class="n">original</span>
 </span></pre></div>
 
 
-            <div class="docstring"><p>Merge two dictionaries together, recursively merging any nested dictionaries and extending any nested lists.</p>
+            <div class="docstring"><p>Merge two dictionaries together, recursively merging any nested dictionaries and preserving collection variant schemas.</p>
 
 <p>Required Arguments:</p>
 
@@ -1127,43 +1207,6 @@
 
 
                 </section>
-                <section id="merge_type_dicts">
-                            <input id="merge_type_dicts-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
-<div class="attr function">
-            
-        <span class="def">def</span>
-        <span class="name">merge_type_dicts</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">target</span>, </span><span class="param"><span class="n">source</span></span><span class="return-annotation">):</span></span>
-
-                <label class="view-source-button" for="merge_type_dicts-view-source"><span>View Source</span></label>
-
-    </div>
-    <a class="headerlink" href="#merge_type_dicts"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="merge_type_dicts-293"><a href="#merge_type_dicts-293"><span class="linenos">293</span></a><span class="k">def</span><span class="w"> </span><span class="nf">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">source</span><span class="p">):</span>
-</span><span id="merge_type_dicts-294"><a href="#merge_type_dicts-294"><span class="linenos">294</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge source type dict into target in-place.</span>
-</span><span id="merge_type_dicts-295"><a href="#merge_type_dicts-295"><span class="linenos">295</span></a>
-</span><span id="merge_type_dicts-296"><a href="#merge_type_dicts-296"><span class="linenos">296</span></a><span class="sd">    Like DeepMerge but without copy.deepcopy</span>
-</span><span id="merge_type_dicts-297"><a href="#merge_type_dicts-297"><span class="linenos">297</span></a><span class="sd">    Safe because both dicts are freshly created during type parsing.</span>
-</span><span id="merge_type_dicts-298"><a href="#merge_type_dicts-298"><span class="linenos">298</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="merge_type_dicts-299"><a href="#merge_type_dicts-299"><span class="linenos">299</span></a>    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">source</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="merge_type_dicts-300"><a href="#merge_type_dicts-300"><span class="linenos">300</span></a>        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target</span><span class="p">:</span>
-</span><span id="merge_type_dicts-301"><a href="#merge_type_dicts-301"><span class="linenos">301</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span><span id="merge_type_dicts-302"><a href="#merge_type_dicts-302"><span class="linenos">302</span></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span id="merge_type_dicts-303"><a href="#merge_type_dicts-303"><span class="linenos">303</span></a>            <span class="n">merge_type_dicts</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">value</span><span class="p">)</span>
-</span><span id="merge_type_dicts-304"><a href="#merge_type_dicts-304"><span class="linenos">304</span></a>        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span id="merge_type_dicts-305"><a href="#merge_type_dicts-305"><span class="linenos">305</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-</span><span id="merge_type_dicts-306"><a href="#merge_type_dicts-306"><span class="linenos">306</span></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="merge_type_dicts-307"><a href="#merge_type_dicts-307"><span class="linenos">307</span></a>            <span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span></pre></div>
-
-
-            <div class="docstring"><p>Merge source type dict into target in-place.</p>
-
-<p>Like DeepMerge but without copy.deepcopy
-Safe because both dicts are freshly created during type parsing.</p>
-</div>
-
-
-                </section>
                 <section id="WithSubclasses">
                             <input id="WithSubclasses-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -1175,17 +1218,17 @@ Safe because both dicts are freshly created during type parsing.</p>
 
     </div>
     <a class="headerlink" href="#WithSubclasses"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="WithSubclasses-310"><a href="#WithSubclasses-310"><span class="linenos">310</span></a><span class="k">def</span><span class="w"> </span><span class="nf">WithSubclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-</span><span id="WithSubclasses-311"><a href="#WithSubclasses-311"><span class="linenos">311</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-312"><a href="#WithSubclasses-312"><span class="linenos">312</span></a><span class="sd">    A utility class to preserve backwards compatibility</span>
-</span><span id="WithSubclasses-313"><a href="#WithSubclasses-313"><span class="linenos">313</span></a><span class="sd">    with the older versions of type_enforced.</span>
-</span><span id="WithSubclasses-314"><a href="#WithSubclasses-314"><span class="linenos">314</span></a>
-</span><span id="WithSubclasses-315"><a href="#WithSubclasses-315"><span class="linenos">315</span></a><span class="sd">    By default subclasses of all classes are now enforced by type_enforced.</span>
-</span><span id="WithSubclasses-316"><a href="#WithSubclasses-316"><span class="linenos">316</span></a>
-</span><span id="WithSubclasses-317"><a href="#WithSubclasses-317"><span class="linenos">317</span></a><span class="sd">    It is slated to be removed in the next major version.</span>
-</span><span id="WithSubclasses-318"><a href="#WithSubclasses-318"><span class="linenos">318</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="WithSubclasses-319"><a href="#WithSubclasses-319"><span class="linenos">319</span></a>    <span class="c1"># TODO: Remove this in the next major version of type_enforced</span>
-</span><span id="WithSubclasses-320"><a href="#WithSubclasses-320"><span class="linenos">320</span></a>    <span class="k">return</span> <span class="bp">cls</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="WithSubclasses-328"><a href="#WithSubclasses-328"><span class="linenos">328</span></a><span class="k">def</span><span class="w"> </span><span class="nf">WithSubclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span id="WithSubclasses-329"><a href="#WithSubclasses-329"><span class="linenos">329</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="WithSubclasses-330"><a href="#WithSubclasses-330"><span class="linenos">330</span></a><span class="sd">    A utility class to preserve backwards compatibility</span>
+</span><span id="WithSubclasses-331"><a href="#WithSubclasses-331"><span class="linenos">331</span></a><span class="sd">    with the older versions of type_enforced.</span>
+</span><span id="WithSubclasses-332"><a href="#WithSubclasses-332"><span class="linenos">332</span></a>
+</span><span id="WithSubclasses-333"><a href="#WithSubclasses-333"><span class="linenos">333</span></a><span class="sd">    By default subclasses of all classes are now enforced by type_enforced.</span>
+</span><span id="WithSubclasses-334"><a href="#WithSubclasses-334"><span class="linenos">334</span></a>
+</span><span id="WithSubclasses-335"><a href="#WithSubclasses-335"><span class="linenos">335</span></a><span class="sd">    It is slated to be removed in the next major version.</span>
+</span><span id="WithSubclasses-336"><a href="#WithSubclasses-336"><span class="linenos">336</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="WithSubclasses-337"><a href="#WithSubclasses-337"><span class="linenos">337</span></a>    <span class="c1"># TODO: Remove this in the next major version of type_enforced</span>
+</span><span id="WithSubclasses-338"><a href="#WithSubclasses-338"><span class="linenos">338</span></a>    <span class="k">return</span> <span class="bp">cls</span>
 </span></pre></div>
 
 
@@ -1199,18 +1242,6 @@ with the older versions of type_enforced.</p>
 
 
                 </section>
-                <section id="iterable_types">
-                    <div class="attr variable">
-            <span class="name">iterable_types</span>        =
-<span class="default_value">frozenset({&lt;class &#39;set&#39;&gt;, &lt;class &#39;list&#39;&gt;, &lt;class &#39;tuple&#39;&gt;, &lt;class &#39;dict&#39;&gt;})</span>
-
-        
-    </div>
-    <a class="headerlink" href="#iterable_types"></a>
-    
-    
-
-                </section>
                 <section id="has_cpp">
                             <input id="has_cpp-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -1222,13 +1253,13 @@ with the older versions of type_enforced.</p>
 
     </div>
     <a class="headerlink" href="#has_cpp"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="has_cpp-326"><a href="#has_cpp-326"><span class="linenos">326</span></a><span class="k">def</span><span class="w"> </span><span class="nf">has_cpp</span><span class="p">():</span>
-</span><span id="has_cpp-327"><a href="#has_cpp-327"><span class="linenos">327</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="has_cpp-328"><a href="#has_cpp-328"><span class="linenos">328</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
-</span><span id="has_cpp-329"><a href="#has_cpp-329"><span class="linenos">329</span></a>
-</span><span id="has_cpp-330"><a href="#has_cpp-330"><span class="linenos">330</span></a>        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="has_cpp-331"><a href="#has_cpp-331"><span class="linenos">331</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="has_cpp-332"><a href="#has_cpp-332"><span class="linenos">332</span></a>        <span class="k">return</span> <span class="kc">False</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="has_cpp-341"><a href="#has_cpp-341"><span class="linenos">341</span></a><span class="k">def</span><span class="w"> </span><span class="nf">has_cpp</span><span class="p">():</span>
+</span><span id="has_cpp-342"><a href="#has_cpp-342"><span class="linenos">342</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="has_cpp-343"><a href="#has_cpp-343"><span class="linenos">343</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
+</span><span id="has_cpp-344"><a href="#has_cpp-344"><span class="linenos">344</span></a>
+</span><span id="has_cpp-345"><a href="#has_cpp-345"><span class="linenos">345</span></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="has_cpp-346"><a href="#has_cpp-346"><span class="linenos">346</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="has_cpp-347"><a href="#has_cpp-347"><span class="linenos">347</span></a>        <span class="k">return</span> <span class="kc">False</span>
 </span></pre></div>
 
 
@@ -1246,13 +1277,13 @@ with the older versions of type_enforced.</p>
 
     </div>
     <a class="headerlink" href="#cpp_check"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="cpp_check-335"><a href="#cpp_check-335"><span class="linenos">335</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
-</span><span id="cpp_check-336"><a href="#cpp_check-336"><span class="linenos">336</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="cpp_check-337"><a href="#cpp_check-337"><span class="linenos">337</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
-</span><span id="cpp_check-338"><a href="#cpp_check-338"><span class="linenos">338</span></a>
-</span><span id="cpp_check-339"><a href="#cpp_check-339"><span class="linenos">339</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
-</span><span id="cpp_check-340"><a href="#cpp_check-340"><span class="linenos">340</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="cpp_check-341"><a href="#cpp_check-341"><span class="linenos">341</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="cpp_check-350"><a href="#cpp_check-350"><span class="linenos">350</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
+</span><span id="cpp_check-351"><a href="#cpp_check-351"><span class="linenos">351</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="cpp_check-352"><a href="#cpp_check-352"><span class="linenos">352</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_list_single</span>  <span class="c1"># noqa: F401</span>
+</span><span id="cpp_check-353"><a href="#cpp_check-353"><span class="linenos">353</span></a>
+</span><span id="cpp_check-354"><a href="#cpp_check-354"><span class="linenos">354</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+</span><span id="cpp_check-355"><a href="#cpp_check-355"><span class="linenos">355</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="cpp_check-356"><a href="#cpp_check-356"><span class="linenos">356</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
 </span></pre></div>
 
 

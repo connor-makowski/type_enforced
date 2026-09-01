@@ -46,7 +46,7 @@ greet(["Alice"], 2)       # Returns "Hello Alice!Hello Alice!"
 greet(["Alice"], "twice")  # Raises TypeError at runtime!
 
 # 2. Fast O(1) validation (does not check every item in passed collections)
-@type_enforced.FastEnforcer
+@type_enforced.FastEnforcer 
 def process_tags(tags: list[str]) -> int:
     return len(tags)
 
@@ -354,7 +354,7 @@ configure("verbose", 123)  # Raises TypeError: Type mismatch for typed variable 
 configure(timeout="30s")   # Raises TypeError: Type mismatch for typed variable `settings['timeout']`
 ```
 
-### Known Limitations / Unsupported
+### Known Limitations / Currently Unsupported
 - Generic parameterization of `Sized` (e.g. `Sized[int]` — use `Sized` without inner type arguments)
 
 ---

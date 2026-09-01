@@ -33,12 +33,19 @@
             <li>
                     <a class="function" href="#ModuleEnforcer">ModuleEnforcer</a>
             </li>
+            <li>
+                    <a class="variable" href="#FAST_SAMPLE_OPTIONS">FAST_SAMPLE_OPTIONS</a>
+            </li>
+            <li>
+                    <a class="function" href="#FastModuleEnforcer">FastModuleEnforcer</a>
+            </li>
     </ul>
 
 
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
+        <option value="2.10.0">2.10.0</option>
         <option value="2.9.0">2.9.0</option>
         <option value="2.8.1">2.8.1</option>
         <option value="2.7.0">2.7.0</option>
@@ -289,6 +296,87 @@
 </span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a>    <span class="n">module</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;__type_enforced_initialized__&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
 </span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a>    <span class="n">module</span><span class="o">.</span><span class="vm">__class__</span> <span class="o">=</span> <span class="n">LazyEnforcedModule</span>
 </span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a>    <span class="k">return</span> <span class="n">module</span>
+</span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a>
+</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a>
+</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a><span class="n">FAST_SAMPLE_OPTIONS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a>    <span class="p">{</span><span class="s2">&quot;first&quot;</span><span class="p">,</span> <span class="s2">&quot;last&quot;</span><span class="p">,</span> <span class="s2">&quot;bookend&quot;</span><span class="p">,</span> <span class="s2">&quot;bookend_plus&quot;</span><span class="p">,</span> <span class="s2">&quot;log&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">}</span>
+</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a><span class="p">)</span>
+</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a>
+</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a>
+</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a><span class="nd">@__ModuleEnforcer__</span>
+</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a><span class="k">def</span><span class="w"> </span><span class="nf">FastModuleEnforcer</span><span class="p">(</span>
+</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a>    <span class="n">module</span><span class="p">,</span>
+</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a>    <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a>    <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a>    <span class="n">clean_traceback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a>    <span class="n">iterable_sample_pct</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">,</span>
+</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a>    <span class="n">submodules</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a>    <span class="n">only_typed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a><span class="p">):</span>
+</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a><span class="sd">    Enforce types across an entire module with fast sampling by default.</span>
+</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a>
+</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a><span class="sd">    Allowed iterable_sample_pct values: &#39;first&#39;, &#39;last&#39;, &#39;bookend&#39;, &#39;bookend_plus&#39;, &#39;log&#39;, 0.</span>
+</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a>
+</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="sd">    Can be called within a module (e.g. `FastModuleEnforcer()`),</span>
+</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a><span class="sd">    or directly on an imported module object or module name.</span>
+</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a>
+</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a><span class="sd">    Requires (or resolves to caller module if omitted):</span>
+</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a>
+</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a><span class="sd">    - `module`:</span>
+</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a><span class="sd">        - What: The module or module name to enforce.</span>
+</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a><span class="sd">        - Type: types.ModuleType | str</span>
+</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a>
+</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a><span class="sd">    Optional:</span>
+</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a>
+</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a><span class="sd">    - `enabled`:</span>
+</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a><span class="sd">        - What: A boolean to enable or disable the enforcer.</span>
+</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a><span class="sd">        - Type: bool</span>
+</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a><span class="sd">        - Default: True</span>
+</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a><span class="sd">    - `strict`:</span>
+</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a><span class="sd">        - What: A boolean to enable or disable exceptions. If True, exceptions will be raised</span>
+</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a><span class="sd">            when type checking fails. If False, exceptions will not be raised but instead a warning</span>
+</span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a><span class="sd">            will be printed to the console.</span>
+</span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a><span class="sd">        - Type: bool</span>
+</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a><span class="sd">        - Default: True</span>
+</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a><span class="sd">    - `clean_traceback`:</span>
+</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a><span class="sd">        - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.</span>
+</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a><span class="sd">        - Type: bool</span>
+</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a><span class="sd">        - Default: True</span>
+</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a><span class="sd">    - `iterable_sample_pct`:</span>
+</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a><span class="sd">        - What: Control how many items in iterables are checked during type enforcement.</span>
+</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a><span class="sd">            FastModuleEnforcer strictly supports &#39;first&#39; (first element), &#39;last&#39; (last element),</span>
+</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a><span class="sd">            &#39;bookend&#39; (first and last), &#39;bookend_plus&#39; (first, last, plus one random),</span>
+</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a><span class="sd">            &#39;log&#39; (sample of log n items), or 0 (1 random sample).</span>
+</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a><span class="sd">        - Type: int | str</span>
+</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a><span class="sd">        - Default: &#39;first&#39;</span>
+</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a><span class="sd">    - `submodules`:</span>
+</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="sd">        - What: A boolean to enable or disable recursive enforcement on submodules under the</span>
+</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a><span class="sd">            same package namespace.</span>
+</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="sd">        - Type: bool</span>
+</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a><span class="sd">        - Default: True</span>
+</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">    - `only_typed`:</span>
+</span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a><span class="sd">        - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.</span>
+</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a><span class="sd">        - Type: bool</span>
+</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a><span class="sd">        - Default: False</span>
+</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a>    <span class="k">if</span> <span class="n">iterable_sample_pct</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">FAST_SAMPLE_OPTIONS</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a>        <span class="n">iterable_sample_pct</span><span class="p">,</span> <span class="nb">bool</span>
+</span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a>    <span class="p">):</span>
+</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a>            <span class="sa">f</span><span class="s2">&quot;Invalid iterable_sample_pct `</span><span class="si">{</span><span class="n">iterable_sample_pct</span><span class="si">}</span><span class="s2">` for FastModuleEnforcer. &quot;</span>
+</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a>            <span class="sa">f</span><span class="s2">&quot;FastModuleEnforcer only supports fast sampling options: &#39;first&#39;, &#39;last&#39;, &#39;bookend&#39;, &#39;bookend_plus&#39;, &#39;log&#39;, or 0.&quot;</span>
+</span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a>        <span class="p">)</span>
+</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a>
+</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a>    <span class="k">return</span> <span class="n">ModuleEnforcer</span><span class="p">(</span>
+</span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a>        <span class="n">module</span><span class="p">,</span>
+</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a>        <span class="n">enabled</span><span class="o">=</span><span class="n">enabled</span><span class="p">,</span>
+</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a>        <span class="n">strict</span><span class="o">=</span><span class="n">strict</span><span class="p">,</span>
+</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a>        <span class="n">clean_traceback</span><span class="o">=</span><span class="n">clean_traceback</span><span class="p">,</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a>        <span class="n">iterable_sample_pct</span><span class="o">=</span><span class="n">iterable_sample_pct</span><span class="p">,</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a>        <span class="n">submodules</span><span class="o">=</span><span class="n">submodules</span><span class="p">,</span>
+</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a>        <span class="n">only_typed</span><span class="o">=</span><span class="n">only_typed</span><span class="p">,</span>
+</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a>    <span class="p">)</span>
 </span></pre></div>
 
 
@@ -500,6 +588,173 @@ Supports 'first' (first element), 'last' (last element), 'log' (sample of log n 
 0 (1 random sample), or an integer percentage 1..100 (rounding up).</li>
 <li>Type: int | str</li>
 <li>Default: 100</li>
+</ul></li>
+<li><code>submodules</code>:
+<ul>
+<li>What: A boolean to enable or disable recursive enforcement on submodules under the
+same package namespace.</li>
+<li>Type: bool</li>
+<li>Default: True</li>
+</ul></li>
+<li><code>only_typed</code>:
+<ul>
+<li>What: A boolean to enable or disable raising exceptions on untyped function/method parameters.</li>
+<li>Type: bool</li>
+<li>Default: False</li>
+</ul></li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="FAST_SAMPLE_OPTIONS">
+                    <div class="attr variable">
+            <span class="name">FAST_SAMPLE_OPTIONS</span>        =
+<span class="default_value">frozenset({0, &#39;log&#39;, &#39;bookend&#39;, &#39;bookend_plus&#39;, &#39;first&#39;, &#39;last&#39;})</span>
+
+        
+    </div>
+    <a class="headerlink" href="#FAST_SAMPLE_OPTIONS"></a>
+    
+    
+
+                </section>
+                <section id="FastModuleEnforcer">
+                            <input id="FastModuleEnforcer-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">FastModuleEnforcer</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">module</span>,</span><span class="param">	<span class="n">enabled</span><span class="o">=</span><span class="kc">True</span>,</span><span class="param">	<span class="n">strict</span><span class="o">=</span><span class="kc">True</span>,</span><span class="param">	<span class="n">clean_traceback</span><span class="o">=</span><span class="kc">True</span>,</span><span class="param">	<span class="n">iterable_sample_pct</span><span class="o">=</span><span class="s1">&#39;first&#39;</span>,</span><span class="param">	<span class="n">submodules</span><span class="o">=</span><span class="kc">True</span>,</span><span class="param">	<span class="n">only_typed</span><span class="o">=</span><span class="kc">False</span></span><span class="return-annotation">):</span></span>
+
+                <label class="view-source-button" for="FastModuleEnforcer-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#FastModuleEnforcer"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="FastModuleEnforcer-191"><a href="#FastModuleEnforcer-191"><span class="linenos">191</span></a><span class="nd">@__ModuleEnforcer__</span>
+</span><span id="FastModuleEnforcer-192"><a href="#FastModuleEnforcer-192"><span class="linenos">192</span></a><span class="k">def</span><span class="w"> </span><span class="nf">FastModuleEnforcer</span><span class="p">(</span>
+</span><span id="FastModuleEnforcer-193"><a href="#FastModuleEnforcer-193"><span class="linenos">193</span></a>    <span class="n">module</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-194"><a href="#FastModuleEnforcer-194"><span class="linenos">194</span></a>    <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-195"><a href="#FastModuleEnforcer-195"><span class="linenos">195</span></a>    <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-196"><a href="#FastModuleEnforcer-196"><span class="linenos">196</span></a>    <span class="n">clean_traceback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-197"><a href="#FastModuleEnforcer-197"><span class="linenos">197</span></a>    <span class="n">iterable_sample_pct</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-198"><a href="#FastModuleEnforcer-198"><span class="linenos">198</span></a>    <span class="n">submodules</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-199"><a href="#FastModuleEnforcer-199"><span class="linenos">199</span></a>    <span class="n">only_typed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-200"><a href="#FastModuleEnforcer-200"><span class="linenos">200</span></a><span class="p">):</span>
+</span><span id="FastModuleEnforcer-201"><a href="#FastModuleEnforcer-201"><span class="linenos">201</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="FastModuleEnforcer-202"><a href="#FastModuleEnforcer-202"><span class="linenos">202</span></a><span class="sd">    Enforce types across an entire module with fast sampling by default.</span>
+</span><span id="FastModuleEnforcer-203"><a href="#FastModuleEnforcer-203"><span class="linenos">203</span></a>
+</span><span id="FastModuleEnforcer-204"><a href="#FastModuleEnforcer-204"><span class="linenos">204</span></a><span class="sd">    Allowed iterable_sample_pct values: &#39;first&#39;, &#39;last&#39;, &#39;bookend&#39;, &#39;bookend_plus&#39;, &#39;log&#39;, 0.</span>
+</span><span id="FastModuleEnforcer-205"><a href="#FastModuleEnforcer-205"><span class="linenos">205</span></a>
+</span><span id="FastModuleEnforcer-206"><a href="#FastModuleEnforcer-206"><span class="linenos">206</span></a><span class="sd">    Can be called within a module (e.g. `FastModuleEnforcer()`),</span>
+</span><span id="FastModuleEnforcer-207"><a href="#FastModuleEnforcer-207"><span class="linenos">207</span></a><span class="sd">    or directly on an imported module object or module name.</span>
+</span><span id="FastModuleEnforcer-208"><a href="#FastModuleEnforcer-208"><span class="linenos">208</span></a>
+</span><span id="FastModuleEnforcer-209"><a href="#FastModuleEnforcer-209"><span class="linenos">209</span></a><span class="sd">    Requires (or resolves to caller module if omitted):</span>
+</span><span id="FastModuleEnforcer-210"><a href="#FastModuleEnforcer-210"><span class="linenos">210</span></a>
+</span><span id="FastModuleEnforcer-211"><a href="#FastModuleEnforcer-211"><span class="linenos">211</span></a><span class="sd">    - `module`:</span>
+</span><span id="FastModuleEnforcer-212"><a href="#FastModuleEnforcer-212"><span class="linenos">212</span></a><span class="sd">        - What: The module or module name to enforce.</span>
+</span><span id="FastModuleEnforcer-213"><a href="#FastModuleEnforcer-213"><span class="linenos">213</span></a><span class="sd">        - Type: types.ModuleType | str</span>
+</span><span id="FastModuleEnforcer-214"><a href="#FastModuleEnforcer-214"><span class="linenos">214</span></a>
+</span><span id="FastModuleEnforcer-215"><a href="#FastModuleEnforcer-215"><span class="linenos">215</span></a><span class="sd">    Optional:</span>
+</span><span id="FastModuleEnforcer-216"><a href="#FastModuleEnforcer-216"><span class="linenos">216</span></a>
+</span><span id="FastModuleEnforcer-217"><a href="#FastModuleEnforcer-217"><span class="linenos">217</span></a><span class="sd">    - `enabled`:</span>
+</span><span id="FastModuleEnforcer-218"><a href="#FastModuleEnforcer-218"><span class="linenos">218</span></a><span class="sd">        - What: A boolean to enable or disable the enforcer.</span>
+</span><span id="FastModuleEnforcer-219"><a href="#FastModuleEnforcer-219"><span class="linenos">219</span></a><span class="sd">        - Type: bool</span>
+</span><span id="FastModuleEnforcer-220"><a href="#FastModuleEnforcer-220"><span class="linenos">220</span></a><span class="sd">        - Default: True</span>
+</span><span id="FastModuleEnforcer-221"><a href="#FastModuleEnforcer-221"><span class="linenos">221</span></a><span class="sd">    - `strict`:</span>
+</span><span id="FastModuleEnforcer-222"><a href="#FastModuleEnforcer-222"><span class="linenos">222</span></a><span class="sd">        - What: A boolean to enable or disable exceptions. If True, exceptions will be raised</span>
+</span><span id="FastModuleEnforcer-223"><a href="#FastModuleEnforcer-223"><span class="linenos">223</span></a><span class="sd">            when type checking fails. If False, exceptions will not be raised but instead a warning</span>
+</span><span id="FastModuleEnforcer-224"><a href="#FastModuleEnforcer-224"><span class="linenos">224</span></a><span class="sd">            will be printed to the console.</span>
+</span><span id="FastModuleEnforcer-225"><a href="#FastModuleEnforcer-225"><span class="linenos">225</span></a><span class="sd">        - Type: bool</span>
+</span><span id="FastModuleEnforcer-226"><a href="#FastModuleEnforcer-226"><span class="linenos">226</span></a><span class="sd">        - Default: True</span>
+</span><span id="FastModuleEnforcer-227"><a href="#FastModuleEnforcer-227"><span class="linenos">227</span></a><span class="sd">    - `clean_traceback`:</span>
+</span><span id="FastModuleEnforcer-228"><a href="#FastModuleEnforcer-228"><span class="linenos">228</span></a><span class="sd">        - What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.</span>
+</span><span id="FastModuleEnforcer-229"><a href="#FastModuleEnforcer-229"><span class="linenos">229</span></a><span class="sd">        - Type: bool</span>
+</span><span id="FastModuleEnforcer-230"><a href="#FastModuleEnforcer-230"><span class="linenos">230</span></a><span class="sd">        - Default: True</span>
+</span><span id="FastModuleEnforcer-231"><a href="#FastModuleEnforcer-231"><span class="linenos">231</span></a><span class="sd">    - `iterable_sample_pct`:</span>
+</span><span id="FastModuleEnforcer-232"><a href="#FastModuleEnforcer-232"><span class="linenos">232</span></a><span class="sd">        - What: Control how many items in iterables are checked during type enforcement.</span>
+</span><span id="FastModuleEnforcer-233"><a href="#FastModuleEnforcer-233"><span class="linenos">233</span></a><span class="sd">            FastModuleEnforcer strictly supports &#39;first&#39; (first element), &#39;last&#39; (last element),</span>
+</span><span id="FastModuleEnforcer-234"><a href="#FastModuleEnforcer-234"><span class="linenos">234</span></a><span class="sd">            &#39;bookend&#39; (first and last), &#39;bookend_plus&#39; (first, last, plus one random),</span>
+</span><span id="FastModuleEnforcer-235"><a href="#FastModuleEnforcer-235"><span class="linenos">235</span></a><span class="sd">            &#39;log&#39; (sample of log n items), or 0 (1 random sample).</span>
+</span><span id="FastModuleEnforcer-236"><a href="#FastModuleEnforcer-236"><span class="linenos">236</span></a><span class="sd">        - Type: int | str</span>
+</span><span id="FastModuleEnforcer-237"><a href="#FastModuleEnforcer-237"><span class="linenos">237</span></a><span class="sd">        - Default: &#39;first&#39;</span>
+</span><span id="FastModuleEnforcer-238"><a href="#FastModuleEnforcer-238"><span class="linenos">238</span></a><span class="sd">    - `submodules`:</span>
+</span><span id="FastModuleEnforcer-239"><a href="#FastModuleEnforcer-239"><span class="linenos">239</span></a><span class="sd">        - What: A boolean to enable or disable recursive enforcement on submodules under the</span>
+</span><span id="FastModuleEnforcer-240"><a href="#FastModuleEnforcer-240"><span class="linenos">240</span></a><span class="sd">            same package namespace.</span>
+</span><span id="FastModuleEnforcer-241"><a href="#FastModuleEnforcer-241"><span class="linenos">241</span></a><span class="sd">        - Type: bool</span>
+</span><span id="FastModuleEnforcer-242"><a href="#FastModuleEnforcer-242"><span class="linenos">242</span></a><span class="sd">        - Default: True</span>
+</span><span id="FastModuleEnforcer-243"><a href="#FastModuleEnforcer-243"><span class="linenos">243</span></a><span class="sd">    - `only_typed`:</span>
+</span><span id="FastModuleEnforcer-244"><a href="#FastModuleEnforcer-244"><span class="linenos">244</span></a><span class="sd">        - What: A boolean to enable or disable raising exceptions on untyped function/method parameters.</span>
+</span><span id="FastModuleEnforcer-245"><a href="#FastModuleEnforcer-245"><span class="linenos">245</span></a><span class="sd">        - Type: bool</span>
+</span><span id="FastModuleEnforcer-246"><a href="#FastModuleEnforcer-246"><span class="linenos">246</span></a><span class="sd">        - Default: False</span>
+</span><span id="FastModuleEnforcer-247"><a href="#FastModuleEnforcer-247"><span class="linenos">247</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="FastModuleEnforcer-248"><a href="#FastModuleEnforcer-248"><span class="linenos">248</span></a>    <span class="k">if</span> <span class="n">iterable_sample_pct</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">FAST_SAMPLE_OPTIONS</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+</span><span id="FastModuleEnforcer-249"><a href="#FastModuleEnforcer-249"><span class="linenos">249</span></a>        <span class="n">iterable_sample_pct</span><span class="p">,</span> <span class="nb">bool</span>
+</span><span id="FastModuleEnforcer-250"><a href="#FastModuleEnforcer-250"><span class="linenos">250</span></a>    <span class="p">):</span>
+</span><span id="FastModuleEnforcer-251"><a href="#FastModuleEnforcer-251"><span class="linenos">251</span></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+</span><span id="FastModuleEnforcer-252"><a href="#FastModuleEnforcer-252"><span class="linenos">252</span></a>            <span class="sa">f</span><span class="s2">&quot;Invalid iterable_sample_pct `</span><span class="si">{</span><span class="n">iterable_sample_pct</span><span class="si">}</span><span class="s2">` for FastModuleEnforcer. &quot;</span>
+</span><span id="FastModuleEnforcer-253"><a href="#FastModuleEnforcer-253"><span class="linenos">253</span></a>            <span class="sa">f</span><span class="s2">&quot;FastModuleEnforcer only supports fast sampling options: &#39;first&#39;, &#39;last&#39;, &#39;bookend&#39;, &#39;bookend_plus&#39;, &#39;log&#39;, or 0.&quot;</span>
+</span><span id="FastModuleEnforcer-254"><a href="#FastModuleEnforcer-254"><span class="linenos">254</span></a>        <span class="p">)</span>
+</span><span id="FastModuleEnforcer-255"><a href="#FastModuleEnforcer-255"><span class="linenos">255</span></a>
+</span><span id="FastModuleEnforcer-256"><a href="#FastModuleEnforcer-256"><span class="linenos">256</span></a>    <span class="k">return</span> <span class="n">ModuleEnforcer</span><span class="p">(</span>
+</span><span id="FastModuleEnforcer-257"><a href="#FastModuleEnforcer-257"><span class="linenos">257</span></a>        <span class="n">module</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-258"><a href="#FastModuleEnforcer-258"><span class="linenos">258</span></a>        <span class="n">enabled</span><span class="o">=</span><span class="n">enabled</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-259"><a href="#FastModuleEnforcer-259"><span class="linenos">259</span></a>        <span class="n">strict</span><span class="o">=</span><span class="n">strict</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-260"><a href="#FastModuleEnforcer-260"><span class="linenos">260</span></a>        <span class="n">clean_traceback</span><span class="o">=</span><span class="n">clean_traceback</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-261"><a href="#FastModuleEnforcer-261"><span class="linenos">261</span></a>        <span class="n">iterable_sample_pct</span><span class="o">=</span><span class="n">iterable_sample_pct</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-262"><a href="#FastModuleEnforcer-262"><span class="linenos">262</span></a>        <span class="n">submodules</span><span class="o">=</span><span class="n">submodules</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-263"><a href="#FastModuleEnforcer-263"><span class="linenos">263</span></a>        <span class="n">only_typed</span><span class="o">=</span><span class="n">only_typed</span><span class="p">,</span>
+</span><span id="FastModuleEnforcer-264"><a href="#FastModuleEnforcer-264"><span class="linenos">264</span></a>    <span class="p">)</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Enforce types across an entire module with fast sampling by default.</p>
+
+<p>Allowed iterable_sample_pct values: 'first', 'last', 'bookend', 'bookend_plus', 'log', 0.</p>
+
+<p>Can be called within a module (e.g. <code><a href="#FastModuleEnforcer">FastModuleEnforcer()</a></code>),
+or directly on an imported module object or module name.</p>
+
+<p>Requires (or resolves to caller module if omitted):</p>
+
+<ul>
+<li><code>module</code>:
+<ul>
+<li>What: The module or module name to enforce.</li>
+<li>Type: types.ModuleType | str</li>
+</ul></li>
+</ul>
+
+<p>Optional:</p>
+
+<ul>
+<li><code>enabled</code>:
+<ul>
+<li>What: A boolean to enable or disable the enforcer.</li>
+<li>Type: bool</li>
+<li>Default: True</li>
+</ul></li>
+<li><code>strict</code>:
+<ul>
+<li>What: A boolean to enable or disable exceptions. If True, exceptions will be raised
+when type checking fails. If False, exceptions will not be raised but instead a warning
+will be printed to the console.</li>
+<li>Type: bool</li>
+<li>Default: True</li>
+</ul></li>
+<li><code>clean_traceback</code>:
+<ul>
+<li>What: A boolean to enable or disable cleaning of tracebacks when raising exceptions.</li>
+<li>Type: bool</li>
+<li>Default: True</li>
+</ul></li>
+<li><code>iterable_sample_pct</code>:
+<ul>
+<li>What: Control how many items in iterables are checked during type enforcement.
+FastModuleEnforcer strictly supports 'first' (first element), 'last' (last element),
+'bookend' (first and last), 'bookend_plus' (first, last, plus one random),
+'log' (sample of log n items), or 0 (1 random sample).</li>
+<li>Type: int | str</li>
+<li>Default: 'first'</li>
 </ul></li>
 <li><code>submodules</code>:
 <ul>
