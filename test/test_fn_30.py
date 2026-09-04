@@ -5,7 +5,13 @@ import type_enforced
 
 def test_cpp_check():
     if os.environ.get("TYPE_ENFORCED_SKIP_CPP") == "1":
-        assert not type_enforced.has_cpp()
+        assert (
+            not type_enforced.has_cpp()
+        ), "Expected pure Python fallback, but has_cpp() is True!"
+    elif os.environ.get("TYPE_ENFORCED_REQUIRE_CPP") == "1":
+        assert (
+            type_enforced.has_cpp()
+        ), "Expected C++ extension to be active, but has_cpp() is False!"
     else:
         assert isinstance(type_enforced.has_cpp(), bool)
 

@@ -96,7 +96,6 @@ Timings are averages of a single validation over 100 runs. ⚠ = checker did not
 | `str` | — | 0.16 µs | 0.28 µs | 0.16 µs | 0.54 µs |
 | `list[int]` | 1 000 items | 0.20 µs ⚠ | 0.50 µs ⚠ | 0.62 µs | 11.14 µs |
 | `list[int]` | 10 000 items | 0.20 µs ⚠ | 0.59 µs ⚠ | 4.19 µs | 105.80 µs |
-| `list[int] \| list[str]` | 1 000 items | 0.19 µs ⚠ | 0.44 µs ⚠ | 0.62 µs | 11.46 µs |
 | `dict[str, int]` | 1 000 keys | 0.21 µs ⚠ | 0.43 µs ⚠ | 3.02 µs | 39.80 µs |
 | `dict[str, int]` | 10 000 keys | 0.24 µs ⚠ | 0.43 µs ⚠ | 29.48 µs | 438.13 µs |
 | `list[list[int]]` | 100 x 100 items | 0.23 µs ⚠ | 0.56 µs ⚠ | 5.13 µs | 109.95 µs |

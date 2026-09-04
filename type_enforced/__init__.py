@@ -1,4 +1,4 @@
-r"""
+"""
 # type_enforced
 
 [![PyPI version](https://img.shields.io/pypi/v/type_enforced.svg?color=blue)](https://pypi.org/project/type_enforced/)
@@ -46,7 +46,7 @@ greet(["Alice"], 2)       # Returns "Hello Alice!Hello Alice!"
 greet(["Alice"], "twice")  # Raises TypeError at runtime!
 
 # 2. Fast O(1) validation (does not check every item in passed collections)
-@type_enforced.FastEnforcer
+@type_enforced.FastEnforcer 
 def process_tags(tags: list[str]) -> int:
     return len(tags)
 
@@ -92,17 +92,16 @@ Timings are averages of a single validation over 100 runs. ⚠ = checker did not
 
 | Type | Size | type_enforced (sample=1) | Beartype (sample=1) | type_enforced (100%) | Pydantic (100%) |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| `int` | — | 0.19 µs | 0.32 µs | 0.18 µs | 0.67 µs |
-| `Union[int, float]` | — | 0.19 µs | 0.37 µs | 0.19 µs | 0.82 µs |
-| `str` | — | 0.18 µs | 0.32 µs | 0.18 µs | 0.66 µs |
-| `list[int]` | 1 000 items | 0.21 µs ⚠ | 0.69 µs ⚠ | 2.40 µs | 11.44 µs |
-| `list[int]` | 10 000 items | 0.23 µs ⚠ | 0.67 µs ⚠ | 22.12 µs | 112.23 µs |
-| `list[int] \| list[str]` | 1 000 items | 0.22 µs ⚠ | 0.58 µs ⚠ | 2.61 µs | 11.52 µs |
-| `dict[str, int]` | 1 000 keys | 0.23 µs ⚠ | 0.48 µs ⚠ | 5.69 µs | 45.95 µs |
-| `dict[str, int]` | 10 000 keys | 0.25 µs ⚠ | 0.66 µs ⚠ | 55.82 µs | 489.90 µs |
-| `list[list[int]]` | 100 x 100 items | 0.24 µs ⚠ | 0.60 µs ⚠ | 15.36 µs | 97.26 µs |
-| `dict[str, list[int]]` | 100 x 100 items | 0.38 µs ⚠ | 0.59 µs ⚠ | 15.60 µs | 102.62 µs |
-| `list[dict[str, int]]` | 100 x 100 items | 0.26 µs ⚠ | 0.82 µs ⚠ | 52.67 µs | 436.95 µs |
+| `int` | — | 0.16 µs | 0.27 µs | 0.16 µs | 0.55 µs |
+| `Union[int, float]` | — | 0.17 µs | 0.30 µs | 0.18 µs | 0.62 µs |
+| `str` | — | 0.16 µs | 0.28 µs | 0.16 µs | 0.54 µs |
+| `list[int]` | 1 000 items | 0.20 µs ⚠ | 0.50 µs ⚠ | 0.62 µs | 11.14 µs |
+| `list[int]` | 10 000 items | 0.20 µs ⚠ | 0.59 µs ⚠ | 4.19 µs | 105.80 µs |
+| `dict[str, int]` | 1 000 keys | 0.21 µs ⚠ | 0.43 µs ⚠ | 3.02 µs | 39.80 µs |
+| `dict[str, int]` | 10 000 keys | 0.24 µs ⚠ | 0.43 µs ⚠ | 29.48 µs | 438.13 µs |
+| `list[list[int]]` | 100 x 100 items | 0.23 µs ⚠ | 0.56 µs ⚠ | 5.13 µs | 109.95 µs |
+| `dict[str, list[int]]` | 100 x 100 items | 0.45 µs ⚠ | 0.54 µs ⚠ | 5.22 µs | 118.79 µs |
+| `list[dict[str, int]]` | 100 x 100 items | 0.25 µs ⚠ | 0.76 µs ⚠ | 32.80 µs | 390.09 µs |
 
 > **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to 3x faster than Beartype**.
 
