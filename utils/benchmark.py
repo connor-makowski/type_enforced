@@ -1,15 +1,74 @@
 try:
     import sys, time
     from statistics import mean
-    from typing import Dict, List, Tuple, Union, get_args, get_origin
+    from typing import (
+        Callable,
+        Dict,
+        List,
+        NewType,
+        Tuple,
+        Type,
+        TypeVar,
+        TypedDict,
+        Union,
+        get_args,
+        get_origin,
+    )
 
-    from beartype import beartype
-    import cattrs
-    import msgspec
-    from pydantic import validate_call
+    try:
+        from typing import LiteralString
+    except ImportError:
+        LiteralString = str
+
+    try:
+        from typing import Self
+    except ImportError:
+        Self = object
+
+    UserId = NewType("UserId", int)
+    T_bound = TypeVar("T_bound", bound=int)
+
+    class UserProfile(TypedDict):
+        id: int
+        name: str
+        active: bool
+        score: float
+        tag: str
+
+    class BenchmarkClass:
+        pass
+
+    class BenchmarkSubclass(BenchmarkClass):
+        pass
+
+    try:
+        from beartype import beartype
+    except ImportError:
+        beartype = None
+
+    try:
+        import cattrs
+    except ImportError:
+        cattrs = None
+
+    try:
+        import msgspec
+    except ImportError:
+        msgspec = None
+
+    try:
+        from pydantic import validate_call
+    except ImportError:
+        validate_call = None
+
     import type_enforced
-    import typeguard
-    from typeguard import typechecked
+
+    try:
+        import typeguard
+        from typeguard import typechecked
+    except ImportError:
+        typeguard = None
+        typechecked = None
 
     # Open the log file, clear it and redirect stdout to it
     log = open("benchmark.md", "w")
@@ -36,6 +95,48 @@ try:
         "int": (42, "not an int"),
         "Union[int,float]": (3.14, "not a number"),
         "str": ("hello", 123),
+        "NewType (int)": (UserId(42), "not an int"),
+        "LiteralString": ("SELECT * FROM users", 12345),
+        "type[BenchmarkClass]": (
+            BenchmarkClass,
+            BenchmarkSubclass(),
+        ),
+        "Callable[[int,str],bool]": (
+            lambda n, s: True,
+            "not a callable",
+        ),
+        "TypedDict (5 fields)": (
+            {
+                "id": 1,
+                "name": "Alice",
+                "active": True,
+                "score": 9.5,
+                "tag": "admin",
+            },
+            {
+                "id": 1,
+                "name": "Alice",
+                "active": True,
+                "score": "not_a_float",
+                "tag": "admin",
+            },
+        ),
+        "class method Self": (
+            42,
+            "not an int",
+        ),
+        "TypeVar (bound int)": (
+            42,
+            "not an int",
+        ),
+        "tuple[float,float]": (
+            (1.5, 2.5),
+            (1.5, "bad"),
+        ),
+        "tuple[int,...] (1000 items)": (
+            tuple(range(1000)),
+            tuple(range(999)) + ("not an int",),
+        ),
         "dict[str,int] (5 keys)": (
             five_key_dict,
             {"k1": 1, "k2": "two", "k3": 3},
@@ -179,6 +280,15 @@ try:
         "int": int,
         "Union[int,float]": Union[int, float],
         "str": str,
+        "NewType (int)": UserId,
+        "LiteralString": LiteralString,
+        "type[BenchmarkClass]": Type[BenchmarkClass],
+        "Callable[[int,str],bool]": Callable[[int, str], bool],
+        "TypedDict (5 fields)": UserProfile,
+        "class method Self": "method_self",
+        "TypeVar (bound int)": T_bound,
+        "tuple[float,float]": Tuple[float, float],
+        "tuple[int,...] (1000 items)": Tuple[int, ...],
         "dict[str,int] (5 keys)": Dict[str, int],
         "dict[str,int] (1000 keys)": Dict[str, int],
         "dict[str,int] (10000 keys)": Dict[str, int],
@@ -348,6 +458,14 @@ try:
 
             _inst = _PydanticCls()
             return _inst.method
+        if typ == "method_self":
+            class _PydanticSelfCls:
+                @validate_call
+                def method(self, x: int) -> Self:
+                    return self
+
+            _inst = _PydanticSelfCls()
+            return _inst.method
 
         @validate_call
         def f(x: typ) -> None:
@@ -365,6 +483,14 @@ try:
                     pass
 
             _inst = _BeartypeCls()
+            return _inst.method
+        if typ == "method_self":
+            class _BeartypeSelfCls:
+                @beartype
+                def method(self, x: int) -> Self:
+                    return self
+
+            _inst = _BeartypeSelfCls()
             return _inst.method
 
         @beartype
@@ -402,6 +528,19 @@ try:
                 )
 
             return f
+
+        if typ == "method_self":
+            class _TypeguardSelfCls:
+                def method(self, x: int) -> Self:
+                    typeguard.check_type(
+                        x,
+                        int,
+                        collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
+                    )
+                    return self
+
+            _inst = _TypeguardSelfCls()
+            return _inst.method
 
         def f(x):
             return typeguard.check_type(
@@ -442,6 +581,19 @@ try:
 
             return f
 
+        if typ == "method_self":
+            class _TypeguardFullSelfCls:
+                def method(self, x: int) -> Self:
+                    typeguard.check_type(
+                        x,
+                        int,
+                        collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+                    )
+                    return self
+
+            _inst = _TypeguardFullSelfCls()
+            return _inst.method
+
         def f(x):
             return typeguard.check_type(
                 x,
@@ -475,12 +627,21 @@ try:
             _inst = _MsgspecCls()
             return _inst.method
 
+        if typ == "method_self":
+            class _MsgspecSelfCls:
+                def method(self, x: int) -> Self:
+                    msgspec.convert(x, type=int)
+                    return self
+
+            _inst = _MsgspecSelfCls()
+            return _inst.method
+
         def f(x):
             return msgspec.convert(x, type=typ)
 
         return f
 
-    cattrs_conv = cattrs.Converter()
+    cattrs_conv = cattrs.Converter() if cattrs is not None else None
 
     def structure_union(val, typ):
         args = get_args(typ)
@@ -519,6 +680,15 @@ try:
             _inst = _CattrsCls()
             return _inst.method
 
+        if typ == "method_self":
+            class _CattrsSelfCls:
+                def method(self, x: int) -> Self:
+                    cattrs_conv.structure(x, int)
+                    return self
+
+            _inst = _CattrsSelfCls()
+            return _inst.method
+
         def f(x):
             return cattrs_conv.structure(x, typ)
 
@@ -534,6 +704,15 @@ try:
                     pass
 
             _inst = _TECls()
+            return _inst.method
+
+        if typ == "method_self":
+            @type_enforced.Enforcer
+            class _TESelfCls:
+                def method(self, x: int) -> Self:
+                    return self
+
+            _inst = _TESelfCls()
             return _inst.method
 
         @type_enforced.Enforcer()
@@ -556,6 +735,15 @@ try:
             _inst = _TE5Cls()
             return _inst.method
 
+        if typ == "method_self":
+            @type_enforced.Enforcer(iterable_sample_pct=5)
+            class _TE5SelfCls:
+                def method(self, x: int) -> Self:
+                    return self
+
+            _inst = _TE5SelfCls()
+            return _inst.method
+
         @type_enforced.Enforcer(iterable_sample_pct=5)
         def f(x: typ) -> None:
             pass
@@ -574,6 +762,15 @@ try:
                     pass
 
             _inst = _TESampleCls()
+            return _inst.method
+
+        if typ == "method_self":
+            @type_enforced.Enforcer(iterable_sample_pct="first")
+            class _TESampleSelfCls:
+                def method(self, x: int) -> Self:
+                    return self
+
+            _inst = _TESampleSelfCls()
             return _inst.method
 
         @type_enforced.Enforcer(iterable_sample_pct="first")

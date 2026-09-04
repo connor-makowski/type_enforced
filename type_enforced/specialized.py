@@ -2,6 +2,7 @@ import ast
 import random
 import types
 from itertools import islice
+from typing import Type
 
 try:
     from type_enforced import cpp as _cpp
@@ -44,7 +45,7 @@ def _freeze_exp(exp):
                 k_frozen = k
             items.append((k_frozen, _freeze_exp(v)))
         return tuple(items)
-    if isinstance(exp, (tuple, list)):
+    if isinstance(exp, (tuple, list, set, frozenset)):
         return tuple(_freeze_exp(item) for item in exp)
     return exp
 
@@ -92,18 +93,74 @@ def is_simple_type(exp):
         isinstance(exp, dict)
         and "__extra__" not in exp
         and all(v is None for v in exp.values())
-        and all(isinstance(k, type) for k in exp.keys())
+        and all(
+            isinstance(k, type)
+            and getattr(k, "__name__", "")
+            not in ("__SelfType__", "__NeverType__")
+            and getattr(k, "__origin__", None) not in (type, Type)
+            for k in exp.keys()
+        )
+    )
+
+
+def is_self_type(exp):
+    return (
+        isinstance(exp, dict)
+        and "__extra__" not in exp
+        and len(exp) == 1
+        and any(
+            getattr(k, "__name__", "") == "__SelfType__" for k in exp.keys()
+        )
+    )
+
+
+def is_callable_type(exp):
+    return (
+        isinstance(exp, dict)
+        and "__extra__" in exp
+        and bool(exp["__extra__"].get("__callable__"))
+    )
+
+
+def is_uninitialized_class_type(exp):
+    return (
+        isinstance(exp, dict)
+        and "__extra__" not in exp
+        and bool(exp)
+        and all(v is None for v in exp.values())
+        and all(
+            getattr(k, "__origin__", None) in (type, Type) or k in (type, Type)
+            for k in exp.keys()
+        )
+    )
+
+
+def is_typeddict_type(exp):
+    return (
+        isinstance(exp, dict)
+        and "__extra__" in exp
+        and "__typeddict__" in exp["__extra__"]
+        and exp.get(dict) is None
     )
 
 
 def can_specialize_type(exp):
     """
     Recursively determines if an expected type expression can be specialized via AST.
-    Supports scalars, unions, lists, dicts, sets, and tuples to arbitrary nesting depths,
-    including multi-variant collection schemas.
+    Supports scalars, unions, lists, dicts, sets, tuples, Callables, Type[T],
+    TypedDict, and Self to arbitrary nesting depths, including multi-variant collection schemas.
     """
-    if exp is None or is_simple_type(exp):
+    if (
+        exp is None
+        or is_simple_type(exp)
+        or is_self_type(exp)
+        or is_callable_type(exp)
+        or is_uninitialized_class_type(exp)
+    ):
         return True
+    if is_typeddict_type(exp):
+        td_info = exp["__extra__"]["__typeddict__"]
+        return all(can_specialize_type(fe) for fe in td_info["fields"].values())
     if not isinstance(exp, dict) or len(exp) != 1 or "__extra__" in exp:
         return False
     k = next(iter(exp))
@@ -156,7 +213,7 @@ def _calc_sample_count_ast(var_expr, sample_pct, prefix, fn_globals):
     """
     Generates AST expression computing sample count for any sampling mode.
     """
-    if sample_pct in ("first", 0):
+    if sample_pct in ("first", "last", 0):
         return ast.Constant(value=1)
     if sample_pct == "bookend":
         return ast.Constant(value=2)
@@ -1219,6 +1276,179 @@ def _generate_scalar_check(
     return [ast.If(test=test, body=[fail_call], orelse=[])]
 
 
+def _generate_uninitialized_class_check(
+    var_expr, exp, fail_call, fn_globals, prefix
+):
+    target_classes = []
+    has_bare_type = False
+    for k in exp.keys():
+        if k in (type, Type):
+            has_bare_type = True
+        elif getattr(k, "__origin__", None) in (type, Type):
+            args = getattr(k, "__args__", ())
+            if args:
+                target_classes.extend(args)
+            else:
+                has_bare_type = True
+        elif isinstance(k, type):
+            target_classes.append(k)
+
+    is_type_check = ast.Call(
+        func=ast.Name(id="isinstance", ctx=ast.Load()),
+        args=[var_expr, ast.Name(id="type", ctx=ast.Load())],
+        keywords=[],
+    )
+
+    if has_bare_type or object in target_classes:
+        test = ast.UnaryOp(op=ast.Not(), operand=is_type_check)
+    elif len(target_classes) == 1:
+        fn_globals[f"{prefix}_tgt_cls"] = target_classes[0]
+        match_check = ast.Compare(
+            left=var_expr,
+            ops=[ast.Is()],
+            comparators=[ast.Name(id=f"{prefix}_tgt_cls", ctx=ast.Load())],
+        )
+        test = ast.UnaryOp(
+            op=ast.Not(),
+            operand=ast.BoolOp(
+                op=ast.And(), values=[is_type_check, match_check]
+            ),
+        )
+    else:
+        fn_globals[f"{prefix}_tgt_classes"] = tuple(target_classes)
+        match_check = ast.Compare(
+            left=var_expr,
+            ops=[ast.In()],
+            comparators=[ast.Name(id=f"{prefix}_tgt_classes", ctx=ast.Load())],
+        )
+        test = ast.UnaryOp(
+            op=ast.Not(),
+            operand=ast.BoolOp(
+                op=ast.And(), values=[is_type_check, match_check]
+            ),
+        )
+
+    return [ast.If(test=test, body=[fail_call], orelse=[])]
+
+
+def _generate_callable_check(var_expr, fail_call):
+    test = ast.UnaryOp(
+        op=ast.Not(),
+        operand=ast.Call(
+            func=ast.Name(id="callable", ctx=ast.Load()),
+            args=[var_expr],
+            keywords=[],
+        ),
+    )
+    return [ast.If(test=test, body=[fail_call], orelse=[])]
+
+
+def _generate_typeddict_check(
+    var_expr, exp, fail_call, fn_globals, prefix, sample_pct
+):
+    td_info = exp["__extra__"]["__typeddict__"]
+    req_keys = td_info["required"]
+    fields = td_info["fields"]
+
+    stmts = []
+    # 1. Check outer type is dict
+    stmts.append(_outer_type_guard(var_expr, "dict", fail_call))
+
+    # Partition fields into required and optional
+    req_fields = [(fk, fexp) for fk, fexp in fields.items() if fk in req_keys]
+    opt_fields = [
+        (fk, fexp) for fk, fexp in fields.items() if fk not in req_keys
+    ]
+
+    # Handle required fields: retrieve in a single try-except block
+    if req_fields:
+        req_assigns = []
+        req_checks = []
+        for i, (fk, fexp) in enumerate(req_fields):
+            clean_fk = "".join(c if c.isalnum() else "_" for c in fk)
+            val_id = f"{prefix}_req_{i}_{clean_fk}"
+            req_assigns.append(
+                ast.Assign(
+                    targets=[ast.Name(id=val_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=fk),
+                        ctx=ast.Load(),
+                    ),
+                )
+            )
+            val_expr = ast.Name(id=val_id, ctx=ast.Load())
+            field_checks = generate_type_check_ast(
+                val_expr,
+                fexp,
+                fail_call,
+                fn_globals,
+                val_id,
+                sample_pct,
+            )
+            req_checks.extend(field_checks)
+
+        stmts.append(
+            ast.Try(
+                body=req_assigns,
+                handlers=[
+                    ast.ExceptHandler(
+                        type=ast.Name(id="KeyError", ctx=ast.Load()),
+                        name=None,
+                        body=[fail_call],
+                    )
+                ],
+                orelse=[],
+                finalbody=[],
+            )
+        )
+        stmts.extend(req_checks)
+
+    # Handle optional fields: use .get(fk, _sentinel)
+    if opt_fields:
+        sentinel_name = f"{prefix}_sentinel"
+        fn_globals[sentinel_name] = object()
+        for i, (fk, fexp) in enumerate(opt_fields):
+            clean_fk = "".join(c if c.isalnum() else "_" for c in fk)
+            val_id = f"{prefix}_opt_{i}_{clean_fk}"
+            assign_opt = ast.Assign(
+                targets=[ast.Name(id=val_id, ctx=ast.Store())],
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=var_expr,
+                        attr="get",
+                        ctx=ast.Load(),
+                    ),
+                    args=[
+                        ast.Constant(value=fk),
+                        ast.Name(id=sentinel_name, ctx=ast.Load()),
+                    ],
+                    keywords=[],
+                ),
+            )
+            val_expr = ast.Name(id=val_id, ctx=ast.Load())
+            field_checks = generate_type_check_ast(
+                val_expr,
+                fexp,
+                fail_call,
+                fn_globals,
+                val_id,
+                sample_pct,
+            )
+            cond_check = ast.If(
+                test=ast.Compare(
+                    left=val_expr,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=sentinel_name, ctx=ast.Load())],
+                ),
+                body=field_checks,
+                orelse=[],
+            )
+            stmts.extend([assign_opt, cond_check])
+
+    return stmts
+
+
 def _outer_type_guard(var_expr, type_name, fail_stmt):
     """
     Generates class comparison and isinstance fallback guard for containers.
@@ -1456,6 +1686,38 @@ def generate_type_check_ast(
     if is_simple_type(exp):
         return _generate_scalar_check(
             var_expr, exp, fail_call, fn_globals, prefix, is_loop=use_local_t0
+        )
+
+    if is_self_type(exp):
+        first_name = fn_globals.get("__enf_first_param_name")
+        if first_name:
+            self_inst_cls = ast.Attribute(
+                value=ast.Name(id=first_name, ctx=ast.Load()),
+                attr="__class__",
+                ctx=ast.Load(),
+            )
+            test = ast.UnaryOp(
+                op=ast.Not(),
+                operand=ast.Call(
+                    func=ast.Name(id="isinstance", ctx=ast.Load()),
+                    args=[var_expr, self_inst_cls],
+                    keywords=[],
+                ),
+            )
+            return [ast.If(test=test, body=[fail_call], orelse=[])]
+        return [fail_call]
+
+    if is_callable_type(exp):
+        return _generate_callable_check(var_expr, fail_call)
+
+    if is_uninitialized_class_type(exp):
+        return _generate_uninitialized_class_check(
+            var_expr, exp, fail_call, fn_globals, prefix
+        )
+
+    if is_typeddict_type(exp):
+        return _generate_typeddict_check(
+            var_expr, exp, fail_call, fn_globals, prefix, sample_pct
         )
 
     fail_stmt = fail_call
@@ -2444,12 +2706,14 @@ def generate_type_check_ast(
                         fn_globals,
                     )
             else:
-                fn_globals["_islice"] = islice
                 content_check = ast.For(
                     target=ast.Name(id=k_var_id, ctx=ast.Store()),
                     iter=ast.Call(
-                        func=ast.Name(id="_islice", ctx=ast.Load()),
-                        args=[var_expr, count_expr],
+                        func=ast.Name(id="_get_sample_keys", ctx=ast.Load()),
+                        args=[
+                            ast.Name(id="__enf_self__", ctx=ast.Load()),
+                            var_expr,
+                        ],
                         keywords=[],
                     ),
                     body=dict_loop_body,
@@ -3065,6 +3329,14 @@ def build_specialized_call(
         "_get_sample_keys": get_sample_keys_fn,
     }
 
+    first_param_name = (
+        posonly_names[0]
+        if posonly_names
+        else (pos_names[0] if pos_names else None)
+    )
+    if first_param_name:
+        fn_globals["__enf_first_param_name"] = first_param_name
+
     if posonly_names:
         posonlyargs = [ast.arg(arg="__enf_self__")] + [
             ast.arg(arg=name) for name in posonly_names
@@ -3239,6 +3511,123 @@ def build_specialized_call(
         body.append(
             ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
         )
+    elif ret_mode == 3 and first_param_name:
+        fn_globals["_ret_exp"] = ret_exp
+        body.append(
+            ast.Assign(
+                targets=[ast.Name(id="__enf_res__", ctx=ast.Store())],
+                value=fn_call,
+            )
+        )
+        self_inst_cls = ast.Attribute(
+            value=ast.Name(id=first_param_name, ctx=ast.Load()),
+            attr="__class__",
+            ctx=ast.Load(),
+        )
+        body.append(
+            ast.If(
+                test=ast.Call(
+                    func=ast.Name(id="isinstance", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="__enf_res__", ctx=ast.Load()),
+                        self_inst_cls,
+                    ],
+                    keywords=[],
+                ),
+                body=[
+                    ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+                ],
+                orelse=[],
+            )
+        )
+        body.append(
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id="_check_fn", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="__enf_self__", ctx=ast.Load()),
+                        ast.Name(id="__enf_res__", ctx=ast.Load()),
+                        ast.Name(id="_ret_exp", ctx=ast.Load()),
+                        ast.Constant(value="return"),
+                    ],
+                    keywords=[],
+                )
+            )
+        )
+        body.append(
+            ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+        )
+    elif ret_mode == 5:
+        fn_globals["_ret_exp"] = ret_exp
+        body.append(
+            ast.Assign(
+                targets=[ast.Name(id="__enf_res__", ctx=ast.Store())],
+                value=fn_call,
+            )
+        )
+        body.append(
+            ast.If(
+                test=ast.Call(
+                    func=ast.Name(id="callable", ctx=ast.Load()),
+                    args=[ast.Name(id="__enf_res__", ctx=ast.Load())],
+                    keywords=[],
+                ),
+                body=[
+                    ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+                ],
+                orelse=[],
+            )
+        )
+        body.append(
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id="_check_fn", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="__enf_self__", ctx=ast.Load()),
+                        ast.Name(id="__enf_res__", ctx=ast.Load()),
+                        ast.Name(id="_ret_exp", ctx=ast.Load()),
+                        ast.Constant(value="return"),
+                    ],
+                    keywords=[],
+                )
+            )
+        )
+        body.append(
+            ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+        )
+    elif ret_mode == 6:
+        fn_globals["_ret_exp"] = ret_exp
+        body.append(
+            ast.Assign(
+                targets=[ast.Name(id="__enf_res__", ctx=ast.Store())],
+                value=fn_call,
+            )
+        )
+        ret_res_expr = ast.Name(id="__enf_res__", ctx=ast.Load())
+        ret_fail_call = ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id="_check_fn", ctx=ast.Load()),
+                args=[
+                    ast.Name(id="__enf_self__", ctx=ast.Load()),
+                    ret_res_expr,
+                    ast.Name(id="_ret_exp", ctx=ast.Load()),
+                    ast.Constant(value="return"),
+                ],
+                keywords=[],
+            )
+        )
+        ret_checks = generate_type_check_ast(
+            ret_res_expr,
+            ret_exp,
+            ret_fail_call,
+            fn_globals,
+            "_ret",
+            sample_pct,
+        )
+        body.extend(ret_checks)
+        body.append(
+            ast.Return(value=ast.Name(id="__enf_res__", ctx=ast.Load()))
+        )
     else:
         fn_globals["_ret_t0"] = ret_t0
         fn_globals["_ret_t1"] = ret_t1
@@ -3307,13 +3696,14 @@ def build_specialized_call(
         )
 
     cache_key = (
-        posonly_names,
-        pos_names,
-        kwonly_names,
+        tuple(posonly_names),
+        tuple(pos_names),
+        tuple(kwonly_names),
         vararg_name,
         kwarg_name,
         sample_pct,
         ret_mode,
+        _freeze_exp(ret_exp),
         tuple(
             (name, _freeze_exp(param_exps.get(name))) for name in check_params
         ),

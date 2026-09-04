@@ -135,7 +135,14 @@ dict[str, int]   → {dict: ({str: None}, {int: None})}
 - Variable-length tuples: `tuple[int, ...]`
 - Deeply nested: `dict[str, list[int]]`, `list[set[str]]`
 - `typing.Literal['a', 'b']` — value equality check, stackable
-- `typing.Callable` — accepts functions, methods, generators
+- `typing.Callable` — accepts functions, methods, generators, subscripted callable forms (e.g. `Callable[[int, str], bool]`)
+- `typing.Self` (PEP 673) — validates against current class / subclass instance
+- `typing.TypedDict` (PEP 589) — validates required keys and typed fields
+- `typing.NewType` (PEP 484) — validates against the underlying supertype
+- `typing.LiteralString` (PEP 675) — validates string type at runtime
+- `typing.NoReturn` and `typing.Never` (PEP 484 / PEP 654) — validates function termination without return
+- `typing.TypeGuard` and `typing.TypeIs` (PEP 647 / PEP 742) — validates boolean return types
+- `typing.TypeVar`, `typing.ParamSpec`, `typing.TypeVarTuple`, and PEP 695 Type Aliases (`type Point = ...`)
 - `typing.Sized` — accepts list, tuple, dict, set, str, bytes, bytearray, memoryview, range (no nested type)
 - `typing.Any` — accepts anything
 - `Constraint(ge=0, ...)` and `GenericConstraint({...})` — post-type-check value validation
