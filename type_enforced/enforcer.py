@@ -1,3 +1,5 @@
+import collections.abc
+import typing
 from types import (
     FunctionType,
     MethodType,
@@ -33,6 +35,16 @@ else:
     _cpp = None
 
 __NoneType__ = type(None)
+
+
+class __SelfType__:
+    pass
+
+
+class __NeverType__:
+    pass
+
+
 __package_path__ = Path(__file__).parent.resolve()
 __CO_VARARGS__ = 0x04
 __CO_VARKEYWORDS__ = 0x08
@@ -46,6 +58,7 @@ class FunctionMethodEnforcer:
         "__clean_traceback__",
         "__iterable_sample_pct__",
         "__only_typed__",
+        "__self_type__",
         "__fn_defaults__",
         "__fn_defaults_tuple__",
         "__fn_varnames__",
@@ -78,6 +91,7 @@ class FunctionMethodEnforcer:
         __clean_traceback__=True,
         __iterable_sample_pct__=100,
         __only_typed__=False,
+        self_type=None,
     ):
         """
         Initialize a FunctionMethodEnforcer class object as a wrapper for a passed function `__fn__`.
@@ -117,6 +131,7 @@ class FunctionMethodEnforcer:
         self.__clean_traceback__ = __clean_traceback__
         self.__iterable_sample_pct__ = __iterable_sample_pct__
         self.__only_typed__ = __only_typed__
+        self.__self_type__ = self_type
         self.__types_parsed__ = False
         self.__flat_subtypes__ = {}
         self.__keys_tuples__ = {}
@@ -341,7 +356,11 @@ class FunctionMethodEnforcer:
                 is_simple = (
                     "__extra__" not in expected
                     and all(v is None for v in expected.values())
-                    and all(isinstance(k, type) for k in expected.keys())
+                    and all(
+                        isinstance(k, type)
+                        and k not in (__SelfType__, __NeverType__)
+                        for k in expected.keys()
+                    )
                 )
 
                 if is_simple:
@@ -382,7 +401,9 @@ class FunctionMethodEnforcer:
                 "__extra__" not in self.__return_type__
                 and all(v is None for v in self.__return_type__.values())
                 and all(
-                    isinstance(k, type) for k in self.__return_type__.keys()
+                    isinstance(k, type)
+                    and k not in (__SelfType__, __NeverType__)
+                    for k in self.__return_type__.keys()
                 )
             ):
                 self.__simple_return_type__ = tuple(self.__return_type__.keys())
@@ -403,9 +424,93 @@ class FunctionMethodEnforcer:
         if annotation is Any:
             return {object: None}
 
-        # Fast path for common standard types (int, str, float, bool, custom classes, etc.)
-        if isinstance(annotation, type) and annotation is not Type:
-            return {annotation: None}
+        # Handle typing.Self (PEP 673)
+        self_type_obj = getattr(typing, "Self", None)
+        if (
+            self_type_obj is not None and annotation is self_type_obj
+        ) or annotation == "Self":
+            return {__SelfType__: None}
+
+        # Handle typing.NoReturn and typing.Never (PEP 484 / PEP 654)
+        never_types = tuple(
+            t
+            for t in (
+                getattr(typing, "NoReturn", None),
+                getattr(typing, "Never", None),
+            )
+            if t is not None
+        )
+        if annotation in never_types:
+            return {__NeverType__: None}
+
+        # Handle typing.LiteralString (PEP 675)
+        lit_str_obj = getattr(typing, "LiteralString", None)
+        if lit_str_obj is not None and annotation is lit_str_obj:
+            return {str: None}
+
+        # Handle PEP 695 TypeAliasType (Python 3.12+)
+        if (
+            hasattr(annotation, "__value__")
+            and type(annotation).__name__ == "TypeAliasType"
+        ):
+            return self.__get_checkable_type__(annotation.__value__)
+
+        # Handle NewType (PEP 484)
+        if hasattr(annotation, "__supertype__"):
+            return self.__get_checkable_type__(annotation.__supertype__)
+
+        # Handle TypeVar (PEP 484 / PEP 695 generic parameters)
+        if isinstance(annotation, typing.TypeVar):
+            if annotation.__bound__ is not None:
+                return self.__get_checkable_type__(annotation.__bound__)
+            elif annotation.__constraints__:
+                combined_types = {}
+                for constraint in annotation.__constraints__:
+                    merge_type_dicts(
+                        combined_types,
+                        self.__get_checkable_type__(constraint),
+                    )
+                return combined_types
+            else:
+                return {object: None}
+
+        # Handle ParamSpec and TypeVarTuple
+        param_specs = tuple(
+            p
+            for p in (
+                getattr(typing, "ParamSpec", None),
+                getattr(typing, "TypeVarTuple", None),
+            )
+            if p is not None
+        )
+        if param_specs and isinstance(annotation, param_specs):
+            return {object: None}
+
+        # Handle TypedDict (PEP 589)
+        if getattr(typing, "is_typeddict", lambda x: False)(annotation):
+            td_hints = get_type_hints(annotation)
+            fields = {
+                k: self.__get_checkable_type__(v) for k, v in td_hints.items()
+            }
+            req_keys = getattr(
+                annotation,
+                "__required_keys__",
+                frozenset(
+                    annotation.__annotations__.keys()
+                    if getattr(annotation, "__total__", True)
+                    else ()
+                ),
+            )
+            return {
+                "__extra__": {
+                    "__typeddict__": {
+                        "cls": annotation,
+                        "fields": fields,
+                        "required": req_keys,
+                    }
+                },
+                dict: None,
+            }
 
         # Handle `int | str` syntax (Python 3.10+) and Unions
         if (
@@ -427,6 +532,18 @@ class FunctionMethodEnforcer:
         # Handle generic collections
         origin = getattr(annotation, "__origin__", None)
         args = getattr(annotation, "__args__", ())
+
+        # Handle TypeGuard (PEP 647) and TypeIs (PEP 742)
+        type_guards = tuple(
+            tg
+            for tg in (
+                getattr(typing, "TypeGuard", None),
+                getattr(typing, "TypeIs", None),
+            )
+            if tg is not None
+        )
+        if origin is not None and origin in type_guards:
+            return {bool: None}
 
         if origin == list:
             if len(args) != 1:
@@ -490,8 +607,11 @@ class FunctionMethodEnforcer:
                 range: None,
             }
 
-        # Handle Callable types
-        if annotation == Callable:
+        # Handle Callable types (unsubscripted or subscripted: Callable[[int, str], bool], Callable[..., int], etc.)
+        if annotation is Callable or origin in (
+            Callable,
+            getattr(collections.abc, "Callable", None),
+        ):
             return {
                 staticmethod: None,
                 classmethod: None,
@@ -500,11 +620,8 @@ class FunctionMethodEnforcer:
                 MethodType: None,
                 BuiltinMethodType: None,
                 GeneratorType: None,
-            }
-
-        if annotation == Any:
-            return {
-                object: None,
+                FunctionMethodEnforcer: None,
+                "__extra__": {"__callable__": True},
             }
 
         # Handle Constraints
@@ -516,7 +633,7 @@ class FunctionMethodEnforcer:
             return {type: None}
 
         # Handle standard types
-        if isinstance(annotation, type):
+        if isinstance(annotation, type) and annotation is not Type:
             return {annotation: None}
 
         # Handle typing.Type and type[T] (for uninitialized classes)
@@ -592,6 +709,8 @@ class FunctionMethodEnforcer:
         """
         Overwrite standard __get__ method to return bound MethodType instead of wrapper function.
         """
+        if self.__self_type__ is None and objtype is not None:
+            self.__self_type__ = objtype
         if obj is None:
             return self
         return _mt(self, obj)
@@ -644,11 +763,25 @@ class FunctionMethodEnforcer:
                 and self.__return_type__[__NoneType__] is None
             ):
                 ret_mode = 1
+            elif (
+                len(self.__return_type__) == 1
+                and __SelfType__ in self.__return_type__
+                and (posonly_names or pos_names)
+            ):
+                ret_mode = 3
+            elif (
+                isinstance(self.__return_type__, dict)
+                and "__extra__" in self.__return_type__
+                and bool(self.__return_type__["__extra__"].get("__callable__"))
+            ):
+                ret_mode = 5
             elif is_simple_type(self.__return_type__):
                 ret_mode = 2
                 ret_types = tuple(self.__return_type__.keys())
                 ret_t0 = ret_types[0]
                 ret_t1 = ret_types[1] if len(ret_types) > 1 else None
+            elif can_specialize_type(self.__return_type__):
+                ret_mode = 6
             else:
                 return
 
@@ -713,6 +846,14 @@ class FunctionMethodEnforcer:
             self.__specialize__()
             return self(*args, **kwargs)
 
+        if self.__self_type__ is None and args:
+            first_arg = args[0]
+            self.__self_type__ = (
+                first_arg
+                if isinstance(first_arg, type)
+                else first_arg.__class__
+            )
+
         if self.__has_complex_params__:
             for key, idx, expected in self.__complex_pos_params__:
                 if idx < len(args):
@@ -752,6 +893,18 @@ class FunctionMethodEnforcer:
         return_value = self.__fn__(*args, **kwargs)
 
         if self.__return_type__ is not None:
+            if (
+                self.__self_type__ is None
+                and __SelfType__ in self.__return_type__
+                and args
+            ):
+                first_arg = args[0]
+                self.__self_type__ = (
+                    first_arg
+                    if isinstance(first_arg, type)
+                    else first_arg.__class__
+                )
+
             if self.__simple_return_type__ is not None:
                 if type(
                     return_value
@@ -808,6 +961,8 @@ class FunctionMethodEnforcer:
         """
         if item is None and __NoneType__ in expected:
             return True
+        if __NeverType__ in expected:
+            return False
         extra = expected.get("__extra__")
 
         if isinstance(item, type):
@@ -815,18 +970,33 @@ class FunctionMethodEnforcer:
             is_present = obj_type in expected or type in expected
         else:
             obj_type = type(item)
-            expected_id = id(expected)
-            keys_tuple = self.__keys_tuples__.get(expected_id)
-            if keys_tuple is None:
-                keys_tuple = tuple(
-                    k
-                    for k in expected.keys()
-                    if k != "__extra__" and isinstance(k, type)
+            if __SelfType__ in expected:
+                target_cls = getattr(self, "__self_type__", None)
+                if target_cls is not None and isinstance(item, target_cls):
+                    is_present = True
+                else:
+                    is_present = False
+            else:
+                expected_id = id(expected)
+                keys_tuple = self.__keys_tuples__.get(expected_id)
+                if keys_tuple is None:
+                    keys_tuple = tuple(
+                        k
+                        for k in expected.keys()
+                        if k != "__extra__" and isinstance(k, type)
+                    )
+                    self.__keys_tuples__[expected_id] = keys_tuple
+                is_present = obj_type in expected or (
+                    bool(keys_tuple) and isinstance(item, keys_tuple)
                 )
-                self.__keys_tuples__[expected_id] = keys_tuple
-            is_present = obj_type in expected or (
-                bool(keys_tuple) and isinstance(item, keys_tuple)
-            )
+
+        if not is_present:
+            if (
+                extra is not None
+                and extra.get("__callable__")
+                and callable(item)
+            ):
+                is_present = True
 
         if not is_present:
             literal = extra.get("__literal__", ()) if extra is not None else ()
@@ -834,6 +1004,20 @@ class FunctionMethodEnforcer:
                 pass
             else:
                 return False
+
+        if extra is not None and "__typeddict__" in extra:
+            td_info = extra["__typeddict__"]
+            if not isinstance(item, dict):
+                return False
+            req_keys = td_info["required"]
+            fields = td_info["fields"]
+            if req_keys - set(item.keys()):
+                return False
+            for fk, fval in item.items():
+                if fk in fields and not self.__is_valid_item__(
+                    fval, fields[fk]
+                ):
+                    return False
 
         if obj_type in iterable_types:
             subtype = expected.get(obj_type, None)
@@ -1211,6 +1395,20 @@ class FunctionMethodEnforcer:
         # Special case for None
         if obj is None and __NoneType__ in expected:
             return
+        if __NeverType__ in expected:
+            if isinstance(key, tuple):
+
+                def flatten_key(k):
+                    if isinstance(k, tuple):
+                        return "".join(flatten_key(x) for x in k)
+                    return str(k)
+
+                key = flatten_key(key)
+            self.__exception__(
+                f"Type mismatch for typed variable `{key}`. Expected `NoReturn` / `Never` but got `{type(obj)}` with value `{obj}` instead."
+            )
+            return
+
         extra = expected.get("__extra__")
 
         if isinstance(obj, type):
@@ -1219,18 +1417,33 @@ class FunctionMethodEnforcer:
             is_present = obj_type in expected or type in expected
         else:
             obj_type = type(obj)
-            expected_id = id(expected)
-            keys_tuple = self.__keys_tuples__.get(expected_id)
-            if keys_tuple is None:
-                keys_tuple = tuple(
-                    k
-                    for k in expected.keys()
-                    if k != "__extra__" and isinstance(k, type)
+            if __SelfType__ in expected:
+                target_cls = getattr(self, "__self_type__", None)
+                if target_cls is not None and isinstance(obj, target_cls):
+                    is_present = True
+                else:
+                    is_present = False
+            else:
+                expected_id = id(expected)
+                keys_tuple = self.__keys_tuples__.get(expected_id)
+                if keys_tuple is None:
+                    keys_tuple = tuple(
+                        k
+                        for k in expected.keys()
+                        if k != "__extra__" and isinstance(k, type)
+                    )
+                    self.__keys_tuples__[expected_id] = keys_tuple
+                is_present = obj_type in expected or (
+                    bool(keys_tuple) and isinstance(obj, keys_tuple)
                 )
-                self.__keys_tuples__[expected_id] = keys_tuple
-            is_present = obj_type in expected or (
-                bool(keys_tuple) and isinstance(obj, keys_tuple)
-            )
+
+        if not is_present:
+            if (
+                extra is not None
+                and extra.get("__callable__")
+                and callable(obj)
+            ):
+                is_present = True
 
         if not is_present:
             # Resolve key dynamically if it is a tuple (lazy f-string alternative)
@@ -1245,7 +1458,13 @@ class FunctionMethodEnforcer:
 
             # Allow for literals to be used to bypass type checks if present
             literal = extra.get("__literal__", ()) if extra is not None else ()
-            expected_keys = [k for k in expected if k != "__extra__"]
+            if __SelfType__ in expected:
+                target_cls = getattr(self, "__self_type__", None)
+                expected_keys = (
+                    [target_cls] if target_cls is not None else ["Self"]
+                )
+            else:
+                expected_keys = [k for k in expected if k != "__extra__"]
             if literal:
                 if obj not in literal:
                     self.__exception__(
@@ -1406,6 +1625,32 @@ class FunctionMethodEnforcer:
                             item, subtype, (key, "[", repr(item), "]")
                         )
 
+        # Validate TypedDict if present in extra
+        if extra is not None and "__typeddict__" in extra:
+            td_info = extra["__typeddict__"]
+            req_keys = td_info["required"]
+            fields = td_info["fields"]
+            missing = req_keys - set(obj.keys())
+            if missing:
+                if isinstance(key, tuple):
+
+                    def flatten_key(k):
+                        if isinstance(k, tuple):
+                            return "".join(flatten_key(x) for x in k)
+                        return str(k)
+
+                    key = flatten_key(key)
+
+                missing_str = ", ".join(repr(k) for k in sorted(missing))
+                self.__exception__(
+                    f"TypedDict `{td_info['cls'].__name__}` validation error for variable `{key}`: missing required key(s): {missing_str}."
+                )
+            for fk, fval in obj.items():
+                if fk in fields:
+                    self.__check_type__(
+                        fval, fields[fk], (key, "[", repr(fk), "]")
+                    )
+
         # Validate constraints if any are present
         if extra is not None:
             constraints = extra.get("__constraints__", ())
@@ -1436,6 +1681,7 @@ def Enforcer(
     clean_traceback=True,
     iterable_sample_pct=100,
     only_typed=False,
+    self_type=None,
 ):
     """
     A wrapper to enforce types within a function, method, or class.
@@ -1518,6 +1764,7 @@ def Enforcer(
                     __clean_traceback__=clean_traceback,
                     __iterable_sample_pct__=iterable_sample_pct,
                     __only_typed__=only_typed,
+                    self_type=self_type,
                 )
             )
         elif isinstance(clsFnMethod, classmethod):
@@ -1528,6 +1775,7 @@ def Enforcer(
                     __clean_traceback__=clean_traceback,
                     __iterable_sample_pct__=iterable_sample_pct,
                     __only_typed__=only_typed,
+                    self_type=self_type,
                 )
             )
         else:
@@ -1537,6 +1785,7 @@ def Enforcer(
                 __clean_traceback__=clean_traceback,
                 __iterable_sample_pct__=iterable_sample_pct,
                 __only_typed__=only_typed,
+                self_type=self_type,
             )
     elif hasattr(clsFnMethod, "__dict__"):
         for key, value in clsFnMethod.__dict__.items():
@@ -1559,6 +1808,7 @@ def Enforcer(
                         clean_traceback=clean_traceback,
                         iterable_sample_pct=iterable_sample_pct,
                         only_typed=only_typed,
+                        self_type=clsFnMethod,
                     ),
                 )
         return clsFnMethod
@@ -1581,6 +1831,7 @@ def FastEnforcer(
     clean_traceback=True,
     iterable_sample_pct="first",
     only_typed=False,
+    self_type=None,
 ):
     """
     A fast wrapper to enforce types within a function, method, or class with fast sampling by default.
@@ -1635,4 +1886,5 @@ def FastEnforcer(
         clean_traceback=clean_traceback,
         iterable_sample_pct=iterable_sample_pct,
         only_typed=only_typed,
+        self_type=self_type,
     )

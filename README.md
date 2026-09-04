@@ -91,16 +91,16 @@ Timings are averages of a single validation over 100 runs. ⚠ = checker did not
 
 | Type | Size | type_enforced (sample=1) | Beartype (sample=1) | type_enforced (100%) | Pydantic (100%) |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| `int` | — | 0.18 µs | 0.33 µs | 0.18 µs | 0.66 µs |
-| `Union[int, float]` | — | 0.21 µs | 0.37 µs | 0.19 µs | 0.73 µs |
-| `str` | — | 0.17 µs | 0.33 µs | 0.18 µs | 0.64 µs |
-| `list[int]` | 1 000 items | 0.21 µs ⚠ | 0.60 µs ⚠ | 1.86 µs | 11.29 µs |
-| `list[int]` | 10 000 items | 0.21 µs ⚠ | 0.67 µs ⚠ | 17.01 µs | 113.66 µs |
-| `dict[str, int]` | 1 000 keys | 0.22 µs ⚠ | 0.49 µs ⚠ | 5.13 µs | 44.93 µs |
-| `dict[str, int]` | 10 000 keys | 0.22 µs ⚠ | 0.47 µs ⚠ | 53.59 µs | 473.11 µs |
-| `list[list[int]]` | 100 x 100 items | 0.24 µs ⚠ | 0.62 µs ⚠ | 17.40 µs | 96.83 µs |
-| `dict[str, list[int]]` | 100 x 100 items | 0.37 µs ⚠ | 0.60 µs ⚠ | 15.40 µs | 102.70 µs |
-| `list[dict[str, int]]` | 100 x 100 items | 0.25 µs ⚠ | 0.80 µs ⚠ | 54.07 µs | 444.42 µs |
+| `int` | — | 0.16 µs | 0.27 µs | 0.16 µs | 0.55 µs |
+| `Union[int, float]` | — | 0.17 µs | 0.30 µs | 0.18 µs | 0.62 µs |
+| `str` | — | 0.16 µs | 0.28 µs | 0.16 µs | 0.54 µs |
+| `list[int]` | 1 000 items | 0.20 µs ⚠ | 0.50 µs ⚠ | 0.62 µs | 11.14 µs |
+| `list[int]` | 10 000 items | 0.20 µs ⚠ | 0.59 µs ⚠ | 4.19 µs | 105.80 µs |
+| `dict[str, int]` | 1 000 keys | 0.21 µs ⚠ | 0.43 µs ⚠ | 3.02 µs | 39.80 µs |
+| `dict[str, int]` | 10 000 keys | 0.24 µs ⚠ | 0.43 µs ⚠ | 29.48 µs | 438.13 µs |
+| `list[list[int]]` | 100 x 100 items | 0.23 µs ⚠ | 0.56 µs ⚠ | 5.13 µs | 109.95 µs |
+| `dict[str, list[int]]` | 100 x 100 items | 0.45 µs ⚠ | 0.54 µs ⚠ | 5.22 µs | 118.79 µs |
+| `list[dict[str, int]]` | 100 x 100 items | 0.25 µs ⚠ | 0.76 µs ⚠ | 32.80 µs | 390.09 µs |
 
 > **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to 3x faster than Beartype**.
 
@@ -336,6 +336,74 @@ def fn(
 ```
 
 - **Stacking Literals**: Literals combine with unions using OR logic (`int | Literal['auto']` allows any `int` or the literal string `'auto'`).
+
+### Modern Typing Constructs (PEP Standards)
+`type_enforced` comprehensively supports modern typing features from recent Python PEPs:
+
+```python
+from typing import (
+    Callable,
+    LiteralString,
+    Never,
+    NewType,
+    NoReturn,
+    Self,
+    TypeGuard,
+    TypeIs,
+    TypeVar,
+    TypedDict,
+)
+
+# 1. PEP 673: typing.Self
+class Builder:
+    @type_enforced.Enforcer
+    def set_name(self, name: str) -> Self:
+        self.name = name
+        return self
+
+# 2. PEP 589: typing.TypedDict (validates required keys & field types)
+class UserPayload(TypedDict):
+    id: int
+    name: str
+
+@type_enforced.Enforcer
+def create_user(payload: UserPayload) -> str:
+    return payload["name"]
+
+# 3. PEP 484: typing.NewType
+UserId = NewType("UserId", int)
+
+@type_enforced.Enforcer
+def get_user(user_id: UserId) -> None:
+    pass
+
+# 4. Subscripted Callables (PEP 484 & PEP 612)
+@type_enforced.Enforcer
+def apply_handler(callback: Callable[[int, str], bool]) -> None:
+    pass
+
+# 5. PEP 675: typing.LiteralString
+@type_enforced.Enforcer
+def run_query(sql: LiteralString) -> None:
+    pass
+
+# 6. PEP 484 / PEP 654: NoReturn and Never
+@type_enforced.Enforcer
+def terminate() -> NoReturn:
+    raise SystemExit(0)
+
+# 7. PEP 647 & PEP 742: TypeGuard and TypeIs
+@type_enforced.Enforcer
+def is_str_list(val: list[object]) -> TypeGuard[list[str]]:
+    return all(isinstance(x, str) for x in val)
+
+# 8. TypeVar, ParamSpec, TypeVarTuple & PEP 695 (Python 3.12+)
+T = TypeVar("T", bound=int | float)
+
+@type_enforced.Enforcer
+def scale(val: T, factor: float) -> float:
+    return val * factor
+```
 
 ### Collection & Nested Type Unions
 Unions of collection types are evaluated per-variant, enforcing that each container strictly satisfies one schema rather than allowing mixed elements:

@@ -1126,7 +1126,7 @@ wheels = [
 
 [[package]]
 name = "type-enforced"
-version = "2.10.1"
+version = "2.11.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -1136,7 +1136,7 @@ dev = [
     { name = "black" },
     { name = "build" },
     { name = "cattrs" },
-    { name = "msgspec" },
+    { name = "msgspec", marker = "implementation_name != 'pypy'" },
     { name = "nanobind" },
     { name = "nox" },
     { name = "nox-uv" },
@@ -1155,7 +1155,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2" },
     { name = "cattrs", marker = "extra == 'dev'", specifier = ">=26.1.0" },
-    { name = "msgspec", marker = "extra == 'dev'", specifier = ">=0.21.1" },
+    { name = "msgspec", marker = "implementation_name != 'pypy' and extra == 'dev'", specifier = ">=0.21.1" },
     { name = "nanobind", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "nox", marker = "extra == 'dev'", specifier = ">=2026.4.10" },
     { name = "nox-uv", marker = "extra == 'dev'", specifier = ">=0.8.0" },
