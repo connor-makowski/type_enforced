@@ -204,14 +204,14 @@ def test_fn_23_last_dict():
         return a
 
     assert fn_last_dict(a={}) == {}
-    assert fn_last_dict(a={"bad": "bad_val", "good": 2}) == {
-        "bad": "bad_val",
+    assert fn_last_dict(a={"good": 2, "bad": "bad_val"}) == {
         "good": 2,
+        "bad": "bad_val",
     }
     with pytest.raises(TypeError):
-        fn_last_dict(a={"a": 1, 123: 2})
+        fn_last_dict(a={123: 2, "a": 1})
     with pytest.raises(TypeError):
-        fn_last_dict(a={"a": 1, "b": "bad"})
+        fn_last_dict(a={"a": "bad", "b": 1})
 
 
 def test_fn_23_last_tuple():
@@ -246,7 +246,7 @@ def test_fn_23_last_nested_list_of_dict():
 
     sampled_input = [
         "bad_first_item",
-        {"a": "bad_val", "b": 2},
+        {"b": 2, "a": "bad_val"},
     ]
     assert fn_list_dict(x=sampled_input) == sampled_input
 
@@ -351,8 +351,8 @@ def test_fn_23_log_dict():
 
     with pytest.raises(TypeError):
         d = {str(i): i for i in range(100)}
-        last_k = list(d.keys())[-1]
-        d[last_k] = "bad"
+        second_k = list(d.keys())[1]
+        d[second_k] = "bad"
         fn_log_dict(a=d)
 
 

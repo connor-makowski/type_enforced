@@ -3,37 +3,54 @@ import time
 from typing import Dict, List, Set, Tuple, Union
 
 import type_enforced
+import type_enforced.enforcer as enforcer
 import type_enforced.specialized as specialized
 
 # Check if C++ extension is available
 cpp_available = specialized._cpp is not None
 orig_cpp = specialized._cpp
 
-# --- Test Data Generation ---
-five_item_list = [1, 2.0, 3, 4.0, 5]
-list_1000 = list(range(1000))
-list_10000 = list(range(10000))
-list_union_1000 = [float(i) if i % 2 else i for i in range(1000)]
-list_union_10000 = [
-    float(i) if i % 2 else i for i in range(10000)
+POOL_SIZE = 20
+
+# --- Test Data Generation (Distinct Pools) ---
+int_pool = [i * 42 for i in range(POOL_SIZE)]
+union_pool = [float(i) if i % 2 else i for i in range(POOL_SIZE)]
+str_pool = [f"hello_{i}" for i in range(POOL_SIZE)]
+
+list_5_pool = [[j for j in range(5)] for _ in range(POOL_SIZE)]
+list_1000_pool = [[j for j in range(1000)] for _ in range(POOL_SIZE)]
+list_10000_pool = [[j for j in range(10000)] for _ in range(POOL_SIZE)]
+list_union_1000_pool = [
+    [float(j) if j % 2 else j for j in range(1000)] for _ in range(POOL_SIZE)
+]
+list_union_10000_pool = [
+    [float(j) if j % 2 else j for j in range(10000)] for _ in range(POOL_SIZE)
 ]
 
-dict_5 = {f"key{i}": i for i in range(5)}
-dict_1000 = {f"key{i}": i for i in range(1000)}
-dict_10000 = {f"key{i}": i for i in range(10000)}
+dict_5_pool = [{f"key{j}": j for j in range(5)} for _ in range(POOL_SIZE)]
+dict_1000_pool = [{f"key{j}": j for j in range(1000)} for _ in range(POOL_SIZE)]
+dict_10000_pool = [{f"key{j}": j for j in range(10000)} for _ in range(POOL_SIZE)]
 
-set_1000 = set(range(1000))
-set_10000 = set(range(10000))
-tuple_1000 = tuple(range(1000))
-tuple_10000 = tuple(range(10000))
-tuple_fixed = (42, "hello", 3.14)
+set_1000_pool = [set(range(1000)) for _ in range(POOL_SIZE)]
+set_10000_pool = [set(range(10000)) for _ in range(POOL_SIZE)]
+tuple_1000_pool = [tuple(range(1000)) for _ in range(POOL_SIZE)]
+tuple_10000_pool = [tuple(range(10000)) for _ in range(POOL_SIZE)]
+tuple_fixed_pool = [(i, f"hello_{i}", float(i)) for i in range(POOL_SIZE)]
 
-list_list_100x100 = [[j for j in range(100)] for _ in range(100)]
-dict_list_100x100 = {f"k{i}": [j for j in range(100)] for i in range(100)}
-list_dict_100x100 = [
-    {f"key{i}": i for i in range(100)} for _ in range(100)
+list_list_100x100_pool = [
+    [[k for k in range(100)] for _ in range(100)] for _ in range(POOL_SIZE)
 ]
-list_tuple_1000 = [(i, f"str{i}", float(i)) for i in range(1000)]
+dict_list_100x100_pool = [
+    {f"k{j}": [k for k in range(100)] for j in range(100)}
+    for _ in range(POOL_SIZE)
+]
+list_dict_100x100_pool = [
+    [{f"key{k}": k for k in range(100)} for _ in range(100)]
+    for _ in range(POOL_SIZE)
+]
+list_tuple_1000_pool = [
+    [(k, f"str{k}", float(k)) for k in range(1000)] for _ in range(POOL_SIZE)
+]
 
 
 def _make_multi_param_fn(n):
@@ -54,54 +71,54 @@ MULTI_PARAM_FUNCS = {
 # --- Benchmark Cases ---
 BENCH_CASES = [
     # 1. Scalars
-    ("`int`", "scalar", int, 100, 42),
-    ("`Union[int, float]`", "scalar", Union[int, float], 100, 3.14),
-    ("`str`", "scalar", str, 100, "hello world"),
+    ("`int`", "scalar", int, 100, int_pool),
+    ("`Union[int, float]`", "scalar", Union[int, float], 100, union_pool),
+    ("`str`", "scalar", str, 100, str_pool),
     # 2. Lists
-    ("`list[int]`", "5 items", List[int], 100, [1, 2, 3, 4, 5]),
-    ("`list[int]`", "1 000 items", List[int], 100, list_1000),
-    ("`list[int]`", "10 000 items", List[int], 100, list_10000),
+    ("`list[int]`", "5 items", List[int], 100, list_5_pool),
+    ("`list[int]`", "1 000 items", List[int], 100, list_1000_pool),
+    ("`list[int]`", "10 000 items", List[int], 100, list_10000_pool),
     (
         "`list[Union[int, float]]`",
         "1 000 items",
         List[Union[int, float]],
         100,
-        list_union_1000,
+        list_union_1000_pool,
     ),
     (
         "`list[Union[int, float]]`",
         "10 000 items",
         List[Union[int, float]],
         100,
-        list_union_10000,
+        list_union_10000_pool,
     ),
     # 3. Dictionaries
-    ("`dict[str, int]`", "5 keys", Dict[str, int], 100, dict_5),
-    ("`dict[str, int]`", "1 000 keys", Dict[str, int], 100, dict_1000),
-    ("`dict[str, int]`", "10 000 keys", Dict[str, int], 100, dict_10000),
+    ("`dict[str, int]`", "5 keys", Dict[str, int], 100, dict_5_pool),
+    ("`dict[str, int]`", "1 000 keys", Dict[str, int], 100, dict_1000_pool),
+    ("`dict[str, int]`", "10 000 keys", Dict[str, int], 100, dict_10000_pool),
     # 4. Sets & Tuples
-    ("`set[int]`", "1 000 items", Set[int], 100, set_1000),
-    ("`set[int]`", "10 000 items", Set[int], 100, set_10000),
+    ("`set[int]`", "1 000 items", Set[int], 100, set_1000_pool),
+    ("`set[int]`", "10 000 items", Set[int], 100, set_10000_pool),
     (
         "`tuple[int, ...]`",
         "1 000 items",
         Tuple[int, ...],
         100,
-        tuple_1000,
+        tuple_1000_pool,
     ),
     (
         "`tuple[int, ...]`",
         "10 000 items",
         Tuple[int, ...],
         100,
-        tuple_10000,
+        tuple_10000_pool,
     ),
     (
         "`tuple[int, str, float]`",
         "fixed (3 items)",
         Tuple[int, str, float],
         100,
-        tuple_fixed,
+        tuple_fixed_pool,
     ),
     # 5. Nested Structures
     (
@@ -109,28 +126,28 @@ BENCH_CASES = [
         "100 x 100 items",
         List[List[int]],
         100,
-        list_list_100x100,
+        list_list_100x100_pool,
     ),
     (
         "`dict[str, list[int]]`",
         "100 x 100 items",
         Dict[str, List[int]],
         100,
-        dict_list_100x100,
+        dict_list_100x100_pool,
     ),
     (
         "`list[dict[str, int]]`",
         "100 x 100 items",
         List[Dict[str, int]],
         100,
-        list_dict_100x100,
+        list_dict_100x100_pool,
     ),
     (
         "`list[tuple[int, str, float]]`",
         "1 000 items",
         List[Tuple[int, str, float]],
         100,
-        list_tuple_1000,
+        list_tuple_1000_pool,
     ),
     # 6. Sampled Validations
     (
@@ -138,42 +155,42 @@ BENCH_CASES = [
         "1 000 items (first)",
         List[int],
         "first",
-        list_1000,
+        list_1000_pool,
     ),
     (
         "`list[int]` (last)",
         "10 000 items (last)",
         List[int],
         "last",
-        list_10000,
+        list_10000_pool,
     ),
     (
         "`dict[str, int]` (first)",
         "1 000 keys (first)",
         Dict[str, int],
         "first",
-        dict_1000,
+        dict_1000_pool,
     ),
     (
         "`dict[str, int]` (last)",
         "10 000 keys (last)",
         Dict[str, int],
         "last",
-        dict_10000,
+        dict_10000_pool,
     ),
     (
         "`list[int]` (5%)",
         "1 000 items (5%)",
         List[int],
         5,
-        list_1000,
+        list_1000_pool,
     ),
     (
         "`dict[str, int]` (5%)",
         "1 000 keys (5%)",
         Dict[str, int],
         5,
-        dict_1000,
+        dict_1000_pool,
     ),
     # 7. Bulk Parameters
     (
@@ -181,61 +198,85 @@ BENCH_CASES = [
         "10 params",
         "10_params",
         100,
-        tuple(range(10)),
+        [tuple(range(i, i + 10)) for i in range(POOL_SIZE)],
     ),
     (
         "`int` (50 params)",
         "50 params",
         "50_params",
         100,
-        tuple(range(50)),
+        [tuple(range(i, i + 50)) for i in range(POOL_SIZE)],
     ),
     (
         "`int` (100 params)",
         "100 params",
         "100_params",
         100,
-        tuple(range(100)),
+        [tuple(range(i, i + 100)) for i in range(POOL_SIZE)],
     ),
     (
         "`int` (500 params)",
         "500 params",
         "500_params",
         100,
-        tuple(range(500)),
+        [tuple(range(i, i + 500)) for i in range(POOL_SIZE)],
     ),
 ]
 
 
-# --- Timing Helper ---
-def timeit_adaptive(
-    func, arg, is_multi=False, min_runs=5, max_runs=100, max_sec=0.05
-):
+# --- Timing Helper with Distinct Input Pool Iteration ---
+def timeit_pool(func, pool, is_multi=False, target_batch_time=0.003, repeats=5):
+    pool_len = len(pool)
+    # Warmup across the pool
+    if is_multi:
+        for obj in pool:
+            func(*obj)
+    else:
+        for obj in pool:
+            func(obj)
+
+    # Estimate time for 1 pass of the pool
+    t0 = time.perf_counter()
+    if is_multi:
+        for obj in pool:
+            func(*obj)
+    else:
+        for obj in pool:
+            func(obj)
+    t1 = time.perf_counter()
+    pool_pass_time = max(1e-9, t1 - t0)
+
+    # Determine cycles to take ~target_batch_time
+    cycles = max(1, min(int(target_batch_time / pool_pass_time), 5000))
+    total_calls_per_batch = cycles * pool_len
+
     durations = []
-    start = time.perf_counter()
-    for _ in range(max_runs):
+    for _ in range(repeats):
         t0 = time.perf_counter()
         if is_multi:
-            func(*arg)
+            for _ in range(cycles):
+                for obj in pool:
+                    func(*obj)
         else:
-            func(arg)
-        durations.append(time.perf_counter() - t0)
+            for _ in range(cycles):
+                for obj in pool:
+                    func(obj)
+        t1 = time.perf_counter()
+        durations.append((t1 - t0) / total_calls_per_batch)
 
-        if (
-            len(durations) >= min_runs
-            and (time.perf_counter() - start) >= max_sec
-        ):
-            break
-
-    return (sum(durations) / len(durations)) * 1e6
+    durations.sort()
+    best = durations[:3]
+    return (sum(best) / len(best)) * 1e6
 
 
-def make_enforced_fn(typ, sample_pct, data, is_multi=False, use_cpp=True):
+def make_enforced_fn(typ, sample_pct, pool, is_multi=False, use_cpp=True):
     try:
         if not use_cpp:
             specialized._cpp = None
+            enforcer._cpp = None
         else:
             specialized._cpp = orig_cpp
+            enforcer._cpp = orig_cpp
 
         if typ in MULTI_PARAM_FUNCS:
             fn = type_enforced.Enforcer(
@@ -249,13 +290,24 @@ def make_enforced_fn(typ, sample_pct, data, is_multi=False, use_cpp=True):
 
         # Trigger AST specialization compilation under the selected backend
         if is_multi:
-            fn(*data)
+            fn(*pool[0])
         else:
-            fn(data)
+            fn(pool[0])
 
         return fn
     finally:
         specialized._cpp = orig_cpp
+        enforcer._cpp = orig_cpp
+
+
+def base_factory(typ):
+    if typ in MULTI_PARAM_FUNCS:
+        return MULTI_PARAM_FUNCS[typ]
+
+    def f(x: typ) -> None:
+        pass
+
+    return f
 
 
 def run_benchmark():
@@ -266,20 +318,25 @@ def run_benchmark():
         sys.exit(1)
 
     results = []
-    for type_label, size_label, typ, sample_pct, data in BENCH_CASES:
+    for type_label, size_label, typ, sample_pct, pool in BENCH_CASES:
         is_multi = typ in MULTI_PARAM_FUNCS
+
+        base_fn = base_factory(typ)
+        base_us = timeit_pool(base_fn, pool, is_multi=is_multi)
 
         # Build & warm up pure Python enforcer
         py_fn = make_enforced_fn(
-            typ, sample_pct, data, is_multi=is_multi, use_cpp=False
+            typ, sample_pct, pool, is_multi=is_multi, use_cpp=False
         )
-        py_us = timeit_adaptive(py_fn, data, is_multi=is_multi)
+        py_raw_us = timeit_pool(py_fn, pool, is_multi=is_multi)
+        py_us = max(0.001, py_raw_us - base_us)
 
         # Build & warm up C++ enforcer
         cpp_fn = make_enforced_fn(
-            typ, sample_pct, data, is_multi=is_multi, use_cpp=True
+            typ, sample_pct, pool, is_multi=is_multi, use_cpp=True
         )
-        cpp_us = timeit_adaptive(cpp_fn, data, is_multi=is_multi)
+        cpp_raw_us = timeit_pool(cpp_fn, pool, is_multi=is_multi)
+        cpp_us = max(0.001, cpp_raw_us - base_us)
 
         speedup = py_us / cpp_us if cpp_us > 0 else 1.0
         results.append(
@@ -308,7 +365,10 @@ def print_table(results):
         f"{'-' * (col_w[2] + 1)}:|{'-' * (col_w[3] + 1)}:|{'-' * (col_w[4] + 1)}:|"
     )
 
-    print("\n# type_enforced: C++ Accelerated vs Pure Python Performance\n")
+    print("\n# type_enforced: C++ Accelerated vs Pure Python Performance")
+    print(
+        "Note: Reported times represent added differential validation time in microseconds (µs) with baseline execution time subtracted over distinct input pools.\n"
+    )
     print(header_row)
     print(sep_row)
 

@@ -209,9 +209,9 @@ def test_sampled_validation_first_and_last():
     with pytest.raises(TypeError):
         fn_sample_first_dict({123: "bad", "valid": 1})
 
-    assert fn_sample_last_dict({123: "bad", "valid": 1}) == 2
+    assert fn_sample_last_dict({"valid": 1, 123: "bad"}) == 2
     with pytest.raises(TypeError):
-        fn_sample_last_dict({"valid": 1, 123: "bad"})
+        fn_sample_last_dict({123: "bad", "valid": 1})
 
     # Tuple first / last
     assert fn_sample_first_tuple((1, "bad", "bad")) == 3

@@ -58,6 +58,22 @@ publish.sh           # PyPI publishing script — DO NOT RUN
 
 ---
 
+## Development & Building
+
+When modifying C++ code (`type_enforced/cpp/`) or resolving C++ build issues:
+- **Do not investigate, build manually, or copy `.so` files.**
+- Just run:
+  ```bash
+  uv sync --extra dev --reinstall
+  ```
+  This cleanly rebuilds and reinstalls the extension in the environment.
+- If detailed compiler output or build logs are needed, add `--verbose`:
+  ```bash
+  uv sync --extra dev --reinstall --verbose
+  ```
+
+---
+
 ## Core Architecture
 
 ### Key Files

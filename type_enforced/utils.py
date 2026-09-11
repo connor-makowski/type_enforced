@@ -339,7 +339,7 @@ def WithSubclasses(cls):
 
 def has_cpp():
     try:
-        from type_enforced.cpp import validate_list_single  # noqa: F401
+        from type_enforced.cpp import create_validator  # noqa: F401
 
         return True
     except ImportError:
@@ -348,7 +348,7 @@ def has_cpp():
 
 def cpp_check():
     try:
-        from type_enforced.cpp import validate_list_single  # noqa: F401
+        from type_enforced.cpp import create_validator  # noqa: F401
 
         print("Using C++ & Python implementation of type_enforced.")
     except ImportError:

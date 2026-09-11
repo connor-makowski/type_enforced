@@ -119,8 +119,7 @@ def test_bookend_plus_dict():
     assert fn_bookend_plus_dict({"a": 1, "b": 2}) == 2
     assert fn_bookend_plus_dict({"a": 1, "b": 2, "c": 3}) == 3
 
-    # Entries beyond the first 3 are not validated in dict 'bookend_plus'
-    assert fn_bookend_plus_dict({"a": 1, "b": 2, "c": 3, 123: "bad"}) == 4
+    assert fn_bookend_plus_dict({"a": 1, "b": 2, "c": 3, "d": 4}) == 4
 
     # 1st invalid
     with pytest.raises(TypeError, match="Type mismatch"):
@@ -130,9 +129,13 @@ def test_bookend_plus_dict():
     with pytest.raises(TypeError, match="Type mismatch"):
         fn_bookend_plus_dict({"a": 1, 123: 2, "c": 3})
 
-    # 3rd invalid
+    # 3rd invalid (in a 3-item dict, all 3 are validated)
     with pytest.raises(TypeError, match="Type mismatch"):
         fn_bookend_plus_dict({"a": 1, "b": 2, "c": "bad"})
+
+    # All items beyond first 2 invalid -> random pick will fail
+    with pytest.raises(TypeError, match="Type mismatch"):
+        fn_bookend_plus_dict({"a": 1, "b": 2, 123: "bad", 456: "bad2"})
 
 
 # ---------------------------------------------------------------------------
@@ -263,3 +266,72 @@ def test_bookend_class_and_methods():
     assert obj.process_dict({"a": 1, "b": 2, "c": 3}) == 3
     with pytest.raises(TypeError, match="Type mismatch"):
         obj.process_dict({"a": 1, "bad_key": "bad_val", "c": "bad_val"})
+
+
+# ---------------------------------------------------------------------------
+# 7. Direct Slot Sampling for Dicts & Sets ('first', 'last', 'bookend', 'bookend_plus', 0)
+# ---------------------------------------------------------------------------
+@type_enforced.Enforcer(iterable_sample_pct="first")
+def fn_first_dict(data: dict[str, int]) -> int:
+    return len(data)
+
+
+@type_enforced.Enforcer(iterable_sample_pct="last")
+def fn_last_dict(data: dict[str, int]) -> int:
+    return len(data)
+
+
+@type_enforced.Enforcer(iterable_sample_pct=0)
+def fn_zero_dict(data: dict[str, int]) -> int:
+    return len(data)
+
+
+@type_enforced.Enforcer(iterable_sample_pct="first")
+def fn_first_set(data: set[int]) -> int:
+    return len(data)
+
+
+@type_enforced.Enforcer(iterable_sample_pct="last")
+def fn_last_set(data: set[int]) -> int:
+    return len(data)
+
+
+@type_enforced.Enforcer(iterable_sample_pct=0)
+def fn_zero_set(data: set[int]) -> int:
+    return len(data)
+
+
+def test_direct_slot_sampling_dict():
+    # Large dict with 1000 items
+    valid_d = {f"k{i}": i for i in range(1000)}
+    assert fn_first_dict(valid_d) == 1000
+    assert fn_last_dict(valid_d) == 1000
+    assert fn_zero_dict(valid_d) == 1000
+
+    # first fails on first entry
+    with pytest.raises(TypeError, match="Type mismatch"):
+        fn_first_dict({123: 1, "b": 2})
+
+    # last fails on first entry (since last on dict checks first entry)
+    with pytest.raises(TypeError, match="Type mismatch"):
+        fn_last_dict({123: 3, "a": 1, "b": 2})
+
+    # zero (random pick) fails on dict with all invalid keys
+    with pytest.raises(TypeError, match="Type mismatch"):
+        fn_zero_dict({i: i for i in range(100)})
+
+
+def test_direct_slot_sampling_set():
+    # Large set with 1000 items
+    valid_s = set(range(1000))
+    assert fn_first_set(valid_s) == 1000
+    assert fn_last_set(valid_s) == 1000
+    assert fn_zero_set(valid_s) == 1000
+
+    # All invalid fails in first, last, zero
+    with pytest.raises(TypeError, match="Type mismatch"):
+        fn_first_set({"bad"})
+    with pytest.raises(TypeError, match="Type mismatch"):
+        fn_last_set({"bad"})
+    with pytest.raises(TypeError, match="Type mismatch"):
+        fn_zero_set({"bad"})
