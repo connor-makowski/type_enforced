@@ -578,77 +578,58 @@ def _outer_type_guard(var_expr, type_name, fail_stmt):
 
 
 def _emit_strided_sequence_check(
-    var_expr, loop_var_id, sub_checks, count_expr, prefix
+    var_expr, loop_var_id, sub_checks, count_expr, prefix, fn_globals
 ):
     """
-    Generates strided AST index checking (first, last, and strided steps) for sequences.
+    Generates strided AST index checking with pseudo-random start offset for sequences.
     """
-    short_loop = ast.For(
-        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-        iter=var_expr,
-        body=sub_checks,
-        orelse=[],
-    )
-    assign_0 = ast.Assign(
-        targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
-        value=ast.Subscript(
-            value=var_expr, slice=ast.Constant(value=0), ctx=ast.Load()
-        ),
-    )
-    assign_last = ast.Assign(
-        targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
-        value=ast.Subscript(
-            value=var_expr, slice=ast.Constant(value=-1), ctx=ast.Load()
-        ),
-    )
-    idx_var_id = f"{prefix}_idx"
-    step_expr = ast.Call(
-        func=ast.Name(id="max", ctx=ast.Load()),
-        args=[
-            ast.Constant(value=1),
-            ast.BinOp(
-                left=ast.BinOp(
-                    left=ast.Call(
-                        func=ast.Name(id="len", ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    ),
-                    op=ast.Sub(),
-                    right=ast.Constant(value=1),
-                ),
-                op=ast.FloorDiv(),
-                right=ast.Call(
-                    func=ast.Name(id="max", ctx=ast.Load()),
-                    args=[
-                        ast.Constant(value=1),
-                        ast.BinOp(
-                            left=count_expr,
-                            op=ast.Sub(),
-                            right=ast.Constant(value=1),
-                        ),
-                    ],
-                    keywords=[],
-                ),
-            ),
-        ],
+    fn_globals["_fast_quasi_rand"] = _fast_quasi_rand
+    len_expr = ast.Call(
+        func=ast.Name(id="len", ctx=ast.Load()),
+        args=[var_expr],
         keywords=[],
     )
+    step_var_id = f"{prefix}_step"
+    start_var_id = f"{prefix}_start"
+    idx_var_id = f"{prefix}_idx"
+
+    step_calc = ast.Assign(
+        targets=[ast.Name(id=step_var_id, ctx=ast.Store())],
+        value=ast.Call(
+            func=ast.Name(id="max", ctx=ast.Load()),
+            args=[
+                ast.Constant(value=1),
+                ast.BinOp(
+                    left=len_expr,
+                    op=ast.FloorDiv(),
+                    right=ast.Call(
+                        func=ast.Name(id="max", ctx=ast.Load()),
+                        args=[ast.Constant(value=1), count_expr],
+                        keywords=[],
+                    ),
+                ),
+            ],
+            keywords=[],
+        ),
+    )
+
+    start_calc = ast.Assign(
+        targets=[ast.Name(id=start_var_id, ctx=ast.Store())],
+        value=ast.Call(
+            func=ast.Name(id="_fast_quasi_rand", ctx=ast.Load()),
+            args=[ast.Name(id=step_var_id, ctx=ast.Load())],
+            keywords=[],
+        ),
+    )
+
     range_loop = ast.For(
         target=ast.Name(id=idx_var_id, ctx=ast.Store()),
         iter=ast.Call(
             func=ast.Name(id="range", ctx=ast.Load()),
             args=[
-                step_expr,
-                ast.BinOp(
-                    left=ast.Call(
-                        func=ast.Name(id="len", ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    ),
-                    op=ast.Sub(),
-                    right=ast.Constant(value=1),
-                ),
-                step_expr,
+                ast.Name(id=start_var_id, ctx=ast.Load()),
+                len_expr,
+                ast.Name(id=step_var_id, ctx=ast.Load()),
             ],
             keywords=[],
         ),
@@ -665,22 +646,8 @@ def _emit_strided_sequence_check(
         + sub_checks,
         orelse=[],
     )
-    long_check = (
-        [assign_0] + sub_checks + [assign_last] + sub_checks + [range_loop]
-    )
-    return ast.If(
-        test=ast.Compare(
-            left=ast.Call(
-                func=ast.Name(id="len", ctx=ast.Load()),
-                args=[var_expr],
-                keywords=[],
-            ),
-            ops=[ast.LtE()],
-            comparators=[ast.Constant(value=3)],
-        ),
-        body=[short_loop],
-        orelse=long_check,
-    )
+
+    return [step_calc, start_calc, range_loop]
 
 
 def _emit_set_superset_fallback(
@@ -1007,7 +974,7 @@ def _emit_sequence_check(
             var_expr, sample_pct, prefix, fn_globals
         )
         return _emit_strided_sequence_check(
-            var_expr, loop_var_id, sub_checks, count_expr, prefix
+            var_expr, loop_var_id, sub_checks, count_expr, prefix, fn_globals
         )
 
 
@@ -1296,6 +1263,9 @@ def generate_type_check_ast(
             is_loop=True,
         )
         pair_checks = k_checks + v_checks
+        if not pair_checks:
+            return [outer_type_guard]
+
         pair_target = ast.Tuple(
             elts=[
                 ast.Name(id=k_var_id, ctx=ast.Store()),
@@ -1304,17 +1274,36 @@ def generate_type_check_ast(
             ctx=ast.Store(),
         )
 
-        dict_items_call = ast.Call(
-            func=ast.Attribute(value=var_expr, attr="items", ctx=ast.Load()),
-            args=[],
-            keywords=[],
-        )
+        if k_checks and not v_checks:
+            dict_iter_call = var_expr
+            item_target = ast.Name(id=k_var_id, ctx=ast.Store())
+            checks_to_run = k_checks
+        elif not k_checks and v_checks:
+            dict_iter_call = ast.Call(
+                func=ast.Attribute(
+                    value=var_expr, attr="values", ctx=ast.Load()
+                ),
+                args=[],
+                keywords=[],
+            )
+            item_target = ast.Name(id=v_var_id, ctx=ast.Store())
+            checks_to_run = v_checks
+        else:
+            dict_iter_call = ast.Call(
+                func=ast.Attribute(
+                    value=var_expr, attr="items", ctx=ast.Load()
+                ),
+                args=[],
+                keywords=[],
+            )
+            item_target = pair_target
+            checks_to_run = pair_checks
 
         if sample_pct == 100:
             content_check = ast.For(
-                target=pair_target,
-                iter=dict_items_call,
-                body=pair_checks,
+                target=item_target,
+                iter=dict_iter_call,
+                body=checks_to_run,
                 orelse=[],
             )
         elif sample_pct in ("first", "last"):
@@ -1322,13 +1311,13 @@ def generate_type_check_ast(
                 test=var_expr,
                 body=[
                     ast.Assign(
-                        targets=[pair_target],
+                        targets=[item_target],
                         value=ast.Call(
                             func=ast.Name(id="next", ctx=ast.Load()),
                             args=[
                                 ast.Call(
                                     func=ast.Name(id="iter", ctx=ast.Load()),
-                                    args=[dict_items_call],
+                                    args=[dict_iter_call],
                                     keywords=[],
                                 )
                             ],
@@ -1336,7 +1325,7 @@ def generate_type_check_ast(
                         ),
                     )
                 ]
-                + pair_checks,
+                + checks_to_run,
                 orelse=[],
             )
         elif sample_pct == "bookend":
@@ -1354,13 +1343,13 @@ def generate_type_check_ast(
                         targets=[ast.Name(id=it_var_id, ctx=ast.Store())],
                         value=ast.Call(
                             func=ast.Name(id="iter", ctx=ast.Load()),
-                            args=[dict_items_call],
+                            args=[dict_iter_call],
                             keywords=[],
                         ),
                     ),
-                    ast.Assign(targets=[pair_target], value=next_call),
+                    ast.Assign(targets=[item_target], value=next_call),
                 ]
-                + pair_checks
+                + checks_to_run
                 + [
                     ast.If(
                         test=ast.Compare(
@@ -1373,9 +1362,9 @@ def generate_type_check_ast(
                             comparators=[ast.Constant(value=1)],
                         ),
                         body=[
-                            ast.Assign(targets=[pair_target], value=next_call)
+                            ast.Assign(targets=[item_target], value=next_call)
                         ]
-                        + pair_checks,
+                        + checks_to_run,
                         orelse=[],
                     )
                 ],
@@ -1389,45 +1378,6 @@ def generate_type_check_ast(
                 args=[it_expr],
                 keywords=[],
             )
-            fn_globals["_fast_quasi_rand"] = _fast_quasi_rand
-            fn_globals["islice"] = islice
-            rand_call = ast.Call(
-                func=ast.Name(id="next", ctx=ast.Load()),
-                args=[
-                    ast.Call(
-                        func=ast.Name(id="islice", ctx=ast.Load()),
-                        args=[
-                            dict_items_call,
-                            ast.BinOp(
-                                left=ast.Constant(value=2),
-                                op=ast.Add(),
-                                right=ast.Call(
-                                    func=ast.Name(
-                                        id="_fast_quasi_rand", ctx=ast.Load()
-                                    ),
-                                    args=[
-                                        ast.BinOp(
-                                            left=ast.Call(
-                                                func=ast.Name(
-                                                    id="len", ctx=ast.Load()
-                                                ),
-                                                args=[var_expr],
-                                                keywords=[],
-                                            ),
-                                            op=ast.Sub(),
-                                            right=ast.Constant(value=2),
-                                        )
-                                    ],
-                                    keywords=[],
-                                ),
-                            ),
-                            ast.Constant(value=None),
-                        ],
-                        keywords=[],
-                    )
-                ],
-                keywords=[],
-            )
             content_check = ast.If(
                 test=var_expr,
                 body=[
@@ -1435,13 +1385,13 @@ def generate_type_check_ast(
                         targets=[ast.Name(id=it_var_id, ctx=ast.Store())],
                         value=ast.Call(
                             func=ast.Name(id="iter", ctx=ast.Load()),
-                            args=[dict_items_call],
+                            args=[dict_iter_call],
                             keywords=[],
                         ),
                     ),
-                    ast.Assign(targets=[pair_target], value=next_call),
+                    ast.Assign(targets=[item_target], value=next_call),
                 ]
-                + pair_checks
+                + checks_to_run
                 + [
                     ast.If(
                         test=ast.Compare(
@@ -1454,9 +1404,9 @@ def generate_type_check_ast(
                             comparators=[ast.Constant(value=1)],
                         ),
                         body=[
-                            ast.Assign(targets=[pair_target], value=next_call)
+                            ast.Assign(targets=[item_target], value=next_call)
                         ]
-                        + pair_checks
+                        + checks_to_run
                         + [
                             ast.If(
                                 test=ast.Compare(
@@ -1470,10 +1420,10 @@ def generate_type_check_ast(
                                 ),
                                 body=[
                                     ast.Assign(
-                                        targets=[pair_target], value=rand_call
+                                        targets=[item_target], value=next_call
                                     )
                                 ]
-                                + pair_checks,
+                                + checks_to_run,
                                 orelse=[],
                             )
                         ],
@@ -1483,63 +1433,25 @@ def generate_type_check_ast(
                 orelse=[],
             )
         elif sample_pct == 0:
-            fn_globals["_fast_quasi_rand"] = _fast_quasi_rand
-            fn_globals["islice"] = islice
-            rand_call = ast.IfExp(
-                test=ast.Compare(
-                    left=ast.Call(
-                        func=ast.Name(id="len", ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    ),
-                    ops=[ast.LtE()],
-                    comparators=[ast.Constant(value=1)],
-                ),
-                body=ast.Call(
-                    func=ast.Name(id="next", ctx=ast.Load()),
-                    args=[
-                        ast.Call(
-                            func=ast.Name(id="iter", ctx=ast.Load()),
-                            args=[dict_items_call],
-                            keywords=[],
-                        )
-                    ],
-                    keywords=[],
-                ),
-                orelse=ast.Call(
-                    func=ast.Name(id="next", ctx=ast.Load()),
-                    args=[
-                        ast.Call(
-                            func=ast.Name(id="islice", ctx=ast.Load()),
-                            args=[
-                                dict_items_call,
-                                ast.Call(
-                                    func=ast.Name(
-                                        id="_fast_quasi_rand", ctx=ast.Load()
-                                    ),
-                                    args=[
-                                        ast.Call(
-                                            func=ast.Name(
-                                                id="len", ctx=ast.Load()
-                                            ),
-                                            args=[var_expr],
-                                            keywords=[],
-                                        )
-                                    ],
-                                    keywords=[],
-                                ),
-                                ast.Constant(value=None),
-                            ],
-                            keywords=[],
-                        )
-                    ],
-                    keywords=[],
-                ),
-            )
             content_check = ast.If(
                 test=var_expr,
-                body=[ast.Assign(targets=[pair_target], value=rand_call)]
-                + pair_checks,
+                body=[
+                    ast.Assign(
+                        targets=[item_target],
+                        value=ast.Call(
+                            func=ast.Name(id="next", ctx=ast.Load()),
+                            args=[
+                                ast.Call(
+                                    func=ast.Name(id="iter", ctx=ast.Load()),
+                                    args=[dict_iter_call],
+                                    keywords=[],
+                                )
+                            ],
+                            keywords=[],
+                        ),
+                    )
+                ]
+                + checks_to_run,
                 orelse=[],
             )
         else:
@@ -1548,13 +1460,13 @@ def generate_type_check_ast(
             )
             fn_globals["islice"] = islice
             content_check = ast.For(
-                target=pair_target,
+                target=item_target,
                 iter=ast.Call(
                     func=ast.Name(id="islice", ctx=ast.Load()),
-                    args=[dict_items_call, count_expr],
+                    args=[dict_iter_call, count_expr],
                     keywords=[],
                 ),
-                body=pair_checks,
+                body=checks_to_run,
                 orelse=[],
             )
 

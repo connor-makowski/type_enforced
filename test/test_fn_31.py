@@ -229,15 +229,13 @@ def test_sampled_validation_strided():
     assert fn_sample_10pct_list(valid_100) == 100
     assert fn_sample_log_list(valid_100) == 100
 
-    # Bad element at index 0 (always checked in sampled mode)
-    bad_first = ["bad"] + list(range(1, 100))
+    # Bad list with invalid elements across intervals
+    bad_100 = ["bad"] * 100
     with pytest.raises(TypeError):
-        fn_sample_10pct_list(bad_first)
+        fn_sample_10pct_list(bad_100)
 
-    # Bad element at last index (always checked in sampled mode)
-    bad_last = list(range(99)) + ["bad"]
     with pytest.raises(TypeError):
-        fn_sample_10pct_list(bad_last)
+        fn_sample_log_list(bad_100)
 
 
 def test_unions_with_none():

@@ -45,7 +45,7 @@ greet(["Alice"], 2)       # Returns "Hello Alice!Hello Alice!"
 greet(["Alice"], "twice")  # Raises TypeError at runtime!
 
 # 2. Fast O(1) validation (does not check every item in passed collections)
-@type_enforced.FastEnforcer 
+@type_enforced.FastEnforcer
 def process_tags(tags: list[str]) -> int:
     return len(tags)
 
@@ -80,7 +80,7 @@ Existing runtime type checkers force an unnecessary compromise:
 
 - **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
 - **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of other packages' overhead.
-- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 11x faster than Beartype.
+- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 8x faster than Beartype.
 - **Zero Dependencies & Pure Python Compatible**: Zero external runtime dependencies. Runs everywhere standard Python 3.11+ runs, with optional automatic C++ acceleration via nanobind when available.
 - **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
 - **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
@@ -91,20 +91,20 @@ Timings represent the added differential validation time (enforced call time min
 
 | Type                   |       Size       | type_enforced (sample=1) | Beartype (sample=1) | Typeguard (sample=1) | type_enforced (100%) | Pydantic (100%)  |  msgspec (100%)  |  cattrs (100%)   | Typeguard (100%) |
 | :--------------------- | :--------------: | :----------------------: | :-----------------: | :------------------: | :------------------: | :--------------: | :--------------: | :--------------: | :--------------: |
-| `int`                  |        —         |         0.047 µs         |      0.196 µs       |       1.908 µs       |       0.048 µs       |     0.454 µs     |     0.284 µs     |     0.118 µs     |     1.902 µs     |
-| `Union[int, float]`    |        —         |         0.057 µs         |      0.215 µs       |       3.933 µs       |       0.051 µs       |     0.514 µs     |     0.419 µs     |     0.435 µs     |     3.972 µs     |
-| `str`                  |        —         |         0.046 µs         |      0.198 µs       |       1.886 µs       |       0.047 µs       |     0.444 µs     |     0.273 µs     |    0.121 µs ⚠    |     1.842 µs     |
-| `list[int]`            |   1 000 items    |        0.057 µs ⚠        |     0.342 µs ⚠      |      3.176 µs ⚠      |       0.584 µs       |    11.114 µs     |     5.094 µs     |    48.105 µs     |   1061.043 µs    |
-| `list[int]`            |   10 000 items   |        0.058 µs ⚠        |     0.460 µs ⚠      |      3.195 µs ⚠      |       5.548 µs       |    106.624 µs    |    44.523 µs     |    475.241 µs    |   10431.718 µs   |
-| `dict[str, int]`       |    1 000 keys    |        0.060 µs ⚠        |     0.344 µs ⚠      |      4.461 µs ⚠      |       3.460 µs       |    39.866 µs     |    25.831 µs     |    67.477 µs     |   2082.042 µs    |
-| `dict[str, int]`       |   10 000 keys    |        0.059 µs ⚠        |     0.343 µs ⚠      |      4.372 µs ⚠      |      44.034 µs       |    439.999 µs    |    310.079 µs    |    716.784 µs    |   20737.471 µs   |
-| `list[list[int]]`      | 100 x 100 items  |        0.059 µs ⚠        |     0.370 µs ⚠      |      4.423 µs ⚠      |       5.318 µs       |    106.596 µs    |    48.393 µs     |    475.345 µs    |   10492.097 µs   |
-| `dict[str, list[int]]` | 100 x 100 items  |        0.064 µs ⚠        |     0.453 µs ⚠      |      5.724 µs ⚠      |       5.710 µs       |    111.978 µs    |    53.688 µs     |    481.690 µs    |   10614.756 µs   |
-| `list[dict[str, int]]` | 100 x 100 items  |        0.064 µs ⚠        |     0.477 µs ⚠      |      5.787 µs ⚠      |      46.838 µs       |    389.870 µs    |    262.067 µs    |    680.407 µs    |   21188.163 µs   |
+| `int`                  |        —         |         0.047 µs         |      0.197 µs       |       1.945 µs       |       0.047 µs       |     0.462 µs     |     0.283 µs     |     0.117 µs     |     1.910 µs     |
+| `Union[int, float]`    |        —         |         0.047 µs         |      0.220 µs       |       4.080 µs       |       0.048 µs       |     0.508 µs     |     0.425 µs     |     0.466 µs     |     4.038 µs     |
+| `str`                  |        —         |         0.047 µs         |      0.197 µs       |       1.929 µs       |       0.046 µs       |     0.462 µs     |     0.277 µs     |    0.121 µs ⚠    |     1.893 µs     |
+| `list[int]`            |   1 000 items    |        0.059 µs ⚠        |     0.346 µs ⚠      |      3.235 µs ⚠      |       0.496 µs       |    11.173 µs     |     5.125 µs     |    47.788 µs     |   1062.214 µs    |
+| `list[int]`            |   10 000 items   |        0.052 µs ⚠        |     0.427 µs ⚠      |      3.167 µs ⚠      |       4.704 µs       |    107.386 µs    |    45.199 µs     |    475.801 µs    |   10664.269 µs   |
+| `dict[str, int]`       |    1 000 keys    |        0.066 µs ⚠        |     0.351 µs ⚠      |      4.537 µs ⚠      |       3.501 µs       |    40.931 µs     |    27.059 µs     |    69.099 µs     |   2142.756 µs    |
+| `dict[str, int]`       |   10 000 keys    |        0.061 µs ⚠        |     0.346 µs ⚠      |      4.514 µs ⚠      |      43.761 µs       |    449.422 µs    |    323.412 µs    |    734.745 µs    |   21089.261 µs   |
+| `list[list[int]]`      | 100 x 100 items  |        0.061 µs ⚠        |     0.387 µs ⚠      |      4.478 µs ⚠      |       4.138 µs       |    108.531 µs    |    48.981 µs     |    482.146 µs    |   10730.394 µs   |
+| `dict[str, list[int]]` | 100 x 100 items  |        0.070 µs ⚠        |     0.463 µs ⚠      |      5.911 µs ⚠      |       5.080 µs       |    115.700 µs    |    53.517 µs     |    490.407 µs    |   10873.253 µs   |
+| `list[dict[str, int]]` | 100 x 100 items  |        0.069 µs ⚠        |     0.487 µs ⚠      |      5.864 µs ⚠      |      48.522 µs       |    414.400 µs    |    269.979 µs    |    722.215 µs    |   21666.114 µs   |
 
-> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to 11x faster than Beartype**.
+> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to 8x faster than Beartype**.
 
-> **Full Validation:** When full validation is required, `type_enforced.Enforcer` is **up to 24x faster than Pydantic**.
+> **Full Validation:** When full validation is required, `type_enforced.Enforcer` is **up to 26x faster than Pydantic**.
 
 ---
 
@@ -507,7 +507,7 @@ render("red")      # Raises TypeError (Constraint `valid_hex_color` not met)
 | `enabled` | `bool` | `True` | Toggle enforcement. Set `False` to bypass type checks (useful for production vs. debugging or per-method overrides). |
 | `strict` | `bool` | `True` | When `True`, raises `TypeError` on mismatch. When `False`, logs a warning to the console instead of raising. |
 | `clean_traceback` | `bool` | `True` | Filters internal `type_enforced` stack frames so unhandled tracebacks point directly to user code (see note below). |
-| `iterable_sample_pct` | `int or str` | `100` (`'first'` for `Fast*`) | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item (or first item for dicts/sets), `'bookend'` checks first and last items (first 2 items for dicts/sets), `'bookend_plus'` checks first, last, and a random middle item (first 2 items and 1 random item for dicts/sets), `'log'` checks a sample of ceil(log2(n)) items, `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up). `100` validates all elements. Note: `FastEnforcer` and `FastModuleEnforcer` strictly accept `'first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, or `0`. |
+| `iterable_sample_pct` | `int, float, or str` | `100` (`'first'` for `Fast*`) | Sampling mode or percentage (0–100) of iterable items to validate. `'first'` checks the first item, `'last'` checks the last item (or first item for dicts/sets), `'bookend'` checks first and last items (first 2 items for dicts/sets), `'bookend_plus'` checks first, last, and a random middle item (first 2 items and 1 random item for dicts/sets), `'log'` checks a sample of ceil(log2(n)) items using a pseudo-random start offset and even steps across sequences (first ceil(log2(n)) items for dicts/sets), `0` checks 1 random item, and `1..100` checks the specified percentage (rounding up) starting at a pseudo-random offset within each step interval for sequences (first $N$ items for dicts/sets). `100` validates all elements. Note: `FastEnforcer` and `FastModuleEnforcer` strictly accept `'first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, or `0`. |
 | `only_typed` | `bool` | `False` | When `True`, raises an exception upon decoration if any parameter or return value lacks a type hint. |
 | `submodules` *(ModuleEnforcers only)* | `bool` | `True` | Recursively enforces all sub-packages/sub-modules in the same namespace. |
 
@@ -550,13 +550,14 @@ By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a typ
 
 #### 4. Sampled Validation (`FastEnforcer`, `FastModuleEnforcer`, `iterable_sample_pct`)
 For large or performance-critical collections, use `@type_enforced.FastEnforcer` or configure sampling instead of full iteration:
-- `'first'` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to 11x faster than Beartype).
+- `'first'` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to 8x faster than Beartype).
 - `'last'`: Validates the last element in O(1) time for indexable sequences (`list`, `tuple`). For non-indexed collections like `dict` and `set`, `'last'` validates the first item to avoid reverse iteration and hash table lookup overhead.
 - `'bookend'`: Validates the first and last elements in O(1) time for sequences (the first 2 items for `dict` and `set`).
 - `'bookend_plus'`: Validates the first, last, and a random middle element in O(1) time for sequences (the first 2 items and 1 random item for `dict` and `set`).
-- `'log'`: Validates a sample of ceil(log2(n)) items across the collection.
+- `'log'`: For sequences (`list`, `tuple`), samples `ceil(log2(n))` items by picking a Weyl pseudo-random start offset and taking even step jumps across the collection. For `dict` and `set`, validates the first `ceil(log2(n))` items.
 - `0`: Validates one element chosen at random.
-- `1..100` (int, `Enforcer` / `ModuleEnforcer` only): Validates the specified percentage of items (rounding up).
+- `1..99` (int, `Enforcer` / `ModuleEnforcer` only): Validates the specified percentage of items (rounding up). For sequences, selects a Weyl pseudo-random start offset in `[0, step - 1]` and takes even step jumps across the collection, giving every index an equal probability of being checked. For `dict` and `set`, validates the first `N` items.
+- `100`: Complete validation of all items across the collection.
 
 ```python
 # Using FastEnforcer directly:

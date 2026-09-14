@@ -29,7 +29,8 @@ enum class NodeKind : uint8_t {
     DICT,
     SET,
     VAR_TUPLE,
-    FIXED_TUPLE
+    FIXED_TUPLE,
+    TYPED_DICT
 };
 
 struct TypeValidatorNode {

@@ -335,3 +335,71 @@ def test_direct_slot_sampling_set():
         fn_last_set({"bad"})
     with pytest.raises(TypeError, match="Type mismatch"):
         fn_zero_set({"bad"})
+
+
+# ---------------------------------------------------------------------------
+# 8. Weyl pseudo-random start offset sequence sampling tests
+# ---------------------------------------------------------------------------
+def test_weyl_random_start_sampling_list():
+    @type_enforced.Enforcer(iterable_sample_pct=10)
+    def fn_sample_10(data: list[int]) -> int:
+        return len(data)
+
+    valid_data = list(range(100))
+    assert fn_sample_10(valid_data) == 100
+
+    # A list where only index 3 is invalid
+    # Over repeated calls, the Weyl sequence will hit start offset 3 and raise TypeError
+    bad_data = [("bad" if i == 3 else i) for i in range(100)]
+    caught = False
+    for _ in range(50):
+        try:
+            fn_sample_10(bad_data)
+        except TypeError:
+            caught = True
+            break
+    assert (
+        caught
+    ), "Expected Weyl pseudo-random sampling to catch bad element at index 3"
+
+
+def test_weyl_random_start_sampling_tuple():
+    @type_enforced.Enforcer(iterable_sample_pct=25)
+    def fn_sample_25(data: tuple[int, ...]) -> int:
+        return len(data)
+
+    valid_data = tuple(range(100))
+    assert fn_sample_25(valid_data) == 100
+
+    # Tuple where only index 2 is invalid
+    bad_data = tuple(("bad" if i == 2 else i) for i in range(100))
+    caught = False
+    for _ in range(50):
+        try:
+            fn_sample_25(bad_data)
+        except TypeError:
+            caught = True
+            break
+    assert (
+        caught
+    ), "Expected Weyl pseudo-random sampling to catch bad element at index 2"
+
+
+def test_weyl_sample_indices_helper():
+    enforcer = type_enforced.FunctionMethodEnforcer(
+        lambda: None, __iterable_sample_pct__=10
+    )
+    # len=100, pct=10 -> count=10, step=10
+    indices1 = list(enforcer.__get_sample_indices__(100))
+    indices2 = list(enforcer.__get_sample_indices__(100))
+    assert len(indices1) == 10
+    assert len(indices2) == 10
+    assert all(0 <= idx < 100 for idx in indices1)
+    assert all(0 <= idx < 100 for idx in indices2)
+    # Check step interval
+    assert all(
+        indices1[i + 1] - indices1[i] == 10 for i in range(len(indices1) - 1)
+    )
+    assert all(
+        indices2[i + 1] - indices2[i] == 10 for i in range(len(indices2) - 1)
+    )

@@ -245,12 +245,9 @@ class FunctionMethodEnforcer:
             count = max(1, (length * pct + 99) // 100)
         if count >= length:
             return range(length)
-        if count == 1:
-            return [0]
-        if count == 2:
-            return [0, length - 1]
-        step = max(1, (length - 1) // (count - 1))
-        return [0, length - 1] + list(range(step, length - 1, step))
+        step = max(1, length // count)
+        start = _fast_quasi_rand(step)
+        return range(start, length, step)
 
     def __get_sample_keys__(self, keys):
         """
