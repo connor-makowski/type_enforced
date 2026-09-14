@@ -81,7 +81,7 @@ Existing runtime type checkers force an unnecessary compromise:
 
 - **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.
 - **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of other packages' overhead.
-- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 8x faster than Beartype.
+- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct='first'`, `'last'`, `'bookend'`, `'bookend_plus'`, `'log'`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to ~15x faster than Beartype.
 - **Zero Dependencies & Pure Python Compatible**: Zero external runtime dependencies. Runs everywhere standard Python 3.11+ runs, with optional automatic C++ acceleration via nanobind when available.
 - **Rich Type Support & Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.
 - **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.
@@ -92,20 +92,20 @@ Timings represent the added differential validation time (enforced call time min
 
 | Type                   |       Size       | type_enforced (sample=1) | Beartype (sample=1) | Typeguard (sample=1) | type_enforced (100%) | Pydantic (100%)  |  msgspec (100%)  |  cattrs (100%)   | Typeguard (100%) |
 | :--------------------- | :--------------: | :----------------------: | :-----------------: | :------------------: | :------------------: | :--------------: | :--------------: | :--------------: | :--------------: |
-| `int`                  |        —         |         0.014 µs         |      0.203 µs       |       1.902 µs       |       0.014 µs       |     0.458 µs     |     0.280 µs     |     0.117 µs     |     1.888 µs     |
-| `Union[int, float]`    |        —         |         0.014 µs         |      0.212 µs       |       3.951 µs       |       0.013 µs       |     0.505 µs     |     0.425 µs     |     0.464 µs     |     3.896 µs     |
-| `str`                  |        —         |         0.014 µs         |      0.207 µs       |       1.894 µs       |       0.014 µs       |     0.459 µs     |     0.266 µs     |    0.119 µs ⚠    |     1.847 µs     |
-| `list[int]`            |   1 000 items    |        0.019 µs ⚠        |     0.335 µs ⚠      |      3.151 µs ⚠      |       0.429 µs       |    10.946 µs     |     5.053 µs     |    47.520 µs     |   1043.583 µs    |
-| `list[int]`            |   10 000 items   |        0.020 µs ⚠        |     0.425 µs ⚠      |      3.165 µs ⚠      |       4.451 µs       |    105.927 µs    |    44.827 µs     |    477.761 µs    |   10451.041 µs   |
-| `dict[str, int]`       |    1 000 keys    |        0.024 µs ⚠        |     0.348 µs ⚠      |      4.410 µs ⚠      |       3.149 µs       |    40.282 µs     |    26.908 µs     |    69.954 µs     |   2064.560 µs    |
-| `dict[str, int]`       |   10 000 keys    |        0.027 µs ⚠        |     0.346 µs ⚠      |      4.390 µs ⚠      |      41.214 µs       |    443.875 µs    |    319.566 µs    |    723.084 µs    |   20530.390 µs   |
-| `list[list[int]]`      | 100 x 100 items  |        0.026 µs ⚠        |     0.375 µs ⚠      |      4.456 µs ⚠      |       3.443 µs       |    107.959 µs    |    48.582 µs     |    477.303 µs    |   10526.167 µs   |
-| `dict[str, list[int]]` | 100 x 100 items  |        0.031 µs ⚠        |     0.453 µs ⚠      |      5.715 µs ⚠      |       4.084 µs       |    114.067 µs    |    54.316 µs     |    484.277 µs    |   10751.799 µs   |
-| `list[dict[str, int]]` | 100 x 100 items  |        0.034 µs ⚠        |     0.478 µs ⚠      |      5.810 µs ⚠      |      42.881 µs       |    398.183 µs    |    267.584 µs    |    704.102 µs    |   20922.011 µs   |
+| `int`                  |        —         |         0.015 µs         |      0.193 µs       |       1.926 µs       |       0.014 µs       |     0.502 µs     |     0.277 µs     |     0.117 µs     |     1.874 µs     |
+| `Union[int, float]`    |        —         |         0.014 µs         |      0.217 µs       |       4.028 µs       |       0.014 µs       |     0.557 µs     |     0.422 µs     |     0.459 µs     |     3.976 µs     |
+| `str`                  |        —         |         0.015 µs         |      0.200 µs       |       1.917 µs       |       0.014 µs       |     0.509 µs     |     0.265 µs     |    0.120 µs ⚠    |     1.864 µs     |
+| `list[int]`            |   1 000 items    |        0.019 µs ⚠        |     0.342 µs ⚠      |      3.194 µs ⚠      |       0.440 µs       |    11.324 µs     |     5.145 µs     |    47.823 µs     |   1047.473 µs    |
+| `list[int]`            |   10 000 items   |        0.019 µs ⚠        |     0.420 µs ⚠      |      3.157 µs ⚠      |       4.569 µs       |    107.136 µs    |    45.229 µs     |    485.161 µs    |   10477.726 µs   |
+| `dict[str, int]`       |    1 000 keys    |        0.028 µs ⚠        |     0.353 µs ⚠      |      4.473 µs ⚠      |       3.233 µs       |    40.778 µs     |    26.982 µs     |    68.831 µs     |   2084.674 µs    |
+| `dict[str, int]`       |   10 000 keys    |        0.026 µs ⚠        |     0.344 µs ⚠      |      4.405 µs ⚠      |      41.106 µs       |    449.057 µs    |    319.557 µs    |    724.451 µs    |   21080.617 µs   |
+| `list[list[int]]`      | 100 x 100 items  |        0.023 µs ⚠        |     0.380 µs ⚠      |      4.439 µs ⚠      |       3.463 µs       |    108.277 µs    |    48.580 µs     |    480.083 µs    |   10552.618 µs   |
+| `dict[str, list[int]]` | 100 x 100 items  |        0.032 µs ⚠        |     0.456 µs ⚠      |      5.819 µs ⚠      |       4.102 µs       |    115.546 µs    |    53.714 µs     |    495.185 µs    |   10784.123 µs   |
+| `list[dict[str, int]]` | 100 x 100 items  |        0.032 µs ⚠        |     0.531 µs ⚠      |      5.869 µs ⚠      |      47.917 µs       |    420.268 µs    |    274.532 µs    |    714.918 µs    |   21578.933 µs   |
 
-> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to 8x faster than Beartype**.
+> **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to ~15x faster than Beartype**.
 
-> **Full Validation:** When full validation is required, `type_enforced.Enforcer` is **up to 26x faster than Pydantic**.
+> **Full Validation:** When full validation is required, `type_enforced.Enforcer` is **up to ~40x faster than Pydantic on scalars and up to ~20x faster on larger data structures**.
 
 ---
 
@@ -551,7 +551,7 @@ By default, `clean_traceback=True` temporarily hooks `sys.excepthook` when a typ
 
 #### 4. Sampled Validation (`FastEnforcer`, `FastModuleEnforcer`, `iterable_sample_pct`)
 For large or performance-critical collections, use `@type_enforced.FastEnforcer` or configure sampling instead of full iteration:
-- `'first'` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to 8x faster than Beartype).
+- `'first'` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to ~15x faster than Beartype).
 - `'last'`: Validates the last element in O(1) time for indexable sequences (`list`, `tuple`). For non-indexed collections like `dict` and `set`, `'last'` validates the first item to avoid reverse iteration and hash table lookup overhead.
 - `'bookend'`: Validates the first and last elements in O(1) time for sequences (the first 2 items for `dict` and `set`).
 - `'bookend_plus'`: Validates the first, last, and a random middle element in O(1) time for sequences (the first 2 items and 1 random item for `dict` and `set`).
