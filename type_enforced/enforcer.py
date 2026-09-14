@@ -813,26 +813,41 @@ class FunctionMethodEnforcer:
         kwdefaults = getattr(self.__fn__, "__kwdefaults__", None)
         check_fn = FunctionMethodEnforcer.__check_type__
 
-        if (
-            _cpp is not None
-            and not has_varargs
-            and not has_varkw
-            and ret_mode not in (3, 5)
-        ):
-            all_param_names = (
-                list(posonly_names) + list(pos_names) + list(kwonly_names)
+        if _cpp is not None and ret_mode != 5:
+            pos_p_names = list(posonly_names) + list(pos_names)
+            pos_p_specs = [param_exps.get(pn) for pn in pos_p_names]
+            kwonly_p_names = list(kwonly_names)
+            kwonly_p_specs = [param_exps.get(pn) for pn in kwonly_p_names]
+            varargs_spec = (
+                self.__checkable_types__.get(vararg_name)
+                if vararg_name
+                else None
             )
-            param_specs = [param_exps.get(pn) for pn in all_param_names]
+            varkw_spec = (
+                self.__checkable_types__.get(kwarg_name) if kwarg_name else None
+            )
             fast_call = _cpp.create_fast_call(
                 self,
                 self.__fn__,
-                all_param_names,
-                param_specs,
-                param_specs,
+                pos_p_names,
+                pos_p_specs,
+                pos_p_specs,
                 ret_exp,
                 ret_exp,
                 check_fn,
                 self.__iterable_sample_pct__,
+                has_varargs,
+                vararg_name,
+                varargs_spec,
+                varargs_spec,
+                has_varkw,
+                kwarg_name,
+                varkw_spec,
+                varkw_spec,
+                ret_mode == 3,
+                kwonly_p_names,
+                kwonly_p_specs,
+                kwonly_p_specs,
             )
             if fast_call is not None:
                 self.__class__ = create_specialized_class(

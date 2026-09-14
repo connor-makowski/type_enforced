@@ -6,6 +6,7 @@ try:
         Dict,
         List,
         NewType,
+        Set,
         Tuple,
         Type,
         TypeVar,
@@ -241,6 +242,27 @@ try:
             [1, "two", 3, 4, 5] * 2000
         )
 
+        # Sets
+        for prefix in ["set[int]", "Set[int]"]:
+            pools[f"{prefix} (5 items)"] = [
+                {j for j in range(5)} for _ in range(POOL_SIZE)
+            ]
+            invalid_cases[f"{prefix} (5 items)"] = {1, "two", 3, 4, 5}
+
+            pools[f"{prefix} (1000 items)"] = [
+                {j for j in range(1000)} for _ in range(POOL_SIZE)
+            ]
+            invalid_cases[f"{prefix} (1000 items)"] = (
+                set(range(999)) | {"two"}
+            )
+
+            pools[f"{prefix} (10000 items)"] = [
+                {j for j in range(10000)} for _ in range(POOL_SIZE)
+            ]
+            invalid_cases[f"{prefix} (10000 items)"] = (
+                set(range(9999)) | {"two"}
+            )
+
         # Nested
         pools["list[dict[str,int]] (5 x 5 items)"] = [
             [{f"key{j}": j for j in range(5)} for _ in range(5)]
@@ -372,6 +394,12 @@ try:
         "list[int] | list[str] (5 items)": Union[List[int], List[str]],
         "list[int] | list[str] (1000 items)": Union[List[int], List[str]],
         "list[int] | list[str] (10000 items)": Union[List[int], List[str]],
+        "set[int] (5 items)": set[int],
+        "set[int] (1000 items)": set[int],
+        "set[int] (10000 items)": set[int],
+        "Set[int] (5 items)": Set[int],
+        "Set[int] (1000 items)": Set[int],
+        "Set[int] (10000 items)": Set[int],
         "list[dict[str,int]] (5 x 5 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 10 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 100 items)": List[Dict[str, int]],

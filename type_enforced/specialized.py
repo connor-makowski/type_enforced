@@ -818,9 +818,7 @@ def _emit_sequence_check(
                     ),
                     body=[
                         ast.Assign(
-                            targets=[
-                                ast.Name(id=loop_var_id, ctx=ast.Store())
-                            ],
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
                             value=ast.Subscript(
                                 value=var_expr,
                                 slice=ast.Constant(value=-1),
@@ -862,9 +860,7 @@ def _emit_sequence_check(
                     ),
                     body=[
                         ast.Assign(
-                            targets=[
-                                ast.Name(id=loop_var_id, ctx=ast.Store())
-                            ],
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
                             value=ast.Subscript(
                                 value=var_expr,
                                 slice=ast.Constant(value=-1),
@@ -1215,9 +1211,7 @@ def generate_type_check_ast(
                     test=var_expr,
                     body=[
                         ast.Assign(
-                            targets=[
-                                ast.Name(id=loop_var_id, ctx=ast.Store())
-                            ],
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
                             value=rand_call,
                         )
                     ]

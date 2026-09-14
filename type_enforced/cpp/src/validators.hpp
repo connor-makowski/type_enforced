@@ -56,13 +56,25 @@ nb::object create_validator(nb::handle spec, nb::handle sample_pct);
 nb::object create_fast_call(
     nb::handle self_enforcer,
     nb::handle fn,
-    nb::handle param_names,
-    nb::handle param_specs,
-    nb::handle param_exps,
+    nb::handle pos_param_names,
+    nb::handle pos_param_specs,
+    nb::handle pos_param_exps,
     nb::handle ret_spec,
     nb::handle ret_exp,
     nb::handle check_fn,
-    nb::handle sample_pct
+    nb::handle sample_pct,
+    bool has_varargs = false,
+    nb::handle varargs_name = nb::none(),
+    nb::handle varargs_spec = nb::none(),
+    nb::handle varargs_exp = nb::none(),
+    bool has_varkw = false,
+    nb::handle varkw_name = nb::none(),
+    nb::handle varkw_spec = nb::none(),
+    nb::handle varkw_exp = nb::none(),
+    bool ret_is_self = false,
+    nb::handle kwonly_param_names = nb::none(),
+    nb::handle kwonly_param_specs = nb::none(),
+    nb::handle kwonly_param_exps = nb::none()
 );
 
 } // namespace type_enforced
