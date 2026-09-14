@@ -33,6 +33,8 @@ if has_cpp():
 else:
     _cpp = None
 
+_BaseEnforcer = _cpp.FastCall if _cpp is not None else object
+
 __NoneType__ = type(None)
 
 
@@ -59,7 +61,7 @@ __CO_VARKEYWORDS__ = 0x08
 __NO_DEFAULT__ = object()
 
 
-class FunctionMethodEnforcer:
+class FunctionMethodEnforcer(_BaseEnforcer):
     __slots__ = (
         "__fn__",
         "__strict__",
@@ -823,7 +825,7 @@ class FunctionMethodEnforcer:
             varkw_spec = (
                 self.__checkable_types__.get(kwarg_name) if kwarg_name else None
             )
-            fast_call = _cpp.create_fast_call(
+            if _cpp.setup_fast_call(
                 self,
                 self.__fn__,
                 pos_p_names,
@@ -845,13 +847,7 @@ class FunctionMethodEnforcer:
                 kwonly_p_names,
                 kwonly_p_specs,
                 kwonly_p_specs,
-            )
-            if fast_call is not None:
-                self.__class__ = create_specialized_class(
-                    FunctionMethodEnforcer,
-                    self.__fn__.__qualname__,
-                    fast_call,
-                )
+            ):
                 return
 
         call_method = build_specialized_call(
@@ -882,7 +878,7 @@ class FunctionMethodEnforcer:
             )
             return
 
-    def __call__(self, *args, **kwargs):
+    def __fallback_call__(self, *args, **kwargs):
         """
         This method is used to validate the passed inputs and return the output of the wrapped function or method.
         """
@@ -1506,6 +1502,10 @@ class FunctionMethodEnforcer:
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
+
+
+if _cpp is None:
+    FunctionMethodEnforcer.__call__ = FunctionMethodEnforcer.__fallback_call__
 
 
 @Partial
