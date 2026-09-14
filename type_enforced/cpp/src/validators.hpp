@@ -1,58 +1,105 @@
 #pragma once
 
 #include <nanobind/nanobind.h>
+#include <memory>
+#include <vector>
+#include <utility>
 
 namespace nb = nanobind;
 
 namespace type_enforced {
 
-// List validation
-bool validate_list_single(nb::handle obj, nb::handle exp_type);
-bool validate_list_union(nb::handle obj, nb::tuple exp_types);
-bool validate_list_first(nb::handle obj, nb::handle exp_type);
-bool validate_list_first_union(nb::handle obj, nb::tuple exp_types);
-bool validate_list_last(nb::handle obj, nb::handle exp_type);
-bool validate_list_last_union(nb::handle obj, nb::tuple exp_types);
-bool validate_list_bookend(nb::handle obj, nb::handle exp_type);
-bool validate_list_bookend_union(nb::handle obj, nb::tuple exp_types);
-bool validate_list_bookend_plus(nb::handle obj, nb::handle exp_type);
-bool validate_list_bookend_plus_union(nb::handle obj, nb::tuple exp_types);
-bool validate_list_sample(nb::handle obj, nb::handle exp_type, size_t count);
-bool validate_list_sample_union(nb::handle obj, nb::tuple exp_types, size_t count);
+enum class SampleStrategy : uint8_t {
+    ALL,
+    FIRST,
+    LAST,
+    BOOKEND,
+    BOOKEND_PLUS,
+    RANDOM_ONE,
+    PERCENT,
+    COUNT,
+    LOG
+};
 
-// Set validation
-bool validate_set_single(nb::handle obj, nb::handle exp_type);
-bool validate_set_union(nb::handle obj, nb::tuple exp_types);
-bool validate_set_sample(nb::handle obj, nb::handle exp_type, size_t count);
-bool validate_set_sample_union(nb::handle obj, nb::tuple exp_types, size_t count);
+enum class NodeKind : uint8_t {
+    SUBCLASS_TYPE,
+    UNION_TYPE,
+    COMPLEX_UNION,
+    LIST,
+    DICT,
+    SET,
+    VAR_TUPLE,
+    FIXED_TUPLE,
+    TYPED_DICT
+};
 
-// Tuple validation (variable length)
-bool validate_tuple_single(nb::handle obj, nb::handle exp_type);
-bool validate_tuple_union(nb::handle obj, nb::tuple exp_types);
-bool validate_tuple_first(nb::handle obj, nb::handle exp_type);
-bool validate_tuple_first_union(nb::handle obj, nb::tuple exp_types);
-bool validate_tuple_last(nb::handle obj, nb::handle exp_type);
-bool validate_tuple_last_union(nb::handle obj, nb::tuple exp_types);
-bool validate_tuple_bookend(nb::handle obj, nb::handle exp_type);
-bool validate_tuple_bookend_union(nb::handle obj, nb::tuple exp_types);
-bool validate_tuple_bookend_plus(nb::handle obj, nb::handle exp_type);
-bool validate_tuple_bookend_plus_union(nb::handle obj, nb::tuple exp_types);
-bool validate_tuple_sample(nb::handle obj, nb::handle exp_type, size_t count);
-bool validate_tuple_sample_union(nb::handle obj, nb::tuple exp_types, size_t count);
+struct TypeValidatorNode {
+    NodeKind kind;
+    explicit TypeValidatorNode(NodeKind k) : kind(k) {}
+    virtual ~TypeValidatorNode() = default;
+    virtual bool validate(PyObject* obj) const noexcept = 0;
+};
 
-// Fixed-length tuple validation
-bool validate_tuple_fixed(nb::handle obj, nb::tuple exp_types);
+class Validator {
+public:
+    std::shared_ptr<TypeValidatorNode> root;
+    Validator() = default;
+    explicit Validator(std::shared_ptr<TypeValidatorNode> r) : root(std::move(r)) {}
 
-// Dict validation
-bool validate_dict_single(nb::handle obj, nb::handle key_type, nb::handle val_type);
-bool validate_dict_unions(nb::handle obj, nb::tuple key_types, nb::tuple val_types);
-bool validate_dict_sample(nb::handle obj, nb::handle key_type, nb::handle val_type, size_t count);
-bool validate_dict_sample_unions(nb::handle obj, nb::tuple key_types, nb::tuple val_types, size_t count);
+    bool validate(nb::handle obj) const noexcept {
+        return root ? root->validate(obj.ptr()) : true;
+    }
+};
 
-// Nested structures
-bool validate_list_list(nb::handle obj, nb::handle exp_type);
-bool validate_list_dict(nb::handle obj, nb::handle key_type, nb::handle val_type);
-bool validate_dict_list(nb::handle obj, nb::handle key_type, nb::handle val_type);
-bool validate_list_tuple_fixed(nb::handle obj, nb::tuple exp_types);
+void init_validator_type(PyObject* m);
+void init_fast_call_type(PyObject* m);
+nb::object create_validator(nb::handle spec, nb::handle sample_pct);
+nb::object create_fast_call(
+    nb::handle self_enforcer,
+    nb::handle fn,
+    nb::handle pos_param_names,
+    nb::handle pos_param_specs,
+    nb::handle pos_param_exps,
+    nb::handle ret_spec,
+    nb::handle ret_exp,
+    nb::handle check_fn,
+    nb::handle sample_pct,
+    bool has_varargs = false,
+    nb::handle varargs_name = nb::none(),
+    nb::handle varargs_spec = nb::none(),
+    nb::handle varargs_exp = nb::none(),
+    bool has_varkw = false,
+    nb::handle varkw_name = nb::none(),
+    nb::handle varkw_spec = nb::none(),
+    nb::handle varkw_exp = nb::none(),
+    bool ret_is_self = false,
+    nb::handle kwonly_param_names = nb::none(),
+    nb::handle kwonly_param_specs = nb::none(),
+    nb::handle kwonly_param_exps = nb::none()
+);
+
+bool setup_fast_call(
+    nb::handle self,
+    nb::handle fn,
+    nb::handle pos_param_names,
+    nb::handle pos_param_specs,
+    nb::handle pos_param_exps,
+    nb::handle ret_spec,
+    nb::handle ret_exp,
+    nb::handle check_fn,
+    nb::handle sample_pct,
+    bool has_varargs = false,
+    nb::handle varargs_name = nb::none(),
+    nb::handle varargs_spec = nb::none(),
+    nb::handle varargs_exp = nb::none(),
+    bool has_varkw = false,
+    nb::handle varkw_name = nb::none(),
+    nb::handle varkw_spec = nb::none(),
+    nb::handle varkw_exp = nb::none(),
+    bool ret_is_self = false,
+    nb::handle kwonly_param_names = nb::none(),
+    nb::handle kwonly_param_specs = nb::none(),
+    nb::handle kwonly_param_exps = nb::none()
+);
 
 } // namespace type_enforced

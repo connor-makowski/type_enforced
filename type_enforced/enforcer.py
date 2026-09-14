@@ -25,7 +25,6 @@ from type_enforced.specialized import (
 )
 import sys
 import traceback
-import random
 from itertools import islice
 from pathlib import Path
 
@@ -34,7 +33,18 @@ if has_cpp():
 else:
     _cpp = None
 
+_BaseEnforcer = _cpp.FastCall if _cpp is not None else object
+
 __NoneType__ = type(None)
+
+
+_WEYL_STATE = 0
+
+
+def _fast_quasi_rand(bound):
+    global _WEYL_STATE
+    _WEYL_STATE = (_WEYL_STATE + 0x9E3779B9) & 0xFFFFFFFF
+    return (_WEYL_STATE * bound) >> 32
 
 
 class __SelfType__:
@@ -51,7 +61,7 @@ __CO_VARKEYWORDS__ = 0x08
 __NO_DEFAULT__ = object()
 
 
-class FunctionMethodEnforcer:
+class FunctionMethodEnforcer(_BaseEnforcer):
     __slots__ = (
         "__fn__",
         "__strict__",
@@ -228,21 +238,18 @@ class FunctionMethodEnforcer:
         if pct == "bookend_plus":
             if length <= 3:
                 return list(range(length))
-            return [0, length - 1, random.randrange(1, length - 1)]
+            return [0, length - 1, 1 + _fast_quasi_rand(length - 2)]
         if pct == 0:
-            return [random.randrange(length)]
+            return [_fast_quasi_rand(length)]
         if pct == "log":
             count = max(1, (length - 1).bit_length())
         else:
             count = max(1, (length * pct + 99) // 100)
         if count >= length:
             return range(length)
-        if count == 1:
-            return [0]
-        if count == 2:
-            return [0, length - 1]
-        step = max(1, (length - 1) // (count - 1))
-        return [0, length - 1] + list(range(step, length - 1, step))
+        step = max(1, length // count)
+        start = _fast_quasi_rand(step)
+        return range(start, length, step)
 
     def __get_sample_keys__(self, keys):
         """
@@ -253,29 +260,43 @@ class FunctionMethodEnforcer:
                 return []
             l = len(keys)
             pct = self.__iterable_sample_pct__
-            if pct == "first" or l == 1:
+            if pct in ("first", "last") or l == 1:
                 return [next(iter(keys))]
-            if pct == "last":
-                return [next(reversed(keys))]
-            if pct == "bookend":
-                return list(islice(keys.keys(), 2))
-            if pct == "bookend_plus":
-                return list(islice(keys.keys(), 3))
             if pct == 0:
-                return [next(islice(keys, random.randrange(l), None))]
+                return [next(islice(keys, _fast_quasi_rand(l), None))]
+            if pct == "bookend":
+                return list(islice(keys, 2))
+            if pct == "bookend_plus":
+                if l <= 2:
+                    return list(islice(keys, 2))
+                return list(islice(keys, 2)) + [
+                    next(islice(keys, 2 + _fast_quasi_rand(l - 2), None))
+                ]
             if pct == "log":
                 count = max(1, (l - 1).bit_length())
             else:
                 count = max(1, (l * pct + 99) // 100)
             if count >= l:
                 return list(keys.keys())
-            if count == 1:
+            return list(islice(keys, count))
+        elif isinstance(keys, (set, frozenset)):
+            if not keys:
+                return []
+            l = len(keys)
+            pct = self.__iterable_sample_pct__
+            if pct == "first" or pct == "last" or pct == 0 or l == 1:
                 return [next(iter(keys))]
-            if count == 2:
-                return [next(iter(keys)), next(reversed(keys))]
-            return [next(iter(keys)), next(reversed(keys))] + list(
-                islice(keys, 1, count - 1)
-            )
+            if pct == "bookend":
+                return list(islice(keys, 2))
+            if pct == "bookend_plus":
+                return list(islice(keys, 3))
+            if pct == "log":
+                count = max(1, (l - 1).bit_length())
+            else:
+                count = max(1, (l * pct + 99) // 100)
+            if count >= l:
+                return list(keys)
+            return list(islice(keys, count))
         elif len(keys) == 0:
             return []
         else:
@@ -287,32 +308,14 @@ class FunctionMethodEnforcer:
                 return [keys[-1]]
             if pct == "bookend":
                 if l <= 2:
-                    return list(keys) if isinstance(keys, set) else keys
-                if isinstance(keys, set):
-                    it = iter(keys)
-                    k0 = next(it)
-                    klast = None
-                    for klast in it:
-                        pass
-                    return [k0, klast]
+                    return list(keys)
                 return [keys[0], keys[-1]]
             if pct == "bookend_plus":
                 if l <= 3:
-                    return list(keys) if isinstance(keys, set) else keys
-                if isinstance(keys, set):
-                    it = iter(keys)
-                    k0 = next(it)
-                    mid_idx = random.randrange(1, l - 1)
-                    kmid = None
-                    klast = None
-                    for idx, cur in enumerate(it, 1):
-                        if idx == mid_idx:
-                            kmid = cur
-                        klast = cur
-                    return [k0, klast, kmid]
-                return [keys[0], keys[-1], keys[random.randrange(1, l - 1)]]
+                    return list(keys)
+                return [keys[0], keys[-1], keys[1 + _fast_quasi_rand(l - 2)]]
             if pct == 0:
-                return [keys[random.randrange(l)]]
+                return [keys[_fast_quasi_rand(l)]]
             if pct == "log":
                 count = max(1, (l - 1).bit_length())
             else:
@@ -809,6 +812,44 @@ class FunctionMethodEnforcer:
         kwdefaults = getattr(self.__fn__, "__kwdefaults__", None)
         check_fn = FunctionMethodEnforcer.__check_type__
 
+        if _cpp is not None and ret_mode != 5:
+            pos_p_names = list(posonly_names) + list(pos_names)
+            pos_p_specs = [param_exps.get(pn) for pn in pos_p_names]
+            kwonly_p_names = list(kwonly_names)
+            kwonly_p_specs = [param_exps.get(pn) for pn in kwonly_p_names]
+            varargs_spec = (
+                self.__checkable_types__.get(vararg_name)
+                if vararg_name
+                else None
+            )
+            varkw_spec = (
+                self.__checkable_types__.get(kwarg_name) if kwarg_name else None
+            )
+            if _cpp.setup_fast_call(
+                self,
+                self.__fn__,
+                pos_p_names,
+                pos_p_specs,
+                pos_p_specs,
+                ret_exp,
+                ret_exp,
+                check_fn,
+                self.__iterable_sample_pct__,
+                has_varargs,
+                vararg_name,
+                varargs_spec,
+                varargs_spec,
+                has_varkw,
+                kwarg_name,
+                varkw_spec,
+                varkw_spec,
+                ret_mode == 3,
+                kwonly_p_names,
+                kwonly_p_specs,
+                kwonly_p_specs,
+            ):
+                return
+
         call_method = build_specialized_call(
             self.__fn__,
             posonly_names,
@@ -837,7 +878,7 @@ class FunctionMethodEnforcer:
             )
             return
 
-    def __call__(self, *args, **kwargs):
+    def __fallback_call__(self, *args, **kwargs):
         """
         This method is used to validate the passed inputs and return the output of the wrapped function or method.
         """
@@ -1047,82 +1088,15 @@ class FunctionMethodEnforcer:
         """
         sample_pct = self.__iterable_sample_pct__
 
-        if obj_type == list:
-            if isinstance(variant, dict) and all(
-                v is None for v in variant.values()
-            ):
-                tt = tuple(variant.keys())
-                if sample_pct == 100:
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_list_single(obj, tt[0])
-                        return _cpp.validate_list_union(obj, tt)
-                elif sample_pct == "first":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_list_first(obj, tt[0])
-                        return _cpp.validate_list_first_union(obj, tt)
-                elif sample_pct == "last":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_list_last(obj, tt[0])
-                        return _cpp.validate_list_last_union(obj, tt)
-                elif sample_pct == "bookend":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_list_bookend(obj, tt[0])
-                        return _cpp.validate_list_bookend_union(obj, tt)
-                elif sample_pct == "bookend_plus":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_list_bookend_plus(obj, tt[0])
-                        return _cpp.validate_list_bookend_plus_union(obj, tt)
-                elif isinstance(sample_pct, int) and sample_pct > 0:
-                    count = max(1, (len(obj) * sample_pct + 99) // 100)
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_list_sample(obj, tt[0], count)
-                        return _cpp.validate_list_sample_union(obj, tt, count)
-                elif sample_pct == "log":
-                    count = max(1, (len(obj) - 1).bit_length())
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_list_sample(obj, tt[0], count)
-                        return _cpp.validate_list_sample_union(obj, tt, count)
-            elif (
-                _cpp is not None
-                and sample_pct == 100
-                and isinstance(variant, dict)
-                and len(variant) == 1
-            ):
-                vk = next(iter(variant))
-                vv = variant[vk]
-                if vk is list and is_simple_type(vv) and len(vv) == 1:
-                    return _cpp.validate_list_list(obj, tuple(vv.keys())[0])
-                elif (
-                    vk is dict
-                    and isinstance(vv, tuple)
-                    and len(vv) == 2
-                    and is_simple_type(vv[0])
-                    and len(vv[0]) == 1
-                    and is_simple_type(vv[1])
-                    and len(vv[1]) == 1
-                ):
-                    return _cpp.validate_list_dict(
-                        obj, tuple(vv[0].keys())[0], tuple(vv[1].keys())[0]
-                    )
-                elif (
-                    vk is tuple
-                    and isinstance(vv, tuple)
-                    and len(vv) == 2
-                    and vv[1] is False
-                    and isinstance(vv[0], tuple)
-                    and all(is_simple_type(a) and len(a) == 1 for a in vv[0])
-                ):
-                    return _cpp.validate_list_tuple_fixed(
-                        obj, tuple(tuple(a.keys())[0] for a in vv[0])
-                    )
+        if _cpp is not None:
+            try:
+                val = _cpp.create_validator({obj_type: variant}, sample_pct)
+                if val is not None:
+                    return val(obj)
+            except Exception:
+                pass
 
+        if obj_type == list:
             if sample_pct != 100:
                 for idx in self.__get_sample_indices__(len(obj)):
                     if not self.__is_valid_item__(obj[idx], variant):
@@ -1137,140 +1111,71 @@ class FunctionMethodEnforcer:
 
         elif obj_type == dict:
             key_type, val_type = variant
-            if (
-                isinstance(key_type, dict)
-                and all(v is None for v in key_type.values())
-                and isinstance(val_type, dict)
-                and all(v is None for v in val_type.values())
-            ):
-                k_tt = tuple(key_type.keys())
-                v_tt = tuple(val_type.keys())
-                if sample_pct == 100:
-                    if _cpp is not None:
-                        if len(k_tt) == 1 and len(v_tt) == 1:
-                            return _cpp.validate_dict_single(
-                                obj, k_tt[0], v_tt[0]
-                            )
-                        return _cpp.validate_dict_unions(obj, k_tt, v_tt)
-                elif sample_pct != 0 and sample_pct != "last":
-                    count = (
-                        1
-                        if sample_pct == "first"
-                        else (
-                            2
-                            if sample_pct == "bookend"
-                            else (
-                                3
-                                if sample_pct == "bookend_plus"
-                                else (
-                                    max(1, (len(obj) - 1).bit_length())
-                                    if sample_pct == "log"
-                                    else max(
-                                        1, (len(obj) * sample_pct + 99) // 100
-                                    )
-                                )
-                            )
-                        )
-                    )
-                    if _cpp is not None:
-                        if len(k_tt) == 1 and len(v_tt) == 1:
-                            return _cpp.validate_dict_sample(
-                                obj, k_tt[0], v_tt[0], count
-                            )
-                        return _cpp.validate_dict_sample_unions(
-                            obj, k_tt, v_tt, count
-                        )
-            elif (
-                _cpp is not None
-                and sample_pct == 100
-                and is_simple_type(key_type)
-                and len(key_type) == 1
-                and isinstance(val_type, dict)
-                and len(val_type) == 1
-                and list in val_type
-                and is_simple_type(val_type[list])
-                and len(val_type[list]) == 1
-            ):
-                return _cpp.validate_dict_list(
-                    obj,
-                    tuple(key_type.keys())[0],
-                    tuple(val_type[list].keys())[0],
-                )
-
-            if sample_pct != 100:
-                sampled_keys = self.__get_sample_keys__(obj)
-                if not isinstance(sampled_keys, list):
-                    sampled_keys = list(sampled_keys)
-                for dk in sampled_keys:
-                    if not self.__is_valid_item__(dk, key_type):
-                        return False
-                    if not self.__is_valid_item__(obj[dk], val_type):
+            if sample_pct == 100:
+                for dk, dv in obj.items():
+                    if not self.__is_valid_item__(
+                        dk, key_type
+                    ) or not self.__is_valid_item__(dv, val_type):
                         return False
                 return True
-            for dk, dv in obj.items():
-                if not self.__is_valid_item__(dk, key_type):
-                    return False
-                if not self.__is_valid_item__(dv, val_type):
+            if not obj:
+                return True
+            if sample_pct in ("first", "last"):
+                dk, dv = next(iter(obj.items()))
+                return self.__is_valid_item__(
+                    dk, key_type
+                ) and self.__is_valid_item__(dv, val_type)
+            if sample_pct == "bookend":
+                for dk, dv in islice(obj.items(), 2):
+                    if not self.__is_valid_item__(
+                        dk, key_type
+                    ) or not self.__is_valid_item__(dv, val_type):
+                        return False
+                return True
+            if sample_pct == "bookend_plus":
+                for dk, dv in islice(obj.items(), 2):
+                    if not self.__is_valid_item__(
+                        dk, key_type
+                    ) or not self.__is_valid_item__(dv, val_type):
+                        return False
+                if len(obj) > 2:
+                    dk, dv = next(
+                        islice(
+                            obj.items(),
+                            2 + _fast_quasi_rand(len(obj) - 2),
+                            None,
+                        )
+                    )
+                    return self.__is_valid_item__(
+                        dk, key_type
+                    ) and self.__is_valid_item__(dv, val_type)
+                return True
+            if sample_pct == 0:
+                dk, dv = (
+                    next(iter(obj.items()))
+                    if len(obj) <= 1
+                    else next(
+                        islice(obj.items(), _fast_quasi_rand(len(obj)), None)
+                    )
+                )
+                return self.__is_valid_item__(
+                    dk, key_type
+                ) and self.__is_valid_item__(dv, val_type)
+            count = (
+                max(1, (len(obj) - 1).bit_length())
+                if sample_pct == "log"
+                else max(1, (len(obj) * sample_pct + 99) // 100)
+            )
+            for dk, dv in islice(obj.items(), count):
+                if not self.__is_valid_item__(
+                    dk, key_type
+                ) or not self.__is_valid_item__(dv, val_type):
                     return False
             return True
 
         elif obj_type == tuple:
             expected_args, is_ellipsis = variant
             if is_ellipsis:
-                if isinstance(expected_args, dict) and all(
-                    v is None for v in expected_args.values()
-                ):
-                    tt = tuple(expected_args.keys())
-                    if sample_pct == 100:
-                        if _cpp is not None:
-                            if len(tt) == 1:
-                                return _cpp.validate_tuple_single(obj, tt[0])
-                            return _cpp.validate_tuple_union(obj, tt)
-                    elif sample_pct == "first":
-                        if _cpp is not None:
-                            if len(tt) == 1:
-                                return _cpp.validate_tuple_first(obj, tt[0])
-                            return _cpp.validate_tuple_first_union(obj, tt)
-                    elif sample_pct == "last":
-                        if _cpp is not None:
-                            if len(tt) == 1:
-                                return _cpp.validate_tuple_last(obj, tt[0])
-                            return _cpp.validate_tuple_last_union(obj, tt)
-                    elif sample_pct == "bookend":
-                        if _cpp is not None:
-                            if len(tt) == 1:
-                                return _cpp.validate_tuple_bookend(obj, tt[0])
-                            return _cpp.validate_tuple_bookend_union(obj, tt)
-                    elif sample_pct == "bookend_plus":
-                        if _cpp is not None:
-                            if len(tt) == 1:
-                                return _cpp.validate_tuple_bookend_plus(
-                                    obj, tt[0]
-                                )
-                            return _cpp.validate_tuple_bookend_plus_union(
-                                obj, tt
-                            )
-                    elif isinstance(sample_pct, int) and sample_pct > 0:
-                        count = max(1, (len(obj) * sample_pct + 99) // 100)
-                        if _cpp is not None:
-                            if len(tt) == 1:
-                                return _cpp.validate_tuple_sample(
-                                    obj, tt[0], count
-                                )
-                            return _cpp.validate_tuple_sample_union(
-                                obj, tt, count
-                            )
-                    elif sample_pct == "log":
-                        count = max(1, (len(obj) - 1).bit_length())
-                        if _cpp is not None:
-                            if len(tt) == 1:
-                                return _cpp.validate_tuple_sample(
-                                    obj, tt[0], count
-                                )
-                            return _cpp.validate_tuple_sample_union(
-                                obj, tt, count
-                            )
-
                 if sample_pct != 100:
                     for idx in self.__get_sample_indices__(len(obj)):
                         if not self.__is_valid_item__(obj[idx], expected_args):
@@ -1285,67 +1190,16 @@ class FunctionMethodEnforcer:
             else:
                 if len(obj) != len(expected_args):
                     return False
-                if _cpp is not None and all(
-                    isinstance(a, dict)
-                    and len(a) == 1
-                    and all(v is None for v in a.values())
-                    for a in expected_args
-                ):
-                    types_tuple = tuple(
-                        tuple(a.keys())[0] for a in expected_args
-                    )
-                    return _cpp.validate_tuple_fixed(obj, types_tuple)
                 for idx in range(len(expected_args)):
                     if not self.__is_valid_item__(obj[idx], expected_args[idx]):
                         return False
                 return True
 
         elif obj_type == set:
-            if isinstance(variant, dict) and all(
-                v is None for v in variant.values()
-            ):
-                tt = tuple(variant.keys())
-                if sample_pct == 100:
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_set_single(obj, tt[0])
-                        return _cpp.validate_set_union(obj, tt)
-                elif sample_pct != 0:
-                    count = (
-                        1
-                        if sample_pct in ("first", "last")
-                        else (
-                            2
-                            if sample_pct == "bookend"
-                            else (
-                                3
-                                if sample_pct == "bookend_plus"
-                                else (
-                                    max(1, (len(obj) - 1).bit_length())
-                                    if sample_pct == "log"
-                                    else max(
-                                        1, (len(obj) * sample_pct + 99) // 100
-                                    )
-                                )
-                            )
-                        )
-                    )
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            return _cpp.validate_set_sample(obj, tt[0], count)
-                        return _cpp.validate_set_sample_union(obj, tt, count)
-
             if sample_pct != 100:
-                if sample_pct == "first":
+                if sample_pct in ("first", "last", 0):
                     if len(obj) > 0:
                         return self.__is_valid_item__(next(iter(obj)), variant)
-                    return True
-                elif sample_pct == "last":
-                    if len(obj) > 0:
-                        item = None
-                        for item in obj:
-                            pass
-                        return self.__is_valid_item__(item, variant)
                     return True
                 elif sample_pct == "bookend":
                     for item in islice(obj, 2):
@@ -1356,13 +1210,6 @@ class FunctionMethodEnforcer:
                     for item in islice(obj, 3):
                         if not self.__is_valid_item__(item, variant):
                             return False
-                    return True
-                elif sample_pct == 0:
-                    if len(obj) > 0:
-                        item = next(
-                            islice(obj, random.randrange(len(obj)), None)
-                        )
-                        return self.__is_valid_item__(item, variant)
                     return True
                 elif sample_pct == "log":
                     count = max(1, (len(obj) - 1).bit_length())
@@ -1571,17 +1418,9 @@ class FunctionMethodEnforcer:
                         )
             elif obj_type == set:
                 if self.__iterable_sample_pct__ != 100:
-                    if self.__iterable_sample_pct__ == "first":
+                    if self.__iterable_sample_pct__ in ("first", "last", 0):
                         if len(obj) > 0:
                             item = next(iter(obj))
-                            self.__check_type__(
-                                item, subtype, (key, "[", repr(item), "]")
-                            )
-                    elif self.__iterable_sample_pct__ == "last":
-                        if len(obj) > 0:
-                            item = None
-                            for item in obj:
-                                pass
                             self.__check_type__(
                                 item, subtype, (key, "[", repr(item), "]")
                             )
@@ -1592,14 +1431,6 @@ class FunctionMethodEnforcer:
                             )
                     elif self.__iterable_sample_pct__ == "bookend_plus":
                         for item in islice(obj, 3):
-                            self.__check_type__(
-                                item, subtype, (key, "[", repr(item), "]")
-                            )
-                    elif self.__iterable_sample_pct__ == 0:
-                        if len(obj) > 0:
-                            item = next(
-                                islice(obj, random.randrange(len(obj)), None)
-                            )
                             self.__check_type__(
                                 item, subtype, (key, "[", repr(item), "]")
                             )
@@ -1671,6 +1502,10 @@ class FunctionMethodEnforcer:
 
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
+
+
+if _cpp is None:
+    FunctionMethodEnforcer.__call__ = FunctionMethodEnforcer.__fallback_call__
 
 
 @Partial

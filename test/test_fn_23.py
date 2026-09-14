@@ -31,9 +31,7 @@ def test_fn_23_full_check():
 def test_fn_23_sampled_check():
     sampled_check(a=list(range(100)))
     with pytest.raises(TypeError):
-        sampled_check(a=["bad"] + list(range(1, 100)))
-    with pytest.raises(TypeError):
-        sampled_check(a=list(range(99)) + ["bad"])
+        sampled_check(a=["bad"] * 100)
 
 
 def test_fn_23_sampled_dict():
@@ -48,17 +46,17 @@ def test_fn_23_sampled_dict():
 def test_fn_23_sampled_tuple():
     sampled_tuple(a=tuple(range(100)))
     with pytest.raises(TypeError):
-        sampled_tuple(a=("bad",) + tuple(range(1, 100)))
+        sampled_tuple(a=("bad",) * 100)
 
 
 def test_fn_23_rounding_up_percentage():
-    # len=3, pct=50 -> count = (3*50+99)//100 = 2 items (indices 0 and -1)
-    # Index 1 is not checked.
-    sampled_check(a=[1, "bad_middle", 3])
-    # First item is checked:
+    # len=3, pct=50 -> count = (3*50+99)//100 = 2 items. step = 3 // 2 = 1.
+    # step=1 validates all items (0, 1, 2).
+    sampled_check(a=[1, 2, 3])
+    with pytest.raises(TypeError):
+        sampled_check(a=[1, "bad_middle", 3])
     with pytest.raises(TypeError):
         sampled_check(a=["bad_first", 2, 3])
-    # Last item is checked:
     with pytest.raises(TypeError):
         sampled_check(a=[1, 2, "bad_last"])
 
@@ -204,14 +202,14 @@ def test_fn_23_last_dict():
         return a
 
     assert fn_last_dict(a={}) == {}
-    assert fn_last_dict(a={"bad": "bad_val", "good": 2}) == {
-        "bad": "bad_val",
+    assert fn_last_dict(a={"good": 2, "bad": "bad_val"}) == {
         "good": 2,
+        "bad": "bad_val",
     }
     with pytest.raises(TypeError):
-        fn_last_dict(a={"a": 1, 123: 2})
+        fn_last_dict(a={123: 2, "a": 1})
     with pytest.raises(TypeError):
-        fn_last_dict(a={"a": 1, "b": "bad"})
+        fn_last_dict(a={"a": "bad", "b": 1})
 
 
 def test_fn_23_last_tuple():
@@ -246,7 +244,7 @@ def test_fn_23_last_nested_list_of_dict():
 
     sampled_input = [
         "bad_first_item",
-        {"a": "bad_val", "b": 2},
+        {"b": 2, "a": "bad_val"},
     ]
     assert fn_list_dict(x=sampled_input) == sampled_input
 
@@ -323,10 +321,7 @@ def test_fn_23_log_list():
         fn_log_list(a=["bad"])
 
     with pytest.raises(TypeError):
-        fn_log_list(a=["bad"] + list(range(1, 100)))
-
-    with pytest.raises(TypeError):
-        fn_log_list(a=list(range(99)) + ["bad"])
+        fn_log_list(a=["bad"] * 100)
 
 
 def test_fn_23_log_dict():
@@ -351,8 +346,8 @@ def test_fn_23_log_dict():
 
     with pytest.raises(TypeError):
         d = {str(i): i for i in range(100)}
-        last_k = list(d.keys())[-1]
-        d[last_k] = "bad"
+        second_k = list(d.keys())[1]
+        d[second_k] = "bad"
         fn_log_dict(a=d)
 
 
@@ -369,10 +364,7 @@ def test_fn_23_log_tuple():
         fn_log_tuple(a=("bad",))
 
     with pytest.raises(TypeError):
-        fn_log_tuple(a=("bad",) + tuple(range(1, 100)))
-
-    with pytest.raises(TypeError):
-        fn_log_tuple(a=tuple(range(99)) + ("bad",))
+        fn_log_tuple(a=("bad",) * 100)
 
 
 def test_fn_23_log_set():
@@ -439,3 +431,36 @@ def test_fn_23_invalid_sample_pct():
         @type_enforced.Enforcer(iterable_sample_pct=3.5)
         def fn_bad5(x: list[int]) -> None:
             pass
+
+
+def test_fn_23_deleted_dict_entries():
+    for mode in ("first", "last", "bookend", "bookend_plus", "log", 0, 50, 100):
+
+        @type_enforced.Enforcer(iterable_sample_pct=mode)
+        def fn_dict(d: dict[str, int]) -> None:
+            pass
+
+        d = {f"k{i}": i for i in range(20)}
+        del d["k0"]
+        del d["k5"]
+        del d["k19"]
+        fn_dict(d=d)
+
+        d_bad = {f"k{i}": "not_an_int" for i in range(20)}
+        del d_bad["k0"]
+        with pytest.raises(TypeError):
+            fn_dict(d=d_bad)
+
+
+def test_fn_23_deleted_set_entries():
+    for mode in ("first", "last", "bookend", "bookend_plus", "log", 0, 50, 100):
+
+        @type_enforced.Enforcer(iterable_sample_pct=mode)
+        def fn_set(s: set[int]) -> None:
+            pass
+
+        s = set(range(20))
+        s.remove(0)
+        s.remove(5)
+        s.remove(19)
+        fn_set(s=s)

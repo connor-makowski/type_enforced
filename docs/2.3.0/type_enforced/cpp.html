@@ -31,115 +31,28 @@
             <h2>API Documentation</h2>
                 <ul class="memberlist">
             <li>
-                    <a class="variable" href="#validate_list_single">validate_list_single</a>
+                    <a class="class" href="#Validator">Validator</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#Validator.validate">validate</a>
+                        </li>
+                </ul>
+
             </li>
             <li>
-                    <a class="variable" href="#validate_list_union">validate_list_union</a>
+                    <a class="class" href="#FastCall">FastCall</a>
+                            <ul class="memberlist">
+                </ul>
+
             </li>
             <li>
-                    <a class="variable" href="#validate_list_first">validate_list_first</a>
+                    <a class="variable" href="#create_validator">create_validator</a>
             </li>
             <li>
-                    <a class="variable" href="#validate_list_first_union">validate_list_first_union</a>
+                    <a class="variable" href="#create_fast_call">create_fast_call</a>
             </li>
             <li>
-                    <a class="variable" href="#validate_list_last">validate_list_last</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_last_union">validate_list_last_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_bookend">validate_list_bookend</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_bookend_union">validate_list_bookend_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_bookend_plus">validate_list_bookend_plus</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_bookend_plus_union">validate_list_bookend_plus_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_sample">validate_list_sample</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_sample_union">validate_list_sample_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_set_single">validate_set_single</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_set_union">validate_set_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_set_sample">validate_set_sample</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_set_sample_union">validate_set_sample_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_single">validate_tuple_single</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_union">validate_tuple_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_first">validate_tuple_first</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_first_union">validate_tuple_first_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_last">validate_tuple_last</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_last_union">validate_tuple_last_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_bookend">validate_tuple_bookend</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_bookend_union">validate_tuple_bookend_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_bookend_plus">validate_tuple_bookend_plus</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_bookend_plus_union">validate_tuple_bookend_plus_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_sample">validate_tuple_sample</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_sample_union">validate_tuple_sample_union</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_tuple_fixed">validate_tuple_fixed</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_dict_single">validate_dict_single</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_dict_unions">validate_dict_unions</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_dict_sample">validate_dict_sample</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_dict_sample_unions">validate_dict_sample_unions</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_list">validate_list_list</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_dict">validate_list_dict</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_dict_list">validate_dict_list</a>
-            </li>
-            <li>
-                    <a class="variable" href="#validate_list_tuple_fixed">validate_list_tuple_fixed</a>
+                    <a class="variable" href="#setup_fast_call">setup_fast_call</a>
             </li>
     </ul>
 
@@ -147,6 +60,7 @@
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
+        <option value="2.12.0">2.12.0</option>
         <option value="2.11.0">2.11.0</option>
         <option value="2.10.1">2.10.1</option>
         <option value="2.9.0">2.9.0</option>
@@ -219,446 +133,79 @@
                 
                 
             </section>
-                <section id="validate_list_single">
-                    <div class="attr variable">
-            <span class="name">validate_list_single</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
+                <section id="Validator">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">Validator</span>:
 
         
     </div>
-    <a class="headerlink" href="#validate_list_single"></a>
+    <a class="headerlink" href="#Validator"></a>
+    
+    
+
+                            <div id="Validator.validate" class="classattr">
+                                <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">validate</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">unknown</span></span><span class="return-annotation">):</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#Validator.validate"></a>
+    
+            <div class="docstring"><p>Validate object</p>
+</div>
+
+
+                            </div>
+                </section>
+                <section id="FastCall">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">FastCall</span>:
+
+        
+    </div>
+    <a class="headerlink" href="#FastCall"></a>
     
     
 
                 </section>
-                <section id="validate_list_union">
+                <section id="create_validator">
                     <div class="attr variable">
-            <span class="name">validate_list_union</span>        =
+            <span class="name">create_validator</span>        =
 <span class="default_value">&lt;nanobind.nb_func object&gt;</span>
 
         
     </div>
-    <a class="headerlink" href="#validate_list_union"></a>
+    <a class="headerlink" href="#create_validator"></a>
     
     
 
                 </section>
-                <section id="validate_list_first">
+                <section id="create_fast_call">
                     <div class="attr variable">
-            <span class="name">validate_list_first</span>        =
+            <span class="name">create_fast_call</span>        =
 <span class="default_value">&lt;nanobind.nb_func object&gt;</span>
 
         
     </div>
-    <a class="headerlink" href="#validate_list_first"></a>
+    <a class="headerlink" href="#create_fast_call"></a>
     
     
 
                 </section>
-                <section id="validate_list_first_union">
+                <section id="setup_fast_call">
                     <div class="attr variable">
-            <span class="name">validate_list_first_union</span>        =
+            <span class="name">setup_fast_call</span>        =
 <span class="default_value">&lt;nanobind.nb_func object&gt;</span>
 
         
     </div>
-    <a class="headerlink" href="#validate_list_first_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_last">
-                    <div class="attr variable">
-            <span class="name">validate_list_last</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_last"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_last_union">
-                    <div class="attr variable">
-            <span class="name">validate_list_last_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_last_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_bookend">
-                    <div class="attr variable">
-            <span class="name">validate_list_bookend</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_bookend"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_bookend_union">
-                    <div class="attr variable">
-            <span class="name">validate_list_bookend_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_bookend_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_bookend_plus">
-                    <div class="attr variable">
-            <span class="name">validate_list_bookend_plus</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_bookend_plus"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_bookend_plus_union">
-                    <div class="attr variable">
-            <span class="name">validate_list_bookend_plus_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_bookend_plus_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_sample">
-                    <div class="attr variable">
-            <span class="name">validate_list_sample</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_sample"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_sample_union">
-                    <div class="attr variable">
-            <span class="name">validate_list_sample_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_sample_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_set_single">
-                    <div class="attr variable">
-            <span class="name">validate_set_single</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_set_single"></a>
-    
-    
-
-                </section>
-                <section id="validate_set_union">
-                    <div class="attr variable">
-            <span class="name">validate_set_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_set_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_set_sample">
-                    <div class="attr variable">
-            <span class="name">validate_set_sample</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_set_sample"></a>
-    
-    
-
-                </section>
-                <section id="validate_set_sample_union">
-                    <div class="attr variable">
-            <span class="name">validate_set_sample_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_set_sample_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_single">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_single</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_single"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_union">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_first">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_first</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_first"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_first_union">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_first_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_first_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_last">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_last</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_last"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_last_union">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_last_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_last_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_bookend">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_bookend</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_bookend"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_bookend_union">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_bookend_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_bookend_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_bookend_plus">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_bookend_plus</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_bookend_plus"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_bookend_plus_union">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_bookend_plus_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_bookend_plus_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_sample">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_sample</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_sample"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_sample_union">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_sample_union</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_sample_union"></a>
-    
-    
-
-                </section>
-                <section id="validate_tuple_fixed">
-                    <div class="attr variable">
-            <span class="name">validate_tuple_fixed</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_tuple_fixed"></a>
-    
-    
-
-                </section>
-                <section id="validate_dict_single">
-                    <div class="attr variable">
-            <span class="name">validate_dict_single</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_dict_single"></a>
-    
-    
-
-                </section>
-                <section id="validate_dict_unions">
-                    <div class="attr variable">
-            <span class="name">validate_dict_unions</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_dict_unions"></a>
-    
-    
-
-                </section>
-                <section id="validate_dict_sample">
-                    <div class="attr variable">
-            <span class="name">validate_dict_sample</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_dict_sample"></a>
-    
-    
-
-                </section>
-                <section id="validate_dict_sample_unions">
-                    <div class="attr variable">
-            <span class="name">validate_dict_sample_unions</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_dict_sample_unions"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_list">
-                    <div class="attr variable">
-            <span class="name">validate_list_list</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_list"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_dict">
-                    <div class="attr variable">
-            <span class="name">validate_list_dict</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_dict"></a>
-    
-    
-
-                </section>
-                <section id="validate_dict_list">
-                    <div class="attr variable">
-            <span class="name">validate_dict_list</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_dict_list"></a>
-    
-    
-
-                </section>
-                <section id="validate_list_tuple_fixed">
-                    <div class="attr variable">
-            <span class="name">validate_list_tuple_fixed</span>        =
-<span class="default_value">&lt;nanobind.nb_func object&gt;</span>
-
-        
-    </div>
-    <a class="headerlink" href="#validate_list_tuple_fixed"></a>
+    <a class="headerlink" href="#setup_fast_call"></a>
     
     
 

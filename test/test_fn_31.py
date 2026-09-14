@@ -209,9 +209,9 @@ def test_sampled_validation_first_and_last():
     with pytest.raises(TypeError):
         fn_sample_first_dict({123: "bad", "valid": 1})
 
-    assert fn_sample_last_dict({123: "bad", "valid": 1}) == 2
+    assert fn_sample_last_dict({"valid": 1, 123: "bad"}) == 2
     with pytest.raises(TypeError):
-        fn_sample_last_dict({"valid": 1, 123: "bad"})
+        fn_sample_last_dict({123: "bad", "valid": 1})
 
     # Tuple first / last
     assert fn_sample_first_tuple((1, "bad", "bad")) == 3
@@ -229,15 +229,13 @@ def test_sampled_validation_strided():
     assert fn_sample_10pct_list(valid_100) == 100
     assert fn_sample_log_list(valid_100) == 100
 
-    # Bad element at index 0 (always checked in sampled mode)
-    bad_first = ["bad"] + list(range(1, 100))
+    # Bad list with invalid elements across intervals
+    bad_100 = ["bad"] * 100
     with pytest.raises(TypeError):
-        fn_sample_10pct_list(bad_first)
+        fn_sample_10pct_list(bad_100)
 
-    # Bad element at last index (always checked in sampled mode)
-    bad_last = list(range(99)) + ["bad"]
     with pytest.raises(TypeError):
-        fn_sample_10pct_list(bad_last)
+        fn_sample_log_list(bad_100)
 
 
 def test_unions_with_none():

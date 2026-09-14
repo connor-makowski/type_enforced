@@ -1,4 +1,5 @@
 import os
+import platform
 import pytest
 import type_enforced
 
@@ -9,6 +10,8 @@ def test_cpp_check():
             not type_enforced.has_cpp()
         ), "Expected pure Python fallback, but has_cpp() is True!"
     elif os.environ.get("TYPE_ENFORCED_REQUIRE_CPP") == "1":
+        if platform.python_implementation() != "CPython":
+            pytest.skip("C++ extension is only built for CPython")
         assert (
             type_enforced.has_cpp()
         ), "Expected C++ extension to be active, but has_cpp() is False!"

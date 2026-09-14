@@ -1,5 +1,4 @@
 import ast
-import random
 import types
 from itertools import islice
 from typing import Type
@@ -7,7 +6,7 @@ from typing import Type
 try:
     from type_enforced import cpp as _cpp
 
-    if not hasattr(_cpp, "validate_list_single"):
+    if not hasattr(_cpp, "create_validator"):
         _cpp = None
 except ImportError:
     _cpp = None
@@ -50,18 +49,21 @@ def _freeze_exp(exp):
     return exp
 
 
-def _random_dict_key(d):
-    l = len(d)
-    if l == 1:
-        return next(iter(d))
-    return next(islice(d, random.randrange(l), None))
+_WEYL_STATE = 0
+
+
+def _fast_quasi_rand(bound):
+    global _WEYL_STATE
+    _WEYL_STATE = (_WEYL_STATE + 0x9E3779B9) & 0xFFFFFFFF
+    return (_WEYL_STATE * bound) >> 32
+
+
+def _choice(seq):
+    return seq[_fast_quasi_rand(len(seq))]
 
 
 def _random_set_item(s):
-    l = len(s)
-    if l == 1:
-        return next(iter(s))
-    return next(islice(s, random.randrange(l), None))
+    return next(iter(s))
 
 
 def _log_count(length):
@@ -265,917 +267,21 @@ def _generate_variant_test_ast(
     """
     Generates a boolean AST expression evaluating whether var_expr matches variant schema.
     """
-    if k in (list, set):
-        if is_simple_type(variant):
-            tt = tuple(variant.keys())
-            t0 = tt[0]
-            if k is set:
-                if sample_pct == 100:
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_set_s_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_set_single
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_set_u_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_set_union
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_set_s_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: all(
-                                type(x) is t or isinstance(x, t) for x in obj
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: all(
-                                type(x) in types or isinstance(x, types)
-                                for x in obj
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                else:
-                    count_ast = _calc_sample_count_ast(
-                        var_expr, sample_pct, prefix, fn_globals
-                    )
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_set_samp_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_set_sample
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                    count_ast,
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_set_sampu_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_set_sample_union
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                    count_ast,
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_globals["_islice"] = islice
-                        fn_name = f"_py_val_set_samp_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, cnt, t=t0: all(
-                                type(x) is t or isinstance(x, t)
-                                for x in islice(obj, cnt)
-                            )
-                        else:
-                            fn_globals[fn_name] = (
-                                lambda obj, cnt, types=tt: all(
-                                    type(x) in types or isinstance(x, types)
-                                    for x in islice(obj, cnt)
-                                )
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr, count_ast],
-                            keywords=[],
-                        )
-            elif k is list:
-                if sample_pct == 100:
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_list_s_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_single
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_list_u_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_union
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_list_s_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: all(
-                                type(x) is t or isinstance(x, t) for x in obj
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: all(
-                                type(x) in types or isinstance(x, types)
-                                for x in obj
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "first":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_list_f_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_first
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_list_fu_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_first_union
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_first_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = (
-                                lambda obj, t=t0: len(obj) == 0
-                                or type(obj[0]) is t
-                                or isinstance(obj[0], t)
-                            )
-                        else:
-                            fn_globals[fn_name] = (
-                                lambda obj, types=tt: len(obj) == 0
-                                or type(obj[0]) in types
-                                or isinstance(obj[0], types)
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "last":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_list_l_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_last
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_list_lu_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_last_union
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_last_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: len(
-                                obj
-                            ) == 0 or (
-                                type(obj[-1]) is t or isinstance(obj[-1], t)
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: len(
-                                obj
-                            ) == 0 or (
-                                type(obj[-1]) in types
-                                or isinstance(obj[-1], types)
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "bookend":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_list_bk_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_bookend
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_list_bku_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_list_bookend_union
-                            )
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_bk_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: (
-                                len(obj) == 0
-                                or (
-                                    (type(obj[0]) is t or isinstance(obj[0], t))
-                                    and (
-                                        len(obj) == 1
-                                        or type(obj[-1]) is t
-                                        or isinstance(obj[-1], t)
-                                    )
-                                )
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: (
-                                len(obj) == 0
-                                or (
-                                    (
-                                        type(obj[0]) in types
-                                        or isinstance(obj[0], types)
-                                    )
-                                    and (
-                                        len(obj) == 1
-                                        or type(obj[-1]) in types
-                                        or isinstance(obj[-1], types)
-                                    )
-                                )
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "bookend_plus":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_list_bkp_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_list_bookend_plus
-                            )
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_list_bkpu_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_list_bookend_plus_union
-                            )
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_bkp_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: (
-                                len(obj) == 0
-                                or (
-                                    (type(obj[0]) is t or isinstance(obj[0], t))
-                                    and (
-                                        len(obj) == 1
-                                        or type(obj[-1]) is t
-                                        or isinstance(obj[-1], t)
-                                    )
-                                    and (
-                                        len(obj) <= 2
-                                        or type(
-                                            obj[
-                                                random.randrange(
-                                                    1, len(obj) - 1
-                                                )
-                                            ]
-                                        )
-                                        is t
-                                        or isinstance(
-                                            obj[
-                                                random.randrange(
-                                                    1, len(obj) - 1
-                                                )
-                                            ],
-                                            t,
-                                        )
-                                    )
-                                )
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: (
-                                len(obj) == 0
-                                or (
-                                    (
-                                        type(obj[0]) in types
-                                        or isinstance(obj[0], types)
-                                    )
-                                    and (
-                                        len(obj) == 1
-                                        or type(obj[-1]) in types
-                                        or isinstance(obj[-1], types)
-                                    )
-                                    and (
-                                        len(obj) <= 2
-                                        or type(
-                                            obj[
-                                                random.randrange(
-                                                    1, len(obj) - 1
-                                                )
-                                            ]
-                                        )
-                                        in types
-                                        or isinstance(
-                                            obj[
-                                                random.randrange(
-                                                    1, len(obj) - 1
-                                                )
-                                            ],
-                                            types,
-                                        )
-                                    )
-                                )
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                else:
-                    count_ast = _calc_sample_count_ast(
-                        var_expr, sample_pct, prefix, fn_globals
-                    )
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_list_samp_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_list_sample
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                    count_ast,
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_list_sampu_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_list_sample_union
-                            )
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                    count_ast,
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_sample_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, cnt, t=t0: all(
-                                type(obj[idx]) is t or isinstance(obj[idx], t)
-                                for idx in range(min(len(obj), cnt))
-                            )
-                        else:
-                            fn_globals[fn_name] = (
-                                lambda obj, cnt, types=tt: all(
-                                    type(obj[idx]) in types
-                                    or isinstance(obj[idx], types)
-                                    for idx in range(min(len(obj), cnt))
-                                )
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr, count_ast],
-                            keywords=[],
-                        )
-
-    elif k is dict:
-        key_exp, val_exp = variant
-        if is_simple_type(key_exp) and is_simple_type(val_exp):
-            k_tt = tuple(key_exp.keys())
-            v_tt = tuple(val_exp.keys())
-            if sample_pct == 100:
-                if _cpp is not None:
-                    if len(k_tt) == 1 and len(v_tt) == 1:
-                        fn_name = f"_cpp_val_dict_s_{prefix}"
-                        fn_globals[fn_name] = _cpp.validate_dict_single
-                        fn_globals[f"{prefix}_kt0"] = k_tt[0]
-                        fn_globals[f"{prefix}_vt0"] = v_tt[0]
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[
-                                var_expr,
-                                ast.Name(id=f"{prefix}_kt0", ctx=ast.Load()),
-                                ast.Name(id=f"{prefix}_vt0", ctx=ast.Load()),
-                            ],
-                            keywords=[],
-                        )
-                    else:
-                        fn_name = f"_cpp_val_dict_u_{prefix}"
-                        fn_globals[fn_name] = _cpp.validate_dict_unions
-                        fn_globals[f"{prefix}_ktt"] = k_tt
-                        fn_globals[f"{prefix}_vtt"] = v_tt
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[
-                                var_expr,
-                                ast.Name(id=f"{prefix}_ktt", ctx=ast.Load()),
-                                ast.Name(id=f"{prefix}_vtt", ctx=ast.Load()),
-                            ],
-                            keywords=[],
-                        )
-                else:
-                    fn_name = f"_py_val_dict_s_{prefix}"
-                    if len(k_tt) == 1 and len(v_tt) == 1:
-                        kt0, vt0 = k_tt[0], v_tt[0]
-                        fn_globals[fn_name] = lambda obj, kt=kt0, vt=vt0: all(
-                            (type(k) is kt or isinstance(k, kt))
-                            and (type(v) is vt or isinstance(v, vt))
-                            for k, v in obj.items()
-                        )
-                    else:
-                        fn_globals[fn_name] = (
-                            lambda obj, ktypes=k_tt, vtypes=v_tt: all(
-                                (type(k) in ktypes or isinstance(k, ktypes))
-                                and (type(v) in vtypes or isinstance(v, vtypes))
-                                for k, v in obj.items()
-                            )
-                        )
-                    return ast.Call(
-                        func=ast.Name(id=fn_name, ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    )
-            elif sample_pct == "last":
-                fn_name = f"_py_val_dict_last_{prefix}"
-                if len(k_tt) == 1 and len(v_tt) == 1:
-                    kt0, vt0 = k_tt[0], v_tt[0]
-                    fn_globals[fn_name] = lambda obj, kt=kt0, vt=vt0: bool(
-                        obj
-                    ) and (
-                        lambda k: (type(k) is kt or isinstance(k, kt))
-                        and (type(obj[k]) is vt or isinstance(obj[k], vt))
-                    )(
-                        next(reversed(obj))
-                    )
-                else:
-                    fn_globals[
-                        fn_name
-                    ] = lambda obj, ktypes=k_tt, vtypes=v_tt: bool(obj) and (
-                        lambda k: (type(k) in ktypes or isinstance(k, ktypes))
-                        and (
-                            type(obj[k]) in vtypes or isinstance(obj[k], vtypes)
-                        )
-                    )(
-                        next(reversed(obj))
-                    )
+    if _cpp is not None:
+        try:
+            cpp_val = _cpp.create_validator({k: variant}, sample_pct)
+            if cpp_val is not None:
+                fn_name = f"_cpp_val_{prefix}"
+                fn_globals[fn_name] = cpp_val
                 return ast.Call(
                     func=ast.Name(id=fn_name, ctx=ast.Load()),
                     args=[var_expr],
                     keywords=[],
                 )
-            else:
-                count_ast = _calc_sample_count_ast(
-                    var_expr, sample_pct, prefix, fn_globals
-                )
-                if _cpp is not None:
-                    if len(k_tt) == 1 and len(v_tt) == 1:
-                        fn_name = f"_cpp_val_dict_samp_{prefix}"
-                        fn_globals[fn_name] = _cpp.validate_dict_sample
-                        fn_globals[f"{prefix}_kt0"] = k_tt[0]
-                        fn_globals[f"{prefix}_vt0"] = v_tt[0]
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[
-                                var_expr,
-                                ast.Name(id=f"{prefix}_kt0", ctx=ast.Load()),
-                                ast.Name(id=f"{prefix}_vt0", ctx=ast.Load()),
-                                count_ast,
-                            ],
-                            keywords=[],
-                        )
-                    else:
-                        fn_name = f"_cpp_val_dict_sampu_{prefix}"
-                        fn_globals[fn_name] = _cpp.validate_dict_sample_unions
-                        fn_globals[f"{prefix}_ktt"] = k_tt
-                        fn_globals[f"{prefix}_vtt"] = v_tt
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[
-                                var_expr,
-                                ast.Name(id=f"{prefix}_ktt", ctx=ast.Load()),
-                                ast.Name(id=f"{prefix}_vtt", ctx=ast.Load()),
-                                count_ast,
-                            ],
-                            keywords=[],
-                        )
-                else:
-                    fn_globals["_islice"] = islice
-                    fn_name = f"_py_val_dict_samp_{prefix}"
-                    if len(k_tt) == 1 and len(v_tt) == 1:
-                        kt0, vt0 = k_tt[0], v_tt[0]
-                        fn_globals[fn_name] = (
-                            lambda obj, cnt, kt=kt0, vt=vt0: all(
-                                (type(k) is kt or isinstance(k, kt))
-                                and (type(v) is vt or isinstance(v, vt))
-                                for k, v in islice(obj.items(), cnt)
-                            )
-                        )
-                    else:
-                        fn_globals[fn_name] = (
-                            lambda obj, cnt, ktypes=k_tt, vtypes=v_tt: all(
-                                (type(k) in ktypes or isinstance(k, ktypes))
-                                and (type(v) in vtypes or isinstance(v, vtypes))
-                                for k, v in islice(obj.items(), cnt)
-                            )
-                        )
-                    return ast.Call(
-                        func=ast.Name(id=fn_name, ctx=ast.Load()),
-                        args=[var_expr, count_ast],
-                        keywords=[],
-                    )
+        except Exception:
+            pass
 
-    elif k is tuple:
-        expected_args, is_ellipsis = variant
-        if is_ellipsis:
-            if is_simple_type(expected_args):
-                tt = tuple(expected_args.keys())
-                t0 = tt[0]
-                if sample_pct == 100:
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_tup_s_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_tuple_single
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_tup_u_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_tuple_union
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_tup_s_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: all(
-                                type(x) is t or isinstance(x, t) for x in obj
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: all(
-                                type(x) in types or isinstance(x, types)
-                                for x in obj
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "first":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_tup_f_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_tuple_first
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_tup_fu_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_tuple_first_union
-                            )
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_tup_f_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = (
-                                lambda obj, t=t0: len(obj) == 0
-                                or type(obj[0]) is t
-                                or isinstance(obj[0], t)
-                            )
-                        else:
-                            fn_globals[fn_name] = (
-                                lambda obj, types=tt: len(obj) == 0
-                                or type(obj[0]) in types
-                                or isinstance(obj[0], types)
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "last":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_tup_l_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_tuple_last
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_tup_lu_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_tuple_last_union
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_tup_l_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = (
-                                lambda obj, t=t0: len(obj) == 0
-                                or type(obj[-1]) is t
-                                or isinstance(obj[-1], t)
-                            )
-                        else:
-                            fn_globals[fn_name] = (
-                                lambda obj, types=tt: len(obj) == 0
-                                or type(obj[-1]) in types
-                                or isinstance(obj[-1], types)
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "bookend":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_tup_bk_{prefix}"
-                            fn_globals[fn_name] = _cpp.validate_tuple_bookend
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_tup_bku_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_tuple_bookend_union
-                            )
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_tup_bk_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: len(
-                                obj
-                            ) == 0 or (
-                                (type(obj[0]) is t or isinstance(obj[0], t))
-                                and (
-                                    len(obj) == 1
-                                    or type(obj[-1]) is t
-                                    or isinstance(obj[-1], t)
-                                )
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: len(
-                                obj
-                            ) == 0 or (
-                                (
-                                    type(obj[0]) in types
-                                    or isinstance(obj[0], types)
-                                )
-                                and (
-                                    len(obj) == 1
-                                    or type(obj[-1]) in types
-                                    or isinstance(obj[-1], types)
-                                )
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-                elif sample_pct == "bookend_plus":
-                    if _cpp is not None:
-                        if len(tt) == 1:
-                            fn_name = f"_cpp_val_tup_bkp_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_tuple_bookend_plus
-                            )
-                            fn_globals[f"{prefix}_t0"] = t0
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_t0", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        else:
-                            fn_name = f"_cpp_val_tup_bkpu_{prefix}"
-                            fn_globals[fn_name] = (
-                                _cpp.validate_tuple_bookend_plus_union
-                            )
-                            fn_globals[f"{prefix}_tt"] = tt
-                            return ast.Call(
-                                func=ast.Name(id=fn_name, ctx=ast.Load()),
-                                args=[
-                                    var_expr,
-                                    ast.Name(id=f"{prefix}_tt", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                    else:
-                        fn_name = f"_py_val_tup_bkp_{prefix}"
-                        if len(tt) == 1:
-                            fn_globals[fn_name] = lambda obj, t=t0: len(
-                                obj
-                            ) == 0 or (
-                                (type(obj[0]) is t or isinstance(obj[0], t))
-                                and (
-                                    len(obj) == 1
-                                    or type(obj[-1]) is t
-                                    or isinstance(obj[-1], t)
-                                )
-                                and (
-                                    len(obj) <= 2
-                                    or type(
-                                        obj[random.randrange(1, len(obj) - 1)]
-                                    )
-                                    is t
-                                    or isinstance(
-                                        obj[random.randrange(1, len(obj) - 1)],
-                                        t,
-                                    )
-                                )
-                            )
-                        else:
-                            fn_globals[fn_name] = lambda obj, types=tt: len(
-                                obj
-                            ) == 0 or (
-                                (
-                                    type(obj[0]) in types
-                                    or isinstance(obj[0], types)
-                                )
-                                and (
-                                    len(obj) == 1
-                                    or type(obj[-1]) in types
-                                    or isinstance(obj[-1], types)
-                                )
-                                and (
-                                    len(obj) <= 2
-                                    or type(
-                                        obj[random.randrange(1, len(obj) - 1)]
-                                    )
-                                    in types
-                                    or isinstance(
-                                        obj[random.randrange(1, len(obj) - 1)],
-                                        types,
-                                    )
-                                )
-                            )
-                        return ast.Call(
-                            func=ast.Name(id=fn_name, ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        )
-        else:
-            if all(is_simple_type(a) and len(a) == 1 for a in expected_args):
-                types_tuple = tuple(tuple(a.keys())[0] for a in expected_args)
-                if _cpp is not None:
-                    fn_name = f"_cpp_val_tup_f_{prefix}"
-                    fn_globals[fn_name] = _cpp.validate_tuple_fixed
-                    fn_globals[f"{prefix}_types"] = types_tuple
-                    return ast.Call(
-                        func=ast.Name(id=fn_name, ctx=ast.Load()),
-                        args=[
-                            var_expr,
-                            ast.Name(id=f"{prefix}_types", ctx=ast.Load()),
-                        ],
-                        keywords=[],
-                    )
-                else:
-                    fn_name = f"_py_val_tup_f_{prefix}"
-                    fn_globals[fn_name] = lambda obj, types=types_tuple: len(
-                        obj
-                    ) == len(types) and all(
-                        type(x) is t or isinstance(x, t)
-                        for x, t in zip(obj, types)
-                    )
-                    return ast.Call(
-                        func=ast.Name(id=fn_name, ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    )
-
-    # Fallback to dynamic check function
-    fn_name = f"_py_val_custom_var_{prefix}"
+    fn_name = f"_py_val_var_{prefix}"
     fn_globals[fn_name] = (
         lambda obj, o_type=k, var=variant: _validate_variant_fallback(
             obj, o_type, var, sample_pct
@@ -1351,16 +457,13 @@ def _generate_typeddict_check(
     fields = td_info["fields"]
 
     stmts = []
-    # 1. Check outer type is dict
     stmts.append(_outer_type_guard(var_expr, "dict", fail_call))
 
-    # Partition fields into required and optional
     req_fields = [(fk, fexp) for fk, fexp in fields.items() if fk in req_keys]
     opt_fields = [
         (fk, fexp) for fk, fexp in fields.items() if fk not in req_keys
     ]
 
-    # Handle required fields: retrieve in a single try-except block
     if req_fields:
         req_assigns = []
         req_checks = []
@@ -1404,7 +507,6 @@ def _generate_typeddict_check(
         )
         stmts.extend(req_checks)
 
-    # Handle optional fields: use .get(fk, _sentinel)
     if opt_fields:
         sentinel_name = f"{prefix}_sentinel"
         fn_globals[sentinel_name] = object()
@@ -1475,106 +577,59 @@ def _outer_type_guard(var_expr, type_name, fail_stmt):
     )
 
 
-def _emit_cpp_call(fn_name, fn_obj, args_list, fail_stmt, fn_globals):
-    """
-    Registers a C++ function and emits an AST If check calling it.
-    """
-    fn_globals[fn_name] = fn_obj
-    call_args = []
-    for arg_name, arg_val in args_list:
-        if arg_name is None:
-            call_args.append(arg_val)
-        else:
-            fn_globals[arg_name] = arg_val
-            call_args.append(ast.Name(id=arg_name, ctx=ast.Load()))
-    return [
-        ast.If(
-            test=ast.UnaryOp(
-                op=ast.Not(),
-                operand=ast.Call(
-                    func=ast.Name(id=fn_name, ctx=ast.Load()),
-                    args=call_args,
-                    keywords=[],
-                ),
-            ),
-            body=[fail_stmt],
-            orelse=[],
-        )
-    ]
-
-
 def _emit_strided_sequence_check(
-    var_expr, loop_var_id, sub_checks, count_expr, prefix
+    var_expr, loop_var_id, sub_checks, count_expr, prefix, fn_globals
 ):
     """
-    Generates strided AST index checking (first, last, and strided steps) for sequences.
+    Generates strided AST index checking with pseudo-random start offset for sequences.
     """
-    short_loop = ast.For(
-        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-        iter=var_expr,
-        body=sub_checks,
-        orelse=[],
-    )
-    assign_0 = ast.Assign(
-        targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
-        value=ast.Subscript(
-            value=var_expr, slice=ast.Constant(value=0), ctx=ast.Load()
-        ),
-    )
-    assign_last = ast.Assign(
-        targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
-        value=ast.Subscript(
-            value=var_expr, slice=ast.Constant(value=-1), ctx=ast.Load()
-        ),
-    )
-    idx_var_id = f"{prefix}_idx"
-    step_expr = ast.Call(
-        func=ast.Name(id="max", ctx=ast.Load()),
-        args=[
-            ast.Constant(value=1),
-            ast.BinOp(
-                left=ast.BinOp(
-                    left=ast.Call(
-                        func=ast.Name(id="len", ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    ),
-                    op=ast.Sub(),
-                    right=ast.Constant(value=1),
-                ),
-                op=ast.FloorDiv(),
-                right=ast.Call(
-                    func=ast.Name(id="max", ctx=ast.Load()),
-                    args=[
-                        ast.Constant(value=1),
-                        ast.BinOp(
-                            left=count_expr,
-                            op=ast.Sub(),
-                            right=ast.Constant(value=1),
-                        ),
-                    ],
-                    keywords=[],
-                ),
-            ),
-        ],
+    fn_globals["_fast_quasi_rand"] = _fast_quasi_rand
+    len_expr = ast.Call(
+        func=ast.Name(id="len", ctx=ast.Load()),
+        args=[var_expr],
         keywords=[],
     )
+    step_var_id = f"{prefix}_step"
+    start_var_id = f"{prefix}_start"
+    idx_var_id = f"{prefix}_idx"
+
+    step_calc = ast.Assign(
+        targets=[ast.Name(id=step_var_id, ctx=ast.Store())],
+        value=ast.Call(
+            func=ast.Name(id="max", ctx=ast.Load()),
+            args=[
+                ast.Constant(value=1),
+                ast.BinOp(
+                    left=len_expr,
+                    op=ast.FloorDiv(),
+                    right=ast.Call(
+                        func=ast.Name(id="max", ctx=ast.Load()),
+                        args=[ast.Constant(value=1), count_expr],
+                        keywords=[],
+                    ),
+                ),
+            ],
+            keywords=[],
+        ),
+    )
+
+    start_calc = ast.Assign(
+        targets=[ast.Name(id=start_var_id, ctx=ast.Store())],
+        value=ast.Call(
+            func=ast.Name(id="_fast_quasi_rand", ctx=ast.Load()),
+            args=[ast.Name(id=step_var_id, ctx=ast.Load())],
+            keywords=[],
+        ),
+    )
+
     range_loop = ast.For(
         target=ast.Name(id=idx_var_id, ctx=ast.Store()),
         iter=ast.Call(
             func=ast.Name(id="range", ctx=ast.Load()),
             args=[
-                step_expr,
-                ast.BinOp(
-                    left=ast.Call(
-                        func=ast.Name(id="len", ctx=ast.Load()),
-                        args=[var_expr],
-                        keywords=[],
-                    ),
-                    op=ast.Sub(),
-                    right=ast.Constant(value=1),
-                ),
-                step_expr,
+                ast.Name(id=start_var_id, ctx=ast.Load()),
+                len_expr,
+                ast.Name(id=step_var_id, ctx=ast.Load()),
             ],
             keywords=[],
         ),
@@ -1591,22 +646,8 @@ def _emit_strided_sequence_check(
         + sub_checks,
         orelse=[],
     )
-    long_check = (
-        [assign_0] + sub_checks + [assign_last] + sub_checks + [range_loop]
-    )
-    return ast.If(
-        test=ast.Compare(
-            left=ast.Call(
-                func=ast.Name(id="len", ctx=ast.Load()),
-                args=[var_expr],
-                keywords=[],
-            ),
-            ops=[ast.LtE()],
-            comparators=[ast.Constant(value=3)],
-        ),
-        body=[short_loop],
-        orelse=long_check,
-    )
+
+    return [step_calc, start_calc, range_loop]
 
 
 def _emit_set_superset_fallback(
@@ -1666,6 +707,277 @@ def _emit_set_superset_fallback(
     ]
 
 
+def _emit_sequence_check(
+    var_expr, sub_exp, fail_stmt, loop_fail, fn_globals, prefix, sample_pct
+):
+    """
+    Unified sequence checking logic for lists and variable-length tuples.
+    """
+    elem_is_simple = is_simple_type(sub_exp)
+    loop_var_id = f"{prefix}_el"
+    loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
+    sub_checks = generate_type_check_ast(
+        loop_var_expr,
+        sub_exp,
+        fail_stmt,
+        fn_globals,
+        f"{prefix}_el",
+        sample_pct,
+        is_loop=True,
+    )
+
+    if sample_pct == "first":
+        return ast.If(
+            test=var_expr,
+            body=[
+                ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=0),
+                        ctx=ast.Load(),
+                    ),
+                )
+            ]
+            + sub_checks,
+            orelse=[],
+        )
+    elif sample_pct == "last":
+        return ast.If(
+            test=var_expr,
+            body=[
+                ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=-1),
+                        ctx=ast.Load(),
+                    ),
+                )
+            ]
+            + sub_checks,
+            orelse=[],
+        )
+    elif sample_pct == "bookend":
+        return ast.If(
+            test=var_expr,
+            body=[
+                ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=0),
+                        ctx=ast.Load(),
+                    ),
+                )
+            ]
+            + sub_checks
+            + [
+                ast.If(
+                    test=ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.Gt()],
+                        comparators=[ast.Constant(value=1)],
+                    ),
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=var_expr,
+                                slice=ast.Constant(value=-1),
+                                ctx=ast.Load(),
+                            ),
+                        )
+                    ]
+                    + sub_checks,
+                    orelse=[],
+                )
+            ],
+            orelse=[],
+        )
+    elif sample_pct == "bookend_plus":
+        fn_globals["_fast_quasi_rand"] = _fast_quasi_rand
+        return ast.If(
+            test=var_expr,
+            body=[
+                ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Constant(value=0),
+                        ctx=ast.Load(),
+                    ),
+                )
+            ]
+            + sub_checks
+            + [
+                ast.If(
+                    test=ast.Compare(
+                        left=ast.Call(
+                            func=ast.Name(id="len", ctx=ast.Load()),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                        ops=[ast.Gt()],
+                        comparators=[ast.Constant(value=1)],
+                    ),
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                            value=ast.Subscript(
+                                value=var_expr,
+                                slice=ast.Constant(value=-1),
+                                ctx=ast.Load(),
+                            ),
+                        )
+                    ]
+                    + sub_checks
+                    + [
+                        ast.If(
+                            test=ast.Compare(
+                                left=ast.Call(
+                                    func=ast.Name(id="len", ctx=ast.Load()),
+                                    args=[var_expr],
+                                    keywords=[],
+                                ),
+                                ops=[ast.Gt()],
+                                comparators=[ast.Constant(value=2)],
+                            ),
+                            body=[
+                                ast.Assign(
+                                    targets=[
+                                        ast.Name(
+                                            id=loop_var_id, ctx=ast.Store()
+                                        )
+                                    ],
+                                    value=ast.Subscript(
+                                        value=var_expr,
+                                        slice=ast.BinOp(
+                                            left=ast.Constant(value=1),
+                                            op=ast.Add(),
+                                            right=ast.Call(
+                                                func=ast.Name(
+                                                    id="_fast_quasi_rand",
+                                                    ctx=ast.Load(),
+                                                ),
+                                                args=[
+                                                    ast.BinOp(
+                                                        left=ast.Call(
+                                                            func=ast.Name(
+                                                                id="len",
+                                                                ctx=ast.Load(),
+                                                            ),
+                                                            args=[var_expr],
+                                                            keywords=[],
+                                                        ),
+                                                        op=ast.Sub(),
+                                                        right=ast.Constant(
+                                                            value=2
+                                                        ),
+                                                    )
+                                                ],
+                                                keywords=[],
+                                            ),
+                                        ),
+                                        ctx=ast.Load(),
+                                    ),
+                                )
+                            ]
+                            + sub_checks,
+                            orelse=[],
+                        )
+                    ],
+                    orelse=[],
+                )
+            ],
+            orelse=[],
+        )
+    elif sample_pct == 0:
+        return ast.If(
+            test=var_expr,
+            body=[
+                ast.Assign(
+                    targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
+                    value=ast.Call(
+                        func=ast.Name(id="_choice", ctx=ast.Load()),
+                        args=[var_expr],
+                        keywords=[],
+                    ),
+                )
+            ]
+            + sub_checks,
+            orelse=[],
+        )
+    elif sample_pct == 100:
+        if elem_is_simple:
+            if len(sub_exp) == 1:
+                sub_checks_fast = generate_type_check_ast(
+                    loop_var_expr,
+                    sub_exp,
+                    loop_fail,
+                    fn_globals,
+                    f"{prefix}_el",
+                    sample_pct,
+                    is_loop=True,
+                    use_local_t0=True,
+                )
+                assign_locs = [
+                    ast.Assign(
+                        targets=[
+                            ast.Name(
+                                id=f"__loc_{prefix}_el_t0", ctx=ast.Store()
+                            )
+                        ],
+                        value=ast.Name(id=f"{prefix}_el_t0", ctx=ast.Load()),
+                    ),
+                    ast.Assign(
+                        targets=[
+                            ast.Name(
+                                id=f"__loc_{prefix}_el_types", ctx=ast.Store()
+                            )
+                        ],
+                        value=ast.Name(id=f"{prefix}_el_types", ctx=ast.Load()),
+                    ),
+                ]
+                for_loop = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks_fast,
+                    orelse=[],
+                )
+                return assign_locs + [for_loop]
+            else:
+                return _emit_set_superset_fallback(
+                    var_expr,
+                    sub_exp,
+                    loop_var_id,
+                    sub_checks,
+                    fail_stmt,
+                    prefix,
+                    fn_globals,
+                )
+        else:
+            return [
+                ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=var_expr,
+                    body=sub_checks,
+                    orelse=[],
+                )
+            ]
+    else:
+        count_expr = _calc_sample_count_ast(
+            var_expr, sample_pct, prefix, fn_globals
+        )
+        return _emit_strided_sequence_check(
+            var_expr, loop_var_id, sub_checks, count_expr, prefix, fn_globals
+        )
+
+
 def generate_type_check_ast(
     var_expr,
     exp,
@@ -1720,6 +1032,30 @@ def generate_type_check_ast(
             var_expr, exp, fail_call, fn_globals, prefix, sample_pct
         )
 
+    if _cpp is not None and not is_loop:
+        try:
+            cpp_validator = _cpp.create_validator(exp, sample_pct)
+        except Exception:
+            cpp_validator = None
+        if cpp_validator is not None:
+            fn_globals[f"{prefix}_cpp_val"] = cpp_validator
+            return [
+                ast.If(
+                    test=ast.UnaryOp(
+                        op=ast.Not(),
+                        operand=ast.Call(
+                            func=ast.Name(
+                                id=f"{prefix}_cpp_val", ctx=ast.Load()
+                            ),
+                            args=[var_expr],
+                            keywords=[],
+                        ),
+                    ),
+                    body=[fail_call],
+                    orelse=[],
+                )
+            ]
+
     fail_stmt = fail_call
     loop_fail = (
         ast.If(
@@ -1755,47 +1091,22 @@ def generate_type_check_ast(
             )
             return [outer_type_guard, content_check]
 
-        sub_exp = v
-        elem_is_simple = is_simple_type(sub_exp)
-
-        loop_var_id = f"{prefix}_el"
-        loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
-        sub_checks = generate_type_check_ast(
-            loop_var_expr,
-            sub_exp,
-            fail_stmt,
-            fn_globals,
-            f"{prefix}_el",
-            sample_pct,
-            is_loop=True,
-        )
-
         if k is set:
+            sub_exp = v
+            elem_is_simple = is_simple_type(sub_exp)
+            loop_var_id = f"{prefix}_el"
+            loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
+            sub_checks = generate_type_check_ast(
+                loop_var_expr,
+                sub_exp,
+                fail_stmt,
+                fn_globals,
+                f"{prefix}_el",
+                sample_pct,
+                is_loop=True,
+            )
             if sample_pct == 100:
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_set_s",
-                            _cpp.validate_set_single,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_set_u",
-                            _cpp.validate_set_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                elif elem_is_simple:
+                if elem_is_simple:
                     if len(sub_exp) == 1:
                         sub_checks_fast = generate_type_check_ast(
                             loop_var_expr,
@@ -1878,541 +1189,27 @@ def generate_type_check_ast(
                 count_expr = _calc_sample_count_ast(
                     var_expr, sample_pct, prefix, fn_globals
                 )
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_set_samp",
-                            _cpp.validate_set_sample,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                                (None, count_expr),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_set_samp_u",
-                            _cpp.validate_set_sample_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                                (None, count_expr),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    fn_globals["_islice"] = islice
-                    content_check = ast.For(
-                        target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                        iter=ast.Call(
-                            func=ast.Name(id="_islice", ctx=ast.Load()),
-                            args=[var_expr, count_expr],
-                            keywords=[],
-                        ),
-                        body=sub_checks,
-                        orelse=[],
-                    )
-        elif k is list:
-            if sample_pct == "first":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_first",
-                            _cpp.validate_list_first,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_first_u",
-                            _cpp.validate_list_first_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=0),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks,
-                        orelse=[],
-                    )
-            elif sample_pct == "last":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_last",
-                            _cpp.validate_list_last,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_last_u",
-                            _cpp.validate_list_last_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=-1),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks,
-                        orelse=[],
-                    )
-            elif sample_pct == "bookend":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_bookend",
-                            _cpp.validate_list_bookend,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_bookend_u",
-                            _cpp.validate_list_bookend_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=0),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks
-                        + [
-                            ast.If(
-                                test=ast.Compare(
-                                    left=ast.Call(
-                                        func=ast.Name(id="len", ctx=ast.Load()),
-                                        args=[var_expr],
-                                        keywords=[],
-                                    ),
-                                    ops=[ast.Gt()],
-                                    comparators=[ast.Constant(value=1)],
-                                ),
-                                body=[
-                                    ast.Assign(
-                                        targets=[
-                                            ast.Name(
-                                                id=loop_var_id, ctx=ast.Store()
-                                            )
-                                        ],
-                                        value=ast.Subscript(
-                                            value=var_expr,
-                                            slice=ast.Constant(value=-1),
-                                            ctx=ast.Load(),
-                                        ),
-                                    )
-                                ]
-                                + sub_checks,
-                                orelse=[],
-                            )
-                        ],
-                        orelse=[],
-                    )
-            elif sample_pct == "bookend_plus":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_bookend_plus",
-                            _cpp.validate_list_bookend_plus,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_bookend_plus_u",
-                            _cpp.validate_list_bookend_plus_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    fn_globals["_randrange"] = random.randrange
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=0),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks
-                        + [
-                            ast.If(
-                                test=ast.Compare(
-                                    left=ast.Call(
-                                        func=ast.Name(id="len", ctx=ast.Load()),
-                                        args=[var_expr],
-                                        keywords=[],
-                                    ),
-                                    ops=[ast.Gt()],
-                                    comparators=[ast.Constant(value=1)],
-                                ),
-                                body=[
-                                    ast.Assign(
-                                        targets=[
-                                            ast.Name(
-                                                id=loop_var_id, ctx=ast.Store()
-                                            )
-                                        ],
-                                        value=ast.Subscript(
-                                            value=var_expr,
-                                            slice=ast.Constant(value=-1),
-                                            ctx=ast.Load(),
-                                        ),
-                                    )
-                                ]
-                                + sub_checks,
-                                orelse=[],
-                            )
-                        ]
-                        + [
-                            ast.If(
-                                test=ast.Compare(
-                                    left=ast.Call(
-                                        func=ast.Name(id="len", ctx=ast.Load()),
-                                        args=[var_expr],
-                                        keywords=[],
-                                    ),
-                                    ops=[ast.Gt()],
-                                    comparators=[ast.Constant(value=2)],
-                                ),
-                                body=[
-                                    ast.Assign(
-                                        targets=[
-                                            ast.Name(
-                                                id=loop_var_id,
-                                                ctx=ast.Store(),
-                                            )
-                                        ],
-                                        value=ast.Subscript(
-                                            value=var_expr,
-                                            slice=ast.Call(
-                                                func=ast.Name(
-                                                    id="_randrange",
-                                                    ctx=ast.Load(),
-                                                ),
-                                                args=[
-                                                    ast.Constant(value=1),
-                                                    ast.BinOp(
-                                                        left=ast.Call(
-                                                            func=ast.Name(
-                                                                id="len",
-                                                                ctx=ast.Load(),
-                                                            ),
-                                                            args=[var_expr],
-                                                            keywords=[],
-                                                        ),
-                                                        op=ast.Sub(),
-                                                        right=ast.Constant(
-                                                            value=1
-                                                        ),
-                                                    ),
-                                                ],
-                                                keywords=[],
-                                            ),
-                                            ctx=ast.Load(),
-                                        ),
-                                    )
-                                ]
-                                + sub_checks,
-                                orelse=[],
-                            )
-                        ],
-                        orelse=[],
-                    )
-            elif sample_pct == 0:
-                rand_call = ast.Call(
-                    func=ast.Name(id="_choice", ctx=ast.Load()),
-                    args=[var_expr],
-                    keywords=[],
-                )
-                content_check = ast.If(
-                    test=var_expr,
-                    body=[
-                        ast.Assign(
-                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
-                            value=rand_call,
-                        )
-                    ]
-                    + sub_checks,
+                fn_globals["islice"] = islice
+                content_check = ast.For(
+                    target=ast.Name(id=loop_var_id, ctx=ast.Store()),
+                    iter=ast.Call(
+                        func=ast.Name(id="islice", ctx=ast.Load()),
+                        args=[var_expr, count_expr],
+                        keywords=[],
+                    ),
+                    body=sub_checks,
                     orelse=[],
                 )
-            elif sample_pct == 100:
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_s",
-                            _cpp.validate_list_single,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_u",
-                            _cpp.validate_list_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                elif (
-                    _cpp is not None
-                    and isinstance(sub_exp, dict)
-                    and len(sub_exp) == 1
-                    and list in sub_exp
-                    and is_simple_type(sub_exp[list])
-                    and len(sub_exp[list]) == 1
-                ):
-                    content_check = _emit_cpp_call(
-                        "_cpp_val_list_list",
-                        _cpp.validate_list_list,
-                        [
-                            (None, var_expr),
-                            (f"{prefix}_el_t0", tuple(sub_exp[list].keys())[0]),
-                        ],
-                        fail_stmt,
-                        fn_globals,
-                    )
-                elif (
-                    _cpp is not None
-                    and isinstance(sub_exp, dict)
-                    and len(sub_exp) == 1
-                    and dict in sub_exp
-                    and isinstance(sub_exp[dict], (tuple, list))
-                    and len(sub_exp[dict]) == 2
-                    and is_simple_type(sub_exp[dict][0])
-                    and is_simple_type(sub_exp[dict][1])
-                    and len(sub_exp[dict][0]) == 1
-                    and len(sub_exp[dict][1]) == 1
-                ):
-                    content_check = _emit_cpp_call(
-                        "_cpp_val_list_dict",
-                        _cpp.validate_list_dict,
-                        [
-                            (None, var_expr),
-                            (
-                                f"{prefix}_k_t0",
-                                tuple(sub_exp[dict][0].keys())[0],
-                            ),
-                            (
-                                f"{prefix}_v_t0",
-                                tuple(sub_exp[dict][1].keys())[0],
-                            ),
-                        ],
-                        fail_stmt,
-                        fn_globals,
-                    )
-                elif (
-                    _cpp is not None
-                    and isinstance(sub_exp, dict)
-                    and len(sub_exp) == 1
-                    and tuple in sub_exp
-                    and isinstance(sub_exp[tuple], tuple)
-                    and len(sub_exp[tuple]) == 2
-                    and sub_exp[tuple][1] is False
-                    and isinstance(sub_exp[tuple][0], tuple)
-                    and all(
-                        is_simple_type(item) and len(item) == 1
-                        for item in sub_exp[tuple][0]
-                    )
-                ):
-                    content_check = _emit_cpp_call(
-                        "_cpp_val_list_tup_f",
-                        _cpp.validate_list_tuple_fixed,
-                        [
-                            (None, var_expr),
-                            (
-                                f"{prefix}_tup_types",
-                                tuple(
-                                    tuple(item.keys())[0]
-                                    for item in sub_exp[tuple][0]
-                                ),
-                            ),
-                        ],
-                        fail_stmt,
-                        fn_globals,
-                    )
-                elif elem_is_simple:
-                    if len(sub_exp) == 1:
-                        sub_checks_fast = generate_type_check_ast(
-                            loop_var_expr,
-                            sub_exp,
-                            loop_fail,
-                            fn_globals,
-                            f"{prefix}_el",
-                            sample_pct,
-                            is_loop=True,
-                            use_local_t0=True,
-                        )
-                        assign_locs = [
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(
-                                        id=f"__loc_{prefix}_el_t0",
-                                        ctx=ast.Store(),
-                                    )
-                                ],
-                                value=ast.Name(
-                                    id=f"{prefix}_el_t0", ctx=ast.Load()
-                                ),
-                            ),
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(
-                                        id=f"__loc_{prefix}_el_types",
-                                        ctx=ast.Store(),
-                                    )
-                                ],
-                                value=ast.Name(
-                                    id=f"{prefix}_el_types", ctx=ast.Load()
-                                ),
-                            ),
-                        ]
-                        for_loop = ast.For(
-                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                            iter=var_expr,
-                            body=sub_checks_fast,
-                            orelse=[],
-                        )
-                        content_check = assign_locs + [for_loop]
-                    else:
-                        content_check = _emit_set_superset_fallback(
-                            var_expr,
-                            sub_exp,
-                            loop_var_id,
-                            sub_checks,
-                            fail_stmt,
-                            prefix,
-                            fn_globals,
-                        )
-                else:
-                    content_check = [
-                        ast.For(
-                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                            iter=var_expr,
-                            body=sub_checks,
-                            orelse=[],
-                        )
-                    ]
-            else:
-                count_expr = _calc_sample_count_ast(
-                    var_expr, sample_pct, prefix, fn_globals
-                )
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_samp",
-                            _cpp.validate_list_sample,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                                (None, count_expr),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_list_samp_u",
-                            _cpp.validate_list_sample_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                                (None, count_expr),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = _emit_strided_sequence_check(
-                        var_expr,
-                        loop_var_id,
-                        sub_checks,
-                        count_expr,
-                        prefix,
-                    )
+        else:
+            content_check = _emit_sequence_check(
+                var_expr,
+                v,
+                fail_stmt,
+                loop_fail,
+                fn_globals,
+                prefix,
+                sample_pct,
+            )
 
         return [outer_type_guard] + (
             content_check
@@ -2441,7 +1238,6 @@ def generate_type_check_ast(
             return [outer_type_guard, content_check]
 
         k_exp, v_exp = v
-        kv_is_simple = is_simple_type(k_exp) and is_simple_type(v_exp)
 
         k_var_id = f"{prefix}_k"
         v_var_id = f"{prefix}_v"
@@ -2466,204 +1262,62 @@ def generate_type_check_ast(
             sample_pct,
             is_loop=True,
         )
+        pair_checks = k_checks + v_checks
+        if not pair_checks:
+            return [outer_type_guard]
 
-        assign_val = ast.Assign(
-            targets=[ast.Name(id=v_var_id, ctx=ast.Store())],
-            value=ast.Subscript(
-                value=var_expr, slice=k_var_expr, ctx=ast.Load()
-            ),
+        pair_target = ast.Tuple(
+            elts=[
+                ast.Name(id=k_var_id, ctx=ast.Store()),
+                ast.Name(id=v_var_id, ctx=ast.Store()),
+            ],
+            ctx=ast.Store(),
         )
-        dict_loop_body = k_checks + [assign_val] + v_checks
+
+        if k_checks and not v_checks:
+            dict_iter_call = var_expr
+            item_target = ast.Name(id=k_var_id, ctx=ast.Store())
+            checks_to_run = k_checks
+        elif not k_checks and v_checks:
+            dict_iter_call = ast.Call(
+                func=ast.Attribute(
+                    value=var_expr, attr="values", ctx=ast.Load()
+                ),
+                args=[],
+                keywords=[],
+            )
+            item_target = ast.Name(id=v_var_id, ctx=ast.Store())
+            checks_to_run = v_checks
+        else:
+            dict_iter_call = ast.Call(
+                func=ast.Attribute(
+                    value=var_expr, attr="items", ctx=ast.Load()
+                ),
+                args=[],
+                keywords=[],
+            )
+            item_target = pair_target
+            checks_to_run = pair_checks
 
         if sample_pct == 100:
-            if _cpp is not None and kv_is_simple:
-                if len(k_exp) == 1 and len(v_exp) == 1:
-                    content_check = _emit_cpp_call(
-                        "_cpp_val_dict_s",
-                        _cpp.validate_dict_single,
-                        [
-                            (None, var_expr),
-                            (f"{prefix}_k_t0", tuple(k_exp.keys())[0]),
-                            (f"{prefix}_v_t0", tuple(v_exp.keys())[0]),
-                        ],
-                        fail_stmt,
-                        fn_globals,
-                    )
-                else:
-                    content_check = _emit_cpp_call(
-                        "_cpp_val_dict_u",
-                        _cpp.validate_dict_unions,
-                        [
-                            (None, var_expr),
-                            (f"{prefix}_k_types", tuple(k_exp.keys())),
-                            (f"{prefix}_v_types", tuple(v_exp.keys())),
-                        ],
-                        fail_stmt,
-                        fn_globals,
-                    )
-            elif (
-                _cpp is not None
-                and is_simple_type(k_exp)
-                and len(k_exp) == 1
-                and isinstance(v_exp, dict)
-                and len(v_exp) == 1
-                and list in v_exp
-                and is_simple_type(v_exp[list])
-                and len(v_exp[list]) == 1
-            ):
-                content_check = _emit_cpp_call(
-                    "_cpp_val_dict_list",
-                    _cpp.validate_dict_list,
-                    [
-                        (None, var_expr),
-                        (f"{prefix}_k_t0", tuple(k_exp.keys())[0]),
-                        (f"{prefix}_v_t0", tuple(v_exp[list].keys())[0]),
-                    ],
-                    fail_stmt,
-                    fn_globals,
-                )
-            elif kv_is_simple:
-                fn_globals[f"{prefix}_k_set"] = frozenset(k_exp.keys())
-                fn_globals[f"{prefix}_v_set"] = frozenset(v_exp.keys())
-
-                for_loop = ast.For(
-                    target=ast.Tuple(
-                        elts=[
-                            ast.Name(id=k_var_id, ctx=ast.Store()),
-                            ast.Name(id=v_var_id, ctx=ast.Store()),
-                        ],
-                        ctx=ast.Store(),
-                    ),
-                    iter=ast.Call(
-                        func=ast.Attribute(
-                            value=var_expr, attr="items", ctx=ast.Load()
-                        ),
-                        args=[],
-                        keywords=[],
-                    ),
-                    body=k_checks + v_checks,
-                    orelse=[],
-                )
-                set_check = ast.If(
-                    test=ast.UnaryOp(
-                        op=ast.Not(),
-                        operand=ast.BoolOp(
-                            op=ast.And(),
-                            values=[
-                                ast.Call(
-                                    func=ast.Attribute(
-                                        value=ast.Name(
-                                            id=f"{prefix}_k_set", ctx=ast.Load()
-                                        ),
-                                        attr="issuperset",
-                                        ctx=ast.Load(),
-                                    ),
-                                    args=[
-                                        ast.Call(
-                                            func=ast.Name(
-                                                id="map", ctx=ast.Load()
-                                            ),
-                                            args=[
-                                                ast.Name(
-                                                    id="type", ctx=ast.Load()
-                                                ),
-                                                var_expr,
-                                            ],
-                                            keywords=[],
-                                        )
-                                    ],
-                                    keywords=[],
-                                ),
-                                ast.Call(
-                                    func=ast.Attribute(
-                                        value=ast.Name(
-                                            id=f"{prefix}_v_set", ctx=ast.Load()
-                                        ),
-                                        attr="issuperset",
-                                        ctx=ast.Load(),
-                                    ),
-                                    args=[
-                                        ast.Call(
-                                            func=ast.Name(
-                                                id="map", ctx=ast.Load()
-                                            ),
-                                            args=[
-                                                ast.Name(
-                                                    id="type", ctx=ast.Load()
-                                                ),
-                                                ast.Call(
-                                                    func=ast.Attribute(
-                                                        value=var_expr,
-                                                        attr="values",
-                                                        ctx=ast.Load(),
-                                                    ),
-                                                    args=[],
-                                                    keywords=[],
-                                                ),
-                                            ],
-                                            keywords=[],
-                                        )
-                                    ],
-                                    keywords=[],
-                                ),
-                            ],
-                        ),
-                    ),
-                    body=[fail_stmt],
-                    orelse=[],
-                )
-                content_check = ast.If(
-                    test=ast.Compare(
-                        left=ast.Call(
-                            func=ast.Name(id="len", ctx=ast.Load()),
-                            args=[var_expr],
-                            keywords=[],
-                        ),
-                        ops=[ast.LtE()],
-                        comparators=[ast.Constant(value=50)],
-                    ),
-                    body=[for_loop],
-                    orelse=[set_check],
-                )
-            else:
-                content_check = ast.For(
-                    target=ast.Name(id=k_var_id, ctx=ast.Store()),
-                    iter=var_expr,
-                    body=dict_loop_body,
-                    orelse=[],
-                )
-        elif sample_pct == 0:
-            content_check = ast.If(
-                test=var_expr,
-                body=[
-                    ast.Assign(
-                        targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
-                        value=ast.Call(
-                            func=ast.Name(
-                                id="_random_dict_key", ctx=ast.Load()
-                            ),
-                            args=[var_expr],
-                            keywords=[],
-                        ),
-                    )
-                ]
-                + dict_loop_body,
+            content_check = ast.For(
+                target=item_target,
+                iter=dict_iter_call,
+                body=checks_to_run,
                 orelse=[],
             )
-        elif sample_pct == "last":
+        elif sample_pct in ("first", "last"):
             content_check = ast.If(
                 test=var_expr,
                 body=[
                     ast.Assign(
-                        targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
+                        targets=[item_target],
                         value=ast.Call(
                             func=ast.Name(id="next", ctx=ast.Load()),
                             args=[
                                 ast.Call(
-                                    func=ast.Name(
-                                        id="reversed", ctx=ast.Load()
-                                    ),
-                                    args=[var_expr],
+                                    func=ast.Name(id="iter", ctx=ast.Load()),
+                                    args=[dict_iter_call],
                                     keywords=[],
                                 )
                             ],
@@ -2671,54 +1325,150 @@ def generate_type_check_ast(
                         ),
                     )
                 ]
-                + dict_loop_body,
+                + checks_to_run,
+                orelse=[],
+            )
+        elif sample_pct == "bookend":
+            it_var_id = f"{prefix}_it"
+            it_expr = ast.Name(id=it_var_id, ctx=ast.Load())
+            next_call = ast.Call(
+                func=ast.Name(id="next", ctx=ast.Load()),
+                args=[it_expr],
+                keywords=[],
+            )
+            content_check = ast.If(
+                test=var_expr,
+                body=[
+                    ast.Assign(
+                        targets=[ast.Name(id=it_var_id, ctx=ast.Store())],
+                        value=ast.Call(
+                            func=ast.Name(id="iter", ctx=ast.Load()),
+                            args=[dict_iter_call],
+                            keywords=[],
+                        ),
+                    ),
+                    ast.Assign(targets=[item_target], value=next_call),
+                ]
+                + checks_to_run
+                + [
+                    ast.If(
+                        test=ast.Compare(
+                            left=ast.Call(
+                                func=ast.Name(id="len", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                            ops=[ast.Gt()],
+                            comparators=[ast.Constant(value=1)],
+                        ),
+                        body=[
+                            ast.Assign(targets=[item_target], value=next_call)
+                        ]
+                        + checks_to_run,
+                        orelse=[],
+                    )
+                ],
+                orelse=[],
+            )
+        elif sample_pct == "bookend_plus":
+            it_var_id = f"{prefix}_it"
+            it_expr = ast.Name(id=it_var_id, ctx=ast.Load())
+            next_call = ast.Call(
+                func=ast.Name(id="next", ctx=ast.Load()),
+                args=[it_expr],
+                keywords=[],
+            )
+            content_check = ast.If(
+                test=var_expr,
+                body=[
+                    ast.Assign(
+                        targets=[ast.Name(id=it_var_id, ctx=ast.Store())],
+                        value=ast.Call(
+                            func=ast.Name(id="iter", ctx=ast.Load()),
+                            args=[dict_iter_call],
+                            keywords=[],
+                        ),
+                    ),
+                    ast.Assign(targets=[item_target], value=next_call),
+                ]
+                + checks_to_run
+                + [
+                    ast.If(
+                        test=ast.Compare(
+                            left=ast.Call(
+                                func=ast.Name(id="len", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            ),
+                            ops=[ast.Gt()],
+                            comparators=[ast.Constant(value=1)],
+                        ),
+                        body=[
+                            ast.Assign(targets=[item_target], value=next_call)
+                        ]
+                        + checks_to_run
+                        + [
+                            ast.If(
+                                test=ast.Compare(
+                                    left=ast.Call(
+                                        func=ast.Name(id="len", ctx=ast.Load()),
+                                        args=[var_expr],
+                                        keywords=[],
+                                    ),
+                                    ops=[ast.Gt()],
+                                    comparators=[ast.Constant(value=2)],
+                                ),
+                                body=[
+                                    ast.Assign(
+                                        targets=[item_target], value=next_call
+                                    )
+                                ]
+                                + checks_to_run,
+                                orelse=[],
+                            )
+                        ],
+                        orelse=[],
+                    )
+                ],
+                orelse=[],
+            )
+        elif sample_pct == 0:
+            content_check = ast.If(
+                test=var_expr,
+                body=[
+                    ast.Assign(
+                        targets=[item_target],
+                        value=ast.Call(
+                            func=ast.Name(id="next", ctx=ast.Load()),
+                            args=[
+                                ast.Call(
+                                    func=ast.Name(id="iter", ctx=ast.Load()),
+                                    args=[dict_iter_call],
+                                    keywords=[],
+                                )
+                            ],
+                            keywords=[],
+                        ),
+                    )
+                ]
+                + checks_to_run,
                 orelse=[],
             )
         else:
             count_expr = _calc_sample_count_ast(
                 var_expr, sample_pct, prefix, fn_globals
             )
-            if _cpp is not None and kv_is_simple:
-                if len(k_exp) == 1 and len(v_exp) == 1:
-                    content_check = _emit_cpp_call(
-                        "_cpp_val_dict_samp",
-                        _cpp.validate_dict_sample,
-                        [
-                            (None, var_expr),
-                            (f"{prefix}_k_t0", tuple(k_exp.keys())[0]),
-                            (f"{prefix}_v_t0", tuple(v_exp.keys())[0]),
-                            (None, count_expr),
-                        ],
-                        fail_stmt,
-                        fn_globals,
-                    )
-                else:
-                    content_check = _emit_cpp_call(
-                        "_cpp_val_dict_samp_u",
-                        _cpp.validate_dict_sample_unions,
-                        [
-                            (None, var_expr),
-                            (f"{prefix}_k_types", tuple(k_exp.keys())),
-                            (f"{prefix}_v_types", tuple(v_exp.keys())),
-                            (None, count_expr),
-                        ],
-                        fail_stmt,
-                        fn_globals,
-                    )
-            else:
-                content_check = ast.For(
-                    target=ast.Name(id=k_var_id, ctx=ast.Store()),
-                    iter=ast.Call(
-                        func=ast.Name(id="_get_sample_keys", ctx=ast.Load()),
-                        args=[
-                            ast.Name(id="__enf_self__", ctx=ast.Load()),
-                            var_expr,
-                        ],
-                        keywords=[],
-                    ),
-                    body=dict_loop_body,
-                    orelse=[],
-                )
+            fn_globals["islice"] = islice
+            content_check = ast.For(
+                target=item_target,
+                iter=ast.Call(
+                    func=ast.Name(id="islice", ctx=ast.Load()),
+                    args=[dict_iter_call, count_expr],
+                    keywords=[],
+                ),
+                body=checks_to_run,
+                orelse=[],
+            )
 
         return [outer_type_guard] + (
             content_check
@@ -2748,443 +1498,15 @@ def generate_type_check_ast(
 
         if isinstance(v, tuple) and len(v) == 2 and v[1] is True:
             # Variable-length tuple[T, ...]
-            sub_exp = v[0]
-            elem_is_simple = is_simple_type(sub_exp)
-
-            loop_var_id = f"{prefix}_el"
-            loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
-            sub_checks = generate_type_check_ast(
-                loop_var_expr,
-                sub_exp,
+            content_check = _emit_sequence_check(
+                var_expr,
+                v[0],
                 fail_stmt,
+                loop_fail,
                 fn_globals,
-                f"{prefix}_el",
+                prefix,
                 sample_pct,
-                is_loop=True,
             )
-
-            if sample_pct == "first":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_first",
-                            _cpp.validate_tuple_first,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_first_u",
-                            _cpp.validate_tuple_first_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=0),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks,
-                        orelse=[],
-                    )
-            elif sample_pct == "last":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_last",
-                            _cpp.validate_tuple_last,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_last_u",
-                            _cpp.validate_tuple_last_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=-1),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks,
-                        orelse=[],
-                    )
-            elif sample_pct == "bookend":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_bookend",
-                            _cpp.validate_tuple_bookend,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_bookend_u",
-                            _cpp.validate_tuple_bookend_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=0),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks
-                        + [
-                            ast.If(
-                                test=ast.Compare(
-                                    left=ast.Call(
-                                        func=ast.Name(id="len", ctx=ast.Load()),
-                                        args=[var_expr],
-                                        keywords=[],
-                                    ),
-                                    ops=[ast.Gt()],
-                                    comparators=[ast.Constant(value=1)],
-                                ),
-                                body=[
-                                    ast.Assign(
-                                        targets=[
-                                            ast.Name(
-                                                id=loop_var_id, ctx=ast.Store()
-                                            )
-                                        ],
-                                        value=ast.Subscript(
-                                            value=var_expr,
-                                            slice=ast.Constant(value=-1),
-                                            ctx=ast.Load(),
-                                        ),
-                                    )
-                                ]
-                                + sub_checks,
-                                orelse=[],
-                            )
-                        ],
-                        orelse=[],
-                    )
-            elif sample_pct == "bookend_plus":
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_bookend_plus",
-                            _cpp.validate_tuple_bookend_plus,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_bookend_plus_u",
-                            _cpp.validate_tuple_bookend_plus_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    fn_globals["_randrange"] = random.randrange
-                    content_check = ast.If(
-                        test=var_expr,
-                        body=[
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(id=loop_var_id, ctx=ast.Store())
-                                ],
-                                value=ast.Subscript(
-                                    value=var_expr,
-                                    slice=ast.Constant(value=0),
-                                    ctx=ast.Load(),
-                                ),
-                            )
-                        ]
-                        + sub_checks
-                        + [
-                            ast.If(
-                                test=ast.Compare(
-                                    left=ast.Call(
-                                        func=ast.Name(id="len", ctx=ast.Load()),
-                                        args=[var_expr],
-                                        keywords=[],
-                                    ),
-                                    ops=[ast.Gt()],
-                                    comparators=[ast.Constant(value=1)],
-                                ),
-                                body=[
-                                    ast.Assign(
-                                        targets=[
-                                            ast.Name(
-                                                id=loop_var_id, ctx=ast.Store()
-                                            )
-                                        ],
-                                        value=ast.Subscript(
-                                            value=var_expr,
-                                            slice=ast.Constant(value=-1),
-                                            ctx=ast.Load(),
-                                        ),
-                                    )
-                                ]
-                                + sub_checks
-                                + [
-                                    ast.If(
-                                        test=ast.Compare(
-                                            left=ast.Call(
-                                                func=ast.Name(
-                                                    id="len", ctx=ast.Load()
-                                                ),
-                                                args=[var_expr],
-                                                keywords=[],
-                                            ),
-                                            ops=[ast.Gt()],
-                                            comparators=[ast.Constant(value=2)],
-                                        ),
-                                        body=[
-                                            ast.Assign(
-                                                targets=[
-                                                    ast.Name(
-                                                        id=loop_var_id,
-                                                        ctx=ast.Store(),
-                                                    )
-                                                ],
-                                                value=ast.Subscript(
-                                                    value=var_expr,
-                                                    slice=ast.Call(
-                                                        func=ast.Name(
-                                                            id="_randrange",
-                                                            ctx=ast.Load(),
-                                                        ),
-                                                        args=[
-                                                            ast.Constant(
-                                                                value=1
-                                                            ),
-                                                            ast.BinOp(
-                                                                left=ast.Call(
-                                                                    func=ast.Name(
-                                                                        id="len",
-                                                                        ctx=ast.Load(),
-                                                                    ),
-                                                                    args=[
-                                                                        var_expr
-                                                                    ],
-                                                                    keywords=[],
-                                                                ),
-                                                                op=ast.Sub(),
-                                                                right=ast.Constant(
-                                                                    value=1
-                                                                ),
-                                                            ),
-                                                        ],
-                                                        keywords=[],
-                                                    ),
-                                                    ctx=ast.Load(),
-                                                ),
-                                            )
-                                        ]
-                                        + sub_checks,
-                                        orelse=[],
-                                    )
-                                ],
-                                orelse=[],
-                            )
-                        ],
-                        orelse=[],
-                    )
-            elif sample_pct == 0:
-                content_check = ast.If(
-                    test=var_expr,
-                    body=[
-                        ast.Assign(
-                            targets=[ast.Name(id=loop_var_id, ctx=ast.Store())],
-                            value=ast.Call(
-                                func=ast.Name(id="_choice", ctx=ast.Load()),
-                                args=[var_expr],
-                                keywords=[],
-                            ),
-                        )
-                    ]
-                    + sub_checks,
-                    orelse=[],
-                )
-            elif sample_pct == 100:
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_s",
-                            _cpp.validate_tuple_single,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_u",
-                            _cpp.validate_tuple_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                elif elem_is_simple:
-                    if len(sub_exp) == 1:
-                        sub_checks_fast = generate_type_check_ast(
-                            loop_var_expr,
-                            sub_exp,
-                            loop_fail,
-                            fn_globals,
-                            f"{prefix}_el",
-                            sample_pct,
-                            is_loop=True,
-                            use_local_t0=True,
-                        )
-                        assign_locs = [
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(
-                                        id=f"__loc_{prefix}_el_t0",
-                                        ctx=ast.Store(),
-                                    )
-                                ],
-                                value=ast.Name(
-                                    id=f"{prefix}_el_t0", ctx=ast.Load()
-                                ),
-                            ),
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(
-                                        id=f"__loc_{prefix}_el_types",
-                                        ctx=ast.Store(),
-                                    )
-                                ],
-                                value=ast.Name(
-                                    id=f"{prefix}_el_types", ctx=ast.Load()
-                                ),
-                            ),
-                        ]
-                        for_loop = ast.For(
-                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                            iter=var_expr,
-                            body=sub_checks_fast,
-                            orelse=[],
-                        )
-                        content_check = assign_locs + [for_loop]
-                    else:
-                        content_check = _emit_set_superset_fallback(
-                            var_expr,
-                            sub_exp,
-                            loop_var_id,
-                            sub_checks,
-                            fail_stmt,
-                            prefix,
-                            fn_globals,
-                        )
-                else:
-                    content_check = [
-                        ast.For(
-                            target=ast.Name(id=loop_var_id, ctx=ast.Store()),
-                            iter=var_expr,
-                            body=sub_checks,
-                            orelse=[],
-                        )
-                    ]
-            else:
-                count_expr = _calc_sample_count_ast(
-                    var_expr, sample_pct, prefix, fn_globals
-                )
-                if _cpp is not None and elem_is_simple:
-                    if len(sub_exp) == 1:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_samp",
-                            _cpp.validate_tuple_sample,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_t0", tuple(sub_exp.keys())[0]),
-                                (None, count_expr),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                    else:
-                        content_check = _emit_cpp_call(
-                            "_cpp_val_tup_samp_u",
-                            _cpp.validate_tuple_sample_union,
-                            [
-                                (None, var_expr),
-                                (f"{prefix}_el_types", tuple(sub_exp.keys())),
-                                (None, count_expr),
-                            ],
-                            fail_stmt,
-                            fn_globals,
-                        )
-                else:
-                    content_check = _emit_strided_sequence_check(
-                        var_expr, loop_var_id, sub_checks, count_expr, prefix
-                    )
-
             return [outer_type_guard] + (
                 content_check
                 if isinstance(content_check, list)
@@ -3224,31 +1546,6 @@ def generate_type_check_ast(
             outer_type_guard = ast.If(
                 test=outer_test, body=[fail_stmt], orelse=[]
             )
-
-            if (
-                _cpp is not None
-                and expected_len > 4
-                and all(
-                    is_simple_type(item_exp) and len(item_exp) == 1
-                    for item_exp in elem_exps
-                )
-            ):
-                return _emit_cpp_call(
-                    "_cpp_val_tup_f",
-                    _cpp.validate_tuple_fixed,
-                    [
-                        (None, var_expr),
-                        (
-                            f"{prefix}_tup_types",
-                            tuple(
-                                tuple(item_exp.keys())[0]
-                                for item_exp in elem_exps
-                            ),
-                        ),
-                    ],
-                    fail_stmt,
-                    fn_globals,
-                )
 
             elem_checks = []
             for j, item_exp in enumerate(elem_exps):
@@ -3321,8 +1618,8 @@ def build_specialized_call(
         "reversed": reversed,
         "int": int,
         "max": max,
-        "_choice": random.choice,
-        "_random_dict_key": _random_dict_key,
+        "_choice": _choice,
+        "_fast_quasi_rand": _fast_quasi_rand,
         "_random_set_item": _random_set_item,
         "_log_count": _log_count,
         "_get_sample_indices": get_sample_indices_fn,
