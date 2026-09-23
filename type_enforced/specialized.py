@@ -1,4 +1,6 @@
 import ast
+import inspect
+import textwrap
 import types
 from itertools import islice
 from typing import Type
@@ -355,6 +357,42 @@ def _generate_scalar_check(
                     left=var_class,
                     ops=[ast.IsNot()],
                     comparators=[ast.Name(id=t1_name, ctx=ast.Load())],
+                ),
+                ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Call(
+                        func=ast.Name(id="isinstance", ctx=ast.Load()),
+                        args=[
+                            var_expr,
+                            ast.Name(id=types_name, ctx=ast.Load()),
+                        ],
+                        keywords=[],
+                    ),
+                ),
+            ],
+        )
+    elif len(tt) == 3:
+        fn_globals[f"{prefix}_t1"] = tt[1]
+        fn_globals[f"{prefix}_t2"] = tt[2]
+        t1_name = f"__loc_{prefix}_t1" if is_loop else f"{prefix}_t1"
+        t2_name = f"__loc_{prefix}_t2" if is_loop else f"{prefix}_t2"
+        test = ast.BoolOp(
+            op=ast.And(),
+            values=[
+                ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=t0_name, ctx=ast.Load())],
+                ),
+                ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=t1_name, ctx=ast.Load())],
+                ),
+                ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=t2_name, ctx=ast.Load())],
                 ),
                 ast.UnaryOp(
                     op=ast.Not(),
@@ -2040,3 +2078,958 @@ def build_specialized_call(
         call_method.__kwdefaults__ = kwdefaults
 
     return call_method
+
+
+class _ReturnTransformer(ast.NodeTransformer):
+    def __init__(self, make_ret_check):
+        self.make_ret_check = make_ret_check
+
+    def visit_FunctionDef(self, node):
+        return node
+
+    def visit_AsyncFunctionDef(self, node):
+        return node
+
+    def visit_Lambda(self, node):
+        return node
+
+    def visit_Return(self, node):
+        val_expr = (
+            node.value if node.value is not None else ast.Constant(value=None)
+        )
+        checks = self.make_ret_check(val_expr)
+        if not checks:
+            return node
+        if isinstance(val_expr, (ast.Name, ast.Constant)):
+            stmts = list(checks)
+            stmts.append(ast.Return(value=val_expr))
+        else:
+            res_var = ast.Name(id="__enf_res__", ctx=ast.Load())
+            stmts = [
+                ast.Assign(
+                    targets=[ast.Name(id="__enf_res__", ctx=ast.Store())],
+                    value=val_expr,
+                )
+            ]
+            stmts.extend(self.make_ret_check(res_var))
+            stmts.append(ast.Return(value=res_var))
+        for s in stmts:
+            ast.copy_location(s, node)
+        return stmts
+
+
+def _transform_body_returns(body, make_ret_check):
+    transformer = _ReturnTransformer(make_ret_check)
+    new_body = []
+    for stmt in body:
+        res = transformer.visit(stmt)
+        if isinstance(res, list):
+            new_body.extend(res)
+        elif res is not None:
+            new_body.append(res)
+    return new_body
+
+
+def build_inlined_code(enforcer, fn):
+    """
+    Attempts to compile an inlined single-frame specialized code object for fn.
+    Returns the compiled code object if successful, or None if inlining is not possible
+    (e.g. source unavailable, complex containers, or dynamic types requiring C++ validation).
+    """
+    if not isinstance(fn, types.FunctionType):
+        return None
+
+    if fn.__code__.co_freevars:
+        return None
+
+    if inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn):
+        return None
+
+    try:
+        src = inspect.getsource(fn)
+    except (OSError, TypeError):
+        return None
+
+    src = textwrap.dedent(src)
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return None
+
+    if not tree.body or not isinstance(
+        tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef)
+    ):
+        return None
+
+    func_def = tree.body[0]
+    func_def.decorator_list = []
+
+    enforcer.__get_checkable_types__()
+    checkable = enforcer.__checkable_types__
+    ret_exp = enforcer.__return_type__
+
+    fn_globals = fn.__globals__
+    ns = {}
+    ns["type"] = type
+    ns["isinstance"] = isinstance
+    ns["callable"] = callable
+    prefix = f"__enf_{func_def.name}_{id(enforcer)}"
+    ns[f"{prefix}_check_fn"] = enforcer.__check_type__
+
+    check_stmts = []
+
+    co = fn.__code__
+    if co.co_flags & (0x04 | 0x08):
+        return None
+    total_args = co.co_argcount + co.co_kwonlyargcount
+    if total_args > 3:
+        return None
+    param_names = list(co.co_varnames[:total_args])
+    first_p = param_names[0] if param_names else None
+
+    for p in param_names:
+        if p in ("self", "cls") and p not in checkable:
+            continue
+        exp = checkable.get(p)
+        if exp is None:
+            continue
+
+        var_name = ast.Name(id=p, ctx=ast.Load())
+        fail_call = ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id=f"{prefix}_check_fn", ctx=ast.Load()),
+                args=[
+                    var_name,
+                    ast.Name(id=f"{prefix}_exp_{p}", ctx=ast.Load()),
+                    ast.Constant(value=p),
+                ],
+                keywords=[],
+            )
+        )
+        ns[f"{prefix}_exp_{p}"] = exp
+
+        if is_simple_type(exp):
+            types_tuple = tuple(exp.keys())
+            if _cpp is not None and len(types_tuple) > 1:
+                return None
+            if len(types_tuple) == 1:
+                t0 = types_tuple[0]
+                ns[f"{prefix}_t0_{p}"] = t0
+                var_class = ast.Attribute(
+                    value=var_name, attr="__class__", ctx=ast.Load()
+                )
+                chk = ast.If(
+                    test=ast.Compare(
+                        left=var_class,
+                        ops=[ast.IsNot()],
+                        comparators=[
+                            ast.Name(id=f"{prefix}_t0_{p}", ctx=ast.Load())
+                        ],
+                    ),
+                    body=[
+                        ast.If(
+                            test=ast.UnaryOp(
+                                op=ast.Not(),
+                                operand=ast.Call(
+                                    func=ast.Name(
+                                        id="isinstance", ctx=ast.Load()
+                                    ),
+                                    args=[
+                                        var_name,
+                                        ast.Name(
+                                            id=f"{prefix}_t0_{p}",
+                                            ctx=ast.Load(),
+                                        ),
+                                    ],
+                                    keywords=[],
+                                ),
+                            ),
+                            body=[fail_call],
+                            orelse=[],
+                        )
+                    ],
+                    orelse=[],
+                )
+            elif len(types_tuple) == 2:
+                t0 = types_tuple[0]
+                t1 = types_tuple[1]
+                ns[f"{prefix}_t0_{p}"] = t0
+                ns[f"{prefix}_t1_{p}"] = t1
+                ns[f"{prefix}_types_{p}"] = types_tuple
+                var_class = ast.Attribute(
+                    value=var_name, attr="__class__", ctx=ast.Load()
+                )
+                chk = ast.If(
+                    test=ast.BoolOp(
+                        op=ast.And(),
+                        values=[
+                            ast.Compare(
+                                left=var_class,
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_t0_{p}", ctx=ast.Load()
+                                    )
+                                ],
+                            ),
+                            ast.Compare(
+                                left=var_class,
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_t1_{p}", ctx=ast.Load()
+                                    )
+                                ],
+                            ),
+                        ],
+                    ),
+                    body=[
+                        ast.If(
+                            test=ast.UnaryOp(
+                                op=ast.Not(),
+                                operand=ast.Call(
+                                    func=ast.Name(
+                                        id="isinstance", ctx=ast.Load()
+                                    ),
+                                    args=[
+                                        var_name,
+                                        ast.Name(
+                                            id=f"{prefix}_types_{p}",
+                                            ctx=ast.Load(),
+                                        ),
+                                    ],
+                                    keywords=[],
+                                ),
+                            ),
+                            body=[fail_call],
+                            orelse=[],
+                        )
+                    ],
+                    orelse=[],
+                )
+            elif len(types_tuple) == 3:
+                t0 = types_tuple[0]
+                t1 = types_tuple[1]
+                t2 = types_tuple[2]
+                ns[f"{prefix}_t0_{p}"] = t0
+                ns[f"{prefix}_t1_{p}"] = t1
+                ns[f"{prefix}_t2_{p}"] = t2
+                ns[f"{prefix}_types_{p}"] = types_tuple
+                var_class = ast.Attribute(
+                    value=var_name, attr="__class__", ctx=ast.Load()
+                )
+                chk = ast.If(
+                    test=ast.BoolOp(
+                        op=ast.And(),
+                        values=[
+                            ast.Compare(
+                                left=var_class,
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_t0_{p}", ctx=ast.Load()
+                                    )
+                                ],
+                            ),
+                            ast.Compare(
+                                left=var_class,
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_t1_{p}", ctx=ast.Load()
+                                    )
+                                ],
+                            ),
+                            ast.Compare(
+                                left=var_class,
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_t2_{p}", ctx=ast.Load()
+                                    )
+                                ],
+                            ),
+                        ],
+                    ),
+                    body=[
+                        ast.If(
+                            test=ast.UnaryOp(
+                                op=ast.Not(),
+                                operand=ast.Call(
+                                    func=ast.Name(
+                                        id="isinstance", ctx=ast.Load()
+                                    ),
+                                    args=[
+                                        var_name,
+                                        ast.Name(
+                                            id=f"{prefix}_types_{p}",
+                                            ctx=ast.Load(),
+                                        ),
+                                    ],
+                                    keywords=[],
+                                ),
+                            ),
+                            body=[fail_call],
+                            orelse=[],
+                        )
+                    ],
+                    orelse=[],
+                )
+            else:
+                ns[f"{prefix}_types_set_{p}"] = frozenset(types_tuple)
+                ns[f"{prefix}_types_tuple_{p}"] = types_tuple
+                type_call = ast.Call(
+                    func=ast.Name(id="type", ctx=ast.Load()),
+                    args=[var_name],
+                    keywords=[],
+                )
+                chk = ast.If(
+                    test=ast.Compare(
+                        left=type_call,
+                        ops=[ast.NotIn()],
+                        comparators=[
+                            ast.Name(
+                                id=f"{prefix}_types_set_{p}", ctx=ast.Load()
+                            )
+                        ],
+                    ),
+                    body=[
+                        ast.If(
+                            test=ast.UnaryOp(
+                                op=ast.Not(),
+                                operand=ast.Call(
+                                    func=ast.Name(
+                                        id="isinstance", ctx=ast.Load()
+                                    ),
+                                    args=[
+                                        var_name,
+                                        ast.Name(
+                                            id=f"{prefix}_types_tuple_{p}",
+                                            ctx=ast.Load(),
+                                        ),
+                                    ],
+                                    keywords=[],
+                                ),
+                            ),
+                            body=[fail_call],
+                            orelse=[],
+                        )
+                    ],
+                    orelse=[],
+                )
+            check_stmts.append(chk)
+        elif is_uninitialized_class_type(exp):
+            target_classes = []
+            has_bare_type = False
+            for k in exp.keys():
+                if k in (type, Type):
+                    has_bare_type = True
+                elif getattr(k, "__origin__", None) in (type, Type):
+                    args = getattr(k, "__args__", ())
+                    if args:
+                        target_classes.extend(args)
+                    else:
+                        has_bare_type = True
+                elif isinstance(k, type):
+                    target_classes.append(k)
+
+            if _cpp is not None and (
+                not has_bare_type and len(target_classes) > 1
+            ):
+                return None
+
+            if has_bare_type or object in target_classes:
+                chk = ast.If(
+                    test=ast.UnaryOp(
+                        op=ast.Not(),
+                        operand=ast.Call(
+                            func=ast.Name(id="isinstance", ctx=ast.Load()),
+                            args=[
+                                var_name,
+                                ast.Name(id="type", ctx=ast.Load()),
+                            ],
+                            keywords=[],
+                        ),
+                    ),
+                    body=[fail_call],
+                    orelse=[],
+                )
+            elif len(target_classes) == 1:
+                ns[f"{prefix}_tgt_cls_{p}"] = target_classes[0]
+                chk = ast.If(
+                    test=ast.Compare(
+                        left=var_name,
+                        ops=[ast.IsNot()],
+                        comparators=[
+                            ast.Name(id=f"{prefix}_tgt_cls_{p}", ctx=ast.Load())
+                        ],
+                    ),
+                    body=[fail_call],
+                    orelse=[],
+                )
+            else:
+                ns[f"{prefix}_tgt_classes_{p}"] = tuple(target_classes)
+                chk = ast.If(
+                    test=ast.Compare(
+                        left=var_name,
+                        ops=[ast.NotIn()],
+                        comparators=[
+                            ast.Name(
+                                id=f"{prefix}_tgt_classes_{p}", ctx=ast.Load()
+                            )
+                        ],
+                    ),
+                    body=[fail_call],
+                    orelse=[],
+                )
+            check_stmts.append(chk)
+        elif is_callable_type(exp):
+            chk = ast.If(
+                test=ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Call(
+                        func=ast.Name(id="callable", ctx=ast.Load()),
+                        args=[var_name],
+                        keywords=[],
+                    ),
+                ),
+                body=[fail_call],
+                orelse=[],
+            )
+            check_stmts.append(chk)
+        elif is_self_type(exp):
+            if p == first_p:
+                continue
+            target_cls = getattr(enforcer, "__self_type__", None)
+            if target_cls is not None:
+                ns[f"{prefix}_self_cls_{p}"] = target_cls
+                cls_expr = ast.Name(id=f"{prefix}_self_cls_{p}", ctx=ast.Load())
+            elif first_p:
+                cls_expr = ast.Attribute(
+                    value=ast.Name(id=first_p, ctx=ast.Load()),
+                    attr="__class__",
+                    ctx=ast.Load(),
+                )
+            else:
+                return None
+            var_class = ast.Attribute(
+                value=var_name, attr="__class__", ctx=ast.Load()
+            )
+            chk = ast.If(
+                test=ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[cls_expr],
+                ),
+                body=[
+                    ast.If(
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=ast.Call(
+                                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                                args=[var_name, cls_expr],
+                                keywords=[],
+                            ),
+                        ),
+                        body=[fail_call],
+                        orelse=[],
+                    )
+                ],
+                orelse=[],
+            )
+            check_stmts.append(chk)
+        else:
+            return None
+
+    if ret_exp is not None:
+        ns[f"{prefix}_ret_exp"] = ret_exp
+
+        def make_fail_ret(res_expr):
+            return ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id=f"{prefix}_check_fn", ctx=ast.Load()),
+                    args=[
+                        res_expr,
+                        ast.Name(id=f"{prefix}_ret_exp", ctx=ast.Load()),
+                        ast.Constant(value="return"),
+                    ],
+                    keywords=[],
+                )
+            )
+
+        if (
+            len(ret_exp) == 1
+            and type(None) in ret_exp
+            and ret_exp[type(None)] is None
+        ):
+
+            def make_ret_check(res_expr):
+                if (
+                    res_expr is None
+                    or (
+                        isinstance(res_expr, ast.Constant)
+                        and res_expr.value is None
+                    )
+                    or (
+                        isinstance(res_expr, ast.Name) and res_expr.id == "None"
+                    )
+                ):
+                    return []
+                if isinstance(res_expr, ast.Constant):
+                    return [make_fail_ret(res_expr)]
+                return [
+                    ast.If(
+                        test=ast.Compare(
+                            left=res_expr,
+                            ops=[ast.IsNot()],
+                            comparators=[ast.Constant(value=None)],
+                        ),
+                        body=[make_fail_ret(res_expr)],
+                        orelse=[],
+                    )
+                ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_self_type(ret_exp) and first_p:
+
+            def make_ret_check(res_expr):
+                if isinstance(res_expr, ast.Name) and res_expr.id == first_p:
+                    return []
+                if isinstance(res_expr, ast.Constant):
+                    return [make_fail_ret(res_expr)]
+                target_cls = getattr(enforcer, "__self_type__", None)
+                if target_cls is not None:
+                    ns[f"{prefix}_ret_self_cls"] = target_cls
+                    cls_expr = ast.Name(
+                        id=f"{prefix}_ret_self_cls", ctx=ast.Load()
+                    )
+                else:
+                    cls_expr = ast.Attribute(
+                        value=ast.Name(id=first_p, ctx=ast.Load()),
+                        attr="__class__",
+                        ctx=ast.Load(),
+                    )
+                ret_var_class = ast.Attribute(
+                    value=res_expr, attr="__class__", ctx=ast.Load()
+                )
+                return [
+                    ast.If(
+                        test=ast.Compare(
+                            left=ret_var_class,
+                            ops=[ast.IsNot()],
+                            comparators=[cls_expr],
+                        ),
+                        body=[
+                            ast.If(
+                                test=ast.UnaryOp(
+                                    op=ast.Not(),
+                                    operand=ast.Call(
+                                        func=ast.Name(
+                                            id="isinstance", ctx=ast.Load()
+                                        ),
+                                        args=[res_expr, cls_expr],
+                                        keywords=[],
+                                    ),
+                                ),
+                                body=[make_fail_ret(res_expr)],
+                                orelse=[],
+                            )
+                        ],
+                        orelse=[],
+                    )
+                ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_simple_type(ret_exp):
+            ret_types_tuple = tuple(ret_exp.keys())
+            if _cpp is not None and len(ret_types_tuple) > 1:
+                return None
+            if len(ret_types_tuple) == 1:
+                ns[f"{prefix}_ret_t0"] = ret_types_tuple[0]
+
+                def make_ret_check(res_expr):
+                    if isinstance(res_expr, ast.Constant):
+                        if type(res_expr.value) in ret_types_tuple:
+                            return []
+                        return [make_fail_ret(res_expr)]
+                    ret_var_class = ast.Attribute(
+                        value=res_expr, attr="__class__", ctx=ast.Load()
+                    )
+                    return [
+                        ast.If(
+                            test=ast.Compare(
+                                left=ret_var_class,
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_ret_t0", ctx=ast.Load()
+                                    )
+                                ],
+                            ),
+                            body=[
+                                ast.If(
+                                    test=ast.UnaryOp(
+                                        op=ast.Not(),
+                                        operand=ast.Call(
+                                            func=ast.Name(
+                                                id="isinstance", ctx=ast.Load()
+                                            ),
+                                            args=[
+                                                res_expr,
+                                                ast.Name(
+                                                    id=f"{prefix}_ret_t0",
+                                                    ctx=ast.Load(),
+                                                ),
+                                            ],
+                                            keywords=[],
+                                        ),
+                                    ),
+                                    body=[make_fail_ret(res_expr)],
+                                    orelse=[],
+                                )
+                            ],
+                            orelse=[],
+                        )
+                    ]
+
+            elif len(ret_types_tuple) == 2:
+                ns[f"{prefix}_ret_t0"] = ret_types_tuple[0]
+                ns[f"{prefix}_ret_t1"] = ret_types_tuple[1]
+                ns[f"{prefix}_ret_types"] = ret_types_tuple
+
+                def make_ret_check(res_expr):
+                    if isinstance(res_expr, ast.Constant):
+                        if type(res_expr.value) in ret_types_tuple:
+                            return []
+                        return [make_fail_ret(res_expr)]
+                    ret_var_class = ast.Attribute(
+                        value=res_expr, attr="__class__", ctx=ast.Load()
+                    )
+                    return [
+                        ast.If(
+                            test=ast.BoolOp(
+                                op=ast.And(),
+                                values=[
+                                    ast.Compare(
+                                        left=ret_var_class,
+                                        ops=[ast.IsNot()],
+                                        comparators=[
+                                            ast.Name(
+                                                id=f"{prefix}_ret_t0",
+                                                ctx=ast.Load(),
+                                            )
+                                        ],
+                                    ),
+                                    ast.Compare(
+                                        left=ret_var_class,
+                                        ops=[ast.IsNot()],
+                                        comparators=[
+                                            ast.Name(
+                                                id=f"{prefix}_ret_t1",
+                                                ctx=ast.Load(),
+                                            )
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            body=[
+                                ast.If(
+                                    test=ast.UnaryOp(
+                                        op=ast.Not(),
+                                        operand=ast.Call(
+                                            func=ast.Name(
+                                                id="isinstance", ctx=ast.Load()
+                                            ),
+                                            args=[
+                                                res_expr,
+                                                ast.Name(
+                                                    id=f"{prefix}_ret_types",
+                                                    ctx=ast.Load(),
+                                                ),
+                                            ],
+                                            keywords=[],
+                                        ),
+                                    ),
+                                    body=[make_fail_ret(res_expr)],
+                                    orelse=[],
+                                )
+                            ],
+                            orelse=[],
+                        )
+                    ]
+
+            elif len(ret_types_tuple) == 3:
+                ns[f"{prefix}_ret_t0"] = ret_types_tuple[0]
+                ns[f"{prefix}_ret_t1"] = ret_types_tuple[1]
+                ns[f"{prefix}_ret_t2"] = ret_types_tuple[2]
+                ns[f"{prefix}_ret_types"] = ret_types_tuple
+
+                def make_ret_check(res_expr):
+                    if isinstance(res_expr, ast.Constant):
+                        if type(res_expr.value) in ret_types_tuple:
+                            return []
+                        return [make_fail_ret(res_expr)]
+                    ret_var_class = ast.Attribute(
+                        value=res_expr, attr="__class__", ctx=ast.Load()
+                    )
+                    return [
+                        ast.If(
+                            test=ast.BoolOp(
+                                op=ast.And(),
+                                values=[
+                                    ast.Compare(
+                                        left=ret_var_class,
+                                        ops=[ast.IsNot()],
+                                        comparators=[
+                                            ast.Name(
+                                                id=f"{prefix}_ret_t0",
+                                                ctx=ast.Load(),
+                                            )
+                                        ],
+                                    ),
+                                    ast.Compare(
+                                        left=ret_var_class,
+                                        ops=[ast.IsNot()],
+                                        comparators=[
+                                            ast.Name(
+                                                id=f"{prefix}_ret_t1",
+                                                ctx=ast.Load(),
+                                            )
+                                        ],
+                                    ),
+                                    ast.Compare(
+                                        left=ret_var_class,
+                                        ops=[ast.IsNot()],
+                                        comparators=[
+                                            ast.Name(
+                                                id=f"{prefix}_ret_t2",
+                                                ctx=ast.Load(),
+                                            )
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            body=[
+                                ast.If(
+                                    test=ast.UnaryOp(
+                                        op=ast.Not(),
+                                        operand=ast.Call(
+                                            func=ast.Name(
+                                                id="isinstance", ctx=ast.Load()
+                                            ),
+                                            args=[
+                                                res_expr,
+                                                ast.Name(
+                                                    id=f"{prefix}_ret_types",
+                                                    ctx=ast.Load(),
+                                                ),
+                                            ],
+                                            keywords=[],
+                                        ),
+                                    ),
+                                    body=[make_fail_ret(res_expr)],
+                                    orelse=[],
+                                )
+                            ],
+                            orelse=[],
+                        )
+                    ]
+
+            else:
+                ns[f"{prefix}_ret_types_set"] = frozenset(ret_types_tuple)
+                ns[f"{prefix}_ret_types_tuple"] = ret_types_tuple
+
+                def make_ret_check(res_expr):
+                    if isinstance(res_expr, ast.Constant):
+                        if type(res_expr.value) in ret_types_tuple:
+                            return []
+                        return [make_fail_ret(res_expr)]
+                    type_call = ast.Call(
+                        func=ast.Name(id="type", ctx=ast.Load()),
+                        args=[res_expr],
+                        keywords=[],
+                    )
+                    return [
+                        ast.If(
+                            test=ast.Compare(
+                                left=type_call,
+                                ops=[ast.NotIn()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_ret_types_set",
+                                        ctx=ast.Load(),
+                                    )
+                                ],
+                            ),
+                            body=[
+                                ast.If(
+                                    test=ast.UnaryOp(
+                                        op=ast.Not(),
+                                        operand=ast.Call(
+                                            func=ast.Name(
+                                                id="isinstance", ctx=ast.Load()
+                                            ),
+                                            args=[
+                                                res_expr,
+                                                ast.Name(
+                                                    id=f"{prefix}_ret_types_tuple",
+                                                    ctx=ast.Load(),
+                                                ),
+                                            ],
+                                            keywords=[],
+                                        ),
+                                    ),
+                                    body=[make_fail_ret(res_expr)],
+                                    orelse=[],
+                                )
+                            ],
+                            orelse=[],
+                        )
+                    ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_uninitialized_class_type(ret_exp):
+            target_classes = []
+            has_bare_type = False
+            for k in ret_exp.keys():
+                if k in (type, Type):
+                    has_bare_type = True
+                elif getattr(k, "__origin__", None) in (type, Type):
+                    args = getattr(k, "__args__", ())
+                    if args:
+                        target_classes.extend(args)
+                    else:
+                        has_bare_type = True
+                elif isinstance(k, type):
+                    target_classes.append(k)
+
+            if _cpp is not None and (
+                not has_bare_type and len(target_classes) > 1
+            ):
+                return None
+
+            if has_bare_type or object in target_classes:
+
+                def make_ret_check(res_expr):
+                    if isinstance(res_expr, ast.Constant):
+                        if isinstance(res_expr.value, type):
+                            return []
+                        return [make_fail_ret(res_expr)]
+                    return [
+                        ast.If(
+                            test=ast.UnaryOp(
+                                op=ast.Not(),
+                                operand=ast.Call(
+                                    func=ast.Name(
+                                        id="isinstance", ctx=ast.Load()
+                                    ),
+                                    args=[
+                                        res_expr,
+                                        ast.Name(id="type", ctx=ast.Load()),
+                                    ],
+                                    keywords=[],
+                                ),
+                            ),
+                            body=[make_fail_ret(res_expr)],
+                            orelse=[],
+                        )
+                    ]
+
+            elif len(target_classes) == 1:
+                ns[f"{prefix}_ret_tgt_cls"] = target_classes[0]
+
+                def make_ret_check(res_expr):
+                    if isinstance(res_expr, ast.Constant):
+                        if res_expr.value == target_classes[0]:
+                            return []
+                        return [make_fail_ret(res_expr)]
+                    return [
+                        ast.If(
+                            test=ast.Compare(
+                                left=res_expr,
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_ret_tgt_cls",
+                                        ctx=ast.Load(),
+                                    )
+                                ],
+                            ),
+                            body=[make_fail_ret(res_expr)],
+                            orelse=[],
+                        )
+                    ]
+
+            else:
+                ns[f"{prefix}_ret_tgt_classes"] = tuple(target_classes)
+
+                def make_ret_check(res_expr):
+                    if isinstance(res_expr, ast.Constant):
+                        if res_expr.value in target_classes:
+                            return []
+                        return [make_fail_ret(res_expr)]
+                    return [
+                        ast.If(
+                            test=ast.Compare(
+                                left=res_expr,
+                                ops=[ast.NotIn()],
+                                comparators=[
+                                    ast.Name(
+                                        id=f"{prefix}_ret_tgt_classes",
+                                        ctx=ast.Load(),
+                                    )
+                                ],
+                            ),
+                            body=[make_fail_ret(res_expr)],
+                            orelse=[],
+                        )
+                    ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_callable_type(ret_exp):
+
+            def make_ret_check(res_expr):
+                if isinstance(res_expr, ast.Constant):
+                    if callable(res_expr.value):
+                        return []
+                    return [make_fail_ret(res_expr)]
+                return [
+                    ast.If(
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=ast.Call(
+                                func=ast.Name(id="callable", ctx=ast.Load()),
+                                args=[res_expr],
+                                keywords=[],
+                            ),
+                        ),
+                        body=[make_fail_ret(res_expr)],
+                        orelse=[],
+                    )
+                ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        else:
+            return None
+
+    func_def.body = check_stmts + func_def.body
+    tree = ast.fix_missing_locations(tree)
+    code_mod = compile(tree, fn.__code__.co_filename, "exec")
+    compiled_code = [
+        c
+        for c in code_mod.co_consts
+        if isinstance(c, types.CodeType) and c.co_name == func_def.name
+    ][0]
+
+    fn_globals.update(ns)
+    return compiled_code

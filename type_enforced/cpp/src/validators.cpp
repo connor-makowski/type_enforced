@@ -4,6 +4,8 @@
 #include <string>
 #include <cstdlib>
 
+extern "C" int _PySet_NextEntry(PyObject *set, Py_ssize_t *pos, PyObject **key, Py_hash_t *hash);
+
 namespace type_enforced {
 
 static inline bool check_item_union(PyObject* item, PyTypeObject* const* exp_types, size_t num_types) {
@@ -65,15 +67,39 @@ struct UnionTypeValidatorNode : public TypeValidatorNode {
 
 struct ComplexUnionValidatorNode : public TypeValidatorNode {
     std::vector<std::shared_ptr<TypeValidatorNode>> branches;
+    std::vector<TypeValidatorNode*> raw_branches;
     explicit ComplexUnionValidatorNode(std::vector<std::shared_ptr<TypeValidatorNode>> bs)
-        : TypeValidatorNode(NodeKind::COMPLEX_UNION), branches(std::move(bs)) {}
+        : TypeValidatorNode(NodeKind::COMPLEX_UNION), branches(std::move(bs)) {
+        raw_branches.reserve(branches.size());
+        for (const auto& b : branches) {
+            raw_branches.push_back(b.get());
+        }
+    }
 
     bool validate(PyObject* obj) const noexcept override {
         if (!obj) return false;
-        for (const auto& b : branches) {
+        for (auto* b : raw_branches) {
             if (b->validate(obj)) return true;
         }
         return false;
+    }
+};
+
+struct CallableValidatorNode : public TypeValidatorNode {
+    CallableValidatorNode() : TypeValidatorNode(NodeKind::CALLABLE) {}
+    bool validate(PyObject* obj) const noexcept override {
+        return obj && PyCallable_Check(obj) != 0;
+    }
+};
+
+struct UninitializedClassValidatorNode : public TypeValidatorNode {
+    PyTypeObject* target_type;
+    explicit UninitializedClassValidatorNode(PyTypeObject* t)
+        : TypeValidatorNode(NodeKind::UNINITIALIZED_CLASS), target_type(t) {}
+    bool validate(PyObject* obj) const noexcept override {
+        if (!obj || !PyType_Check(obj)) return false;
+        if (!target_type || target_type == (PyTypeObject*)&PyType_Type || target_type == (PyTypeObject*)&PyBaseObject_Type) return true;
+        return obj == (PyObject*)target_type;
     }
 };
 
@@ -81,13 +107,17 @@ struct FastTypeCheck {
     PyTypeObject* single_type = nullptr;
     PyTypeObject* union_t0 = nullptr;
     PyTypeObject* union_t1 = nullptr;
+    PyTypeObject* union_t2 = nullptr;
+    bool is_callable = false;
     std::vector<PyTypeObject*> union_types;
     std::shared_ptr<TypeValidatorNode> validator = nullptr;
+    TypeValidatorNode* raw_validator = nullptr;
 
     FastTypeCheck() = default;
 
     void init(std::shared_ptr<TypeValidatorNode> v) {
         validator = std::move(v);
+        raw_validator = validator.get();
         if (validator) {
             if (validator->kind == NodeKind::SUBCLASS_TYPE) {
                 single_type = static_cast<SubclassTypeValidatorNode*>(validator.get())->expected_type;
@@ -96,15 +126,21 @@ struct FastTypeCheck {
                 if (ts.size() == 2) {
                     union_t0 = ts[0];
                     union_t1 = ts[1];
+                } else if (ts.size() == 3) {
+                    union_t0 = ts[0];
+                    union_t1 = ts[1];
+                    union_t2 = ts[2];
                 } else {
                     union_types = ts;
                 }
+            } else if (validator->kind == NodeKind::CALLABLE) {
+                is_callable = true;
             }
         }
     }
 
     inline bool has_check() const noexcept {
-        return single_type != nullptr || union_t0 != nullptr || !union_types.empty() || validator != nullptr;
+        return single_type != nullptr || union_t0 != nullptr || is_callable || !union_types.empty() || validator != nullptr;
     }
 
     inline bool check(PyObject* obj) const noexcept {
@@ -116,8 +152,15 @@ struct FastTypeCheck {
         }
         if (union_t0) {
             PyTypeObject* t = Py_TYPE(obj);
+            if (union_t2) {
+                if (__builtin_expect(t == union_t0 || t == union_t1 || t == union_t2, 1)) return true;
+                return PyObject_TypeCheck(obj, union_t0) || PyObject_TypeCheck(obj, union_t1) || PyObject_TypeCheck(obj, union_t2);
+            }
             if (__builtin_expect(t == union_t0 || t == union_t1, 1)) return true;
             return PyObject_TypeCheck(obj, union_t0) || PyObject_TypeCheck(obj, union_t1);
+        }
+        if (is_callable) {
+            return PyCallable_Check(obj) != 0;
         }
         if (!union_types.empty()) {
             PyTypeObject* t = Py_TYPE(obj);
@@ -129,13 +172,14 @@ struct FastTypeCheck {
             }
             return false;
         }
-        return validator ? validator->validate(obj) : true;
+        return raw_validator ? raw_validator->validate(obj) : true;
     }
 };
 
 template <bool IsList>
 struct SequenceValidatorNode : public TypeValidatorNode {
     FastTypeCheck elem_check;
+    PyTypeObject* elem_single_type = nullptr;
     SampleStrategy strategy;
     double sample_pct_val;
 
@@ -143,6 +187,7 @@ struct SequenceValidatorNode : public TypeValidatorNode {
         : TypeValidatorNode(IsList ? NodeKind::LIST : NodeKind::VAR_TUPLE),
           strategy(strat), sample_pct_val(val) {
         elem_check.init(std::move(el));
+        elem_single_type = elem_check.single_type;
     }
 
     inline bool check_elem(PyObject* item) const noexcept {
@@ -150,8 +195,8 @@ struct SequenceValidatorNode : public TypeValidatorNode {
     }
 
     inline bool validate_all(PyObject* const* items, Py_ssize_t size) const noexcept {
-        if (elem_check.single_type) {
-            PyTypeObject* single_type = elem_check.single_type;
+        if (elem_single_type) {
+            PyTypeObject* single_type = elem_single_type;
             Py_ssize_t i = 0;
             for (; i + 15 < size; i += 16) {
                 uintptr_t d = ((uintptr_t)Py_TYPE(items[i]) ^ (uintptr_t)single_type)
@@ -196,22 +241,28 @@ struct SequenceValidatorNode : public TypeValidatorNode {
             PyTypeObject* t0 = elem_check.union_t0;
             PyTypeObject* t1 = elem_check.union_t1;
             Py_ssize_t i = 0;
-            for (; i + 3 < size; i += 4) {
+            for (; i + 7 < size; i += 8) {
                 PyTypeObject* it0 = Py_TYPE(items[i]);
                 PyTypeObject* it1 = Py_TYPE(items[i + 1]);
                 PyTypeObject* it2 = Py_TYPE(items[i + 2]);
                 PyTypeObject* it3 = Py_TYPE(items[i + 3]);
-                if (__builtin_expect(it0 != t0 && it0 != t1, 0)) {
-                    if (!PyObject_TypeCheck(items[i], t0) && !PyObject_TypeCheck(items[i], t1)) return false;
-                }
-                if (__builtin_expect(it1 != t0 && it1 != t1, 0)) {
-                    if (!PyObject_TypeCheck(items[i + 1], t0) && !PyObject_TypeCheck(items[i + 1], t1)) return false;
-                }
-                if (__builtin_expect(it2 != t0 && it2 != t1, 0)) {
-                    if (!PyObject_TypeCheck(items[i + 2], t0) && !PyObject_TypeCheck(items[i + 2], t1)) return false;
-                }
-                if (__builtin_expect(it3 != t0 && it3 != t1, 0)) {
-                    if (!PyObject_TypeCheck(items[i + 3], t0) && !PyObject_TypeCheck(items[i + 3], t1)) return false;
+                PyTypeObject* it4 = Py_TYPE(items[i + 4]);
+                PyTypeObject* it5 = Py_TYPE(items[i + 5]);
+                PyTypeObject* it6 = Py_TYPE(items[i + 6]);
+                PyTypeObject* it7 = Py_TYPE(items[i + 7]);
+                uintptr_t mismatch = ((it0 != t0 && it0 != t1) ? 1 : 0)
+                                   | ((it1 != t0 && it1 != t1) ? 1 : 0)
+                                   | ((it2 != t0 && it2 != t1) ? 1 : 0)
+                                   | ((it3 != t0 && it3 != t1) ? 1 : 0)
+                                   | ((it4 != t0 && it4 != t1) ? 1 : 0)
+                                   | ((it5 != t0 && it5 != t1) ? 1 : 0)
+                                   | ((it6 != t0 && it6 != t1) ? 1 : 0)
+                                   | ((it7 != t0 && it7 != t1) ? 1 : 0);
+                if (__builtin_expect(mismatch != 0, 0)) {
+                    for (Py_ssize_t k = i; k < i + 8; ++k) {
+                        PyTypeObject* itk = Py_TYPE(items[k]);
+                        if (itk != t0 && itk != t1 && !PyObject_TypeCheck(items[k], t0) && !PyObject_TypeCheck(items[k], t1)) return false;
+                    }
                 }
             }
             for (; i < size; ++i) {
@@ -288,16 +339,51 @@ struct SequenceValidatorNode : public TypeValidatorNode {
 
     inline bool validate_items(PyObject* const* items, Py_ssize_t size) const noexcept {
         switch (strategy) {
-            case SampleStrategy::FIRST:
+            case SampleStrategy::FIRST: {
+                if (elem_single_type) {
+                    PyObject* item = items[0];
+                    if (__builtin_expect(Py_TYPE(item) == elem_single_type, 1)) return true;
+                    return PyObject_TypeCheck(item, elem_single_type) != 0;
+                }
                 return check_elem(items[0]);
-            case SampleStrategy::LAST:
+            }
+            case SampleStrategy::LAST: {
+                if (elem_single_type) {
+                    PyObject* item = items[size - 1];
+                    if (__builtin_expect(Py_TYPE(item) == elem_single_type, 1)) return true;
+                    return PyObject_TypeCheck(item, elem_single_type) != 0;
+                }
                 return check_elem(items[size - 1]);
+            }
             case SampleStrategy::BOOKEND: {
+                if (elem_single_type) {
+                    PyObject* it0 = items[0];
+                    if (__builtin_expect(Py_TYPE(it0) != elem_single_type, 0) && !PyObject_TypeCheck(it0, elem_single_type)) return false;
+                    if (size > 1) {
+                        PyObject* it1 = items[size - 1];
+                        if (__builtin_expect(Py_TYPE(it1) != elem_single_type, 0) && !PyObject_TypeCheck(it1, elem_single_type)) return false;
+                    }
+                    return true;
+                }
                 if (!check_elem(items[0])) return false;
                 if (size > 1 && !check_elem(items[size - 1])) return false;
                 return true;
             }
             case SampleStrategy::BOOKEND_PLUS: {
+                if (elem_single_type) {
+                    PyObject* it0 = items[0];
+                    if (__builtin_expect(Py_TYPE(it0) != elem_single_type, 0) && !PyObject_TypeCheck(it0, elem_single_type)) return false;
+                    if (size > 1) {
+                        PyObject* it1 = items[size - 1];
+                        if (__builtin_expect(Py_TYPE(it1) != elem_single_type, 0) && !PyObject_TypeCheck(it1, elem_single_type)) return false;
+                    }
+                    if (size > 2) {
+                        size_t mid = 1 + fast_quasi_rand(static_cast<size_t>(size - 2));
+                        PyObject* itm = items[mid];
+                        if (__builtin_expect(Py_TYPE(itm) != elem_single_type, 0) && !PyObject_TypeCheck(itm, elem_single_type)) return false;
+                    }
+                    return true;
+                }
                 if (!check_elem(items[0])) return false;
                 if (size > 1 && !check_elem(items[size - 1])) return false;
                 if (size > 2) {
@@ -308,6 +394,11 @@ struct SequenceValidatorNode : public TypeValidatorNode {
             }
             case SampleStrategy::RANDOM_ONE: {
                 size_t idx = fast_quasi_rand(static_cast<size_t>(size));
+                if (elem_single_type) {
+                    PyObject* item = items[idx];
+                    if (__builtin_expect(Py_TYPE(item) == elem_single_type, 1)) return true;
+                    return PyObject_TypeCheck(item, elem_single_type) != 0;
+                }
                 return check_elem(items[idx]);
             }
             case SampleStrategy::LOG:
@@ -328,6 +419,13 @@ struct SequenceValidatorNode : public TypeValidatorNode {
                 Py_ssize_t step = size / count;
                 if (step < 1) step = 1;
                 Py_ssize_t start = static_cast<Py_ssize_t>(fast_quasi_rand(static_cast<size_t>(step)));
+                if (elem_single_type) {
+                    for (Py_ssize_t i = start; i < size; i += step) {
+                        PyObject* item = items[i];
+                        if (__builtin_expect(Py_TYPE(item) != elem_single_type, 0) && !PyObject_TypeCheck(item, elem_single_type)) return false;
+                    }
+                    return true;
+                }
                 for (Py_ssize_t i = start; i < size; i += step) {
                     if (!check_elem(items[i])) return false;
                 }
@@ -363,6 +461,8 @@ using VariableTupleValidatorNode = SequenceValidatorNode<false>;
 struct DictValidatorNode : public TypeValidatorNode {
     FastTypeCheck key_check;
     FastTypeCheck val_check;
+    PyTypeObject* key_single_type = nullptr;
+    PyTypeObject* val_single_type = nullptr;
     SampleStrategy strategy;
     double sample_pct_val;
 
@@ -371,6 +471,8 @@ struct DictValidatorNode : public TypeValidatorNode {
         : TypeValidatorNode(NodeKind::DICT), strategy(strat), sample_pct_val(pct_val) {
         key_check.init(std::move(k));
         val_check.init(std::move(v));
+        key_single_type = key_check.single_type;
+        val_single_type = val_check.single_type;
     }
 
     inline bool check_pair(PyObject* key, PyObject* val) const noexcept {
@@ -384,16 +486,36 @@ struct DictValidatorNode : public TypeValidatorNode {
 
         switch (strategy) {
             case SampleStrategy::FIRST:
-            case SampleStrategy::LAST: {
+            case SampleStrategy::LAST:
+            case SampleStrategy::RANDOM_ONE: {
                 Py_ssize_t pos = 0;
                 PyObject *key, *value;
                 if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                if (key_single_type && val_single_type) {
+                    if (__builtin_expect(Py_TYPE(key) == key_single_type && Py_TYPE(value) == val_single_type, 1)) return true;
+                    return (Py_TYPE(key) == key_single_type || PyObject_TypeCheck(key, key_single_type)) &&
+                           (Py_TYPE(value) == val_single_type || PyObject_TypeCheck(value, val_single_type));
+                }
                 return check_pair(key, value);
             }
             case SampleStrategy::BOOKEND: {
                 Py_ssize_t pos = 0;
                 PyObject *key, *value;
                 if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                if (key_single_type && val_single_type) {
+                    if (__builtin_expect(Py_TYPE(key) != key_single_type || Py_TYPE(value) != val_single_type, 0)) {
+                        if (!((Py_TYPE(key) == key_single_type || PyObject_TypeCheck(key, key_single_type)) &&
+                              (Py_TYPE(value) == val_single_type || PyObject_TypeCheck(value, val_single_type)))) return false;
+                    }
+                    if (size > 1) {
+                        if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                        if (__builtin_expect(Py_TYPE(key) != key_single_type || Py_TYPE(value) != val_single_type, 0)) {
+                            if (!((Py_TYPE(key) == key_single_type || PyObject_TypeCheck(key, key_single_type)) &&
+                                  (Py_TYPE(value) == val_single_type || PyObject_TypeCheck(value, val_single_type)))) return false;
+                        }
+                    }
+                    return true;
+                }
                 if (!check_pair(key, value)) return false;
                 if (size > 1) {
                     if (!PyDict_Next(obj, &pos, &key, &value)) return true;
@@ -405,6 +527,27 @@ struct DictValidatorNode : public TypeValidatorNode {
                 Py_ssize_t pos = 0;
                 PyObject *key, *value;
                 if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                if (key_single_type && val_single_type) {
+                    if (__builtin_expect(Py_TYPE(key) != key_single_type || Py_TYPE(value) != val_single_type, 0)) {
+                        if (!((Py_TYPE(key) == key_single_type || PyObject_TypeCheck(key, key_single_type)) &&
+                              (Py_TYPE(value) == val_single_type || PyObject_TypeCheck(value, val_single_type)))) return false;
+                    }
+                    if (size > 1) {
+                        if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                        if (__builtin_expect(Py_TYPE(key) != key_single_type || Py_TYPE(value) != val_single_type, 0)) {
+                            if (!((Py_TYPE(key) == key_single_type || PyObject_TypeCheck(key, key_single_type)) &&
+                                  (Py_TYPE(value) == val_single_type || PyObject_TypeCheck(value, val_single_type)))) return false;
+                        }
+                    }
+                    if (size > 2) {
+                        if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                        if (__builtin_expect(Py_TYPE(key) != key_single_type || Py_TYPE(value) != val_single_type, 0)) {
+                            if (!((Py_TYPE(key) == key_single_type || PyObject_TypeCheck(key, key_single_type)) &&
+                                  (Py_TYPE(value) == val_single_type || PyObject_TypeCheck(value, val_single_type)))) return false;
+                        }
+                    }
+                    return true;
+                }
                 if (!check_pair(key, value)) return false;
                 if (size > 1) {
                     if (!PyDict_Next(obj, &pos, &key, &value)) return true;
@@ -415,12 +558,6 @@ struct DictValidatorNode : public TypeValidatorNode {
                     if (!check_pair(key, value)) return false;
                 }
                 return true;
-            }
-            case SampleStrategy::RANDOM_ONE: {
-                Py_ssize_t pos = 0;
-                PyObject *key, *value;
-                if (!PyDict_Next(obj, &pos, &key, &value)) return true;
-                return check_pair(key, value);
             }
             case SampleStrategy::LOG:
             case SampleStrategy::PERCENT:
@@ -440,6 +577,16 @@ struct DictValidatorNode : public TypeValidatorNode {
                 Py_ssize_t pos = 0;
                 PyObject *key, *value;
                 size_t checked = 0;
+                if (key_single_type && val_single_type) {
+                    while (PyDict_Next(obj, &pos, &key, &value)) {
+                        if (__builtin_expect(Py_TYPE(key) != key_single_type || Py_TYPE(value) != val_single_type, 0)) {
+                            if (!((Py_TYPE(key) == key_single_type || PyObject_TypeCheck(key, key_single_type)) &&
+                                  (Py_TYPE(value) == val_single_type || PyObject_TypeCheck(value, val_single_type)))) return false;
+                        }
+                        if (++checked >= count) break;
+                    }
+                    return true;
+                }
                 while (PyDict_Next(obj, &pos, &key, &value)) {
                     if (!check_pair(key, value)) return false;
                     if (++checked >= count) break;
@@ -454,9 +601,9 @@ struct DictValidatorNode : public TypeValidatorNode {
 
     inline bool validate_all(PyObject* obj) const noexcept {
         Py_ssize_t pos = 0;
-        if (key_check.single_type && val_check.single_type) {
-            PyTypeObject* kt = key_check.single_type;
-            PyTypeObject* vt = val_check.single_type;
+        if (key_single_type && val_single_type) {
+            PyTypeObject* kt = key_single_type;
+            PyTypeObject* vt = val_single_type;
             PyObject *k0, *v0, *k1, *v1, *k2, *v2, *k3, *v3;
             while (PyDict_Next(obj, &pos, &k0, &v0)) {
                 if (__builtin_expect(Py_TYPE(k0) != kt, 0) && !PyObject_TypeCheck(k0, kt)) return false;
@@ -485,12 +632,14 @@ struct DictValidatorNode : public TypeValidatorNode {
 
 struct SetValidatorNode : public TypeValidatorNode {
     FastTypeCheck elem_check;
+    PyTypeObject* elem_single_type = nullptr;
     SampleStrategy strategy;
     double sample_pct_val;
 
     SetValidatorNode(std::shared_ptr<TypeValidatorNode> el, SampleStrategy strat, double val = 0.0)
         : TypeValidatorNode(NodeKind::SET), strategy(strat), sample_pct_val(val) {
         elem_check.init(std::move(el));
+        elem_single_type = elem_check.single_type;
     }
 
     inline bool check_elem(PyObject* item) const noexcept {
@@ -518,22 +667,22 @@ struct SetValidatorNode : public TypeValidatorNode {
         }
         if (count < 1) count = 1;
 
-        PyObject* it = PyObject_GetIter(obj);
-        if (!it) return false;
-        PyObject* item;
+        Py_ssize_t pos = 0;
+        PyObject* key = nullptr;
+        Py_hash_t hash = 0;
         size_t checked = 0;
-        bool valid = true;
-        while ((item = PyIter_Next(it)) != NULL) {
-            if (__builtin_expect(!check_elem(item), 0)) {
-                valid = false;
-                Py_DECREF(item);
-                break;
+        if (elem_single_type) {
+            while (_PySet_NextEntry(obj, &pos, &key, &hash)) {
+                if (__builtin_expect(Py_TYPE(key) != elem_single_type, 0) && !PyObject_TypeCheck(key, elem_single_type)) return false;
+                if (++checked >= count) break;
             }
-            Py_DECREF(item);
+            return true;
+        }
+        while (_PySet_NextEntry(obj, &pos, &key, &hash)) {
+            if (__builtin_expect(!check_elem(key), 0)) return false;
             if (++checked >= count) break;
         }
-        Py_DECREF(it);
-        return valid;
+        return true;
     }
 };
 
@@ -704,6 +853,39 @@ static std::pair<SampleStrategy, double> parse_strategy(nb::handle sample_pct) {
     return {SampleStrategy::ALL, 100.0};
 }
 
+static inline bool is_type_origin(PyObject* obj, PyTypeObject** out_target) {
+    if (!obj) return false;
+    if (obj == (PyObject*)&PyType_Type) {
+        if (out_target) *out_target = (PyTypeObject*)&PyType_Type;
+        return true;
+    }
+    PyObject* origin = PyObject_GetAttrString(obj, "__origin__");
+    if (!origin) {
+        PyErr_Clear();
+        return false;
+    }
+    bool is_type = (origin == (PyObject*)&PyType_Type);
+    Py_DECREF(origin);
+    if (!is_type) return false;
+    PyObject* args = PyObject_GetAttrString(obj, "__args__");
+    if (!args) {
+        PyErr_Clear();
+        if (out_target) *out_target = (PyTypeObject*)&PyType_Type;
+        return true;
+    }
+    if (PyTuple_Check(args) && PyTuple_GET_SIZE(args) == 1) {
+        PyObject* arg0 = PyTuple_GET_ITEM(args, 0);
+        if (PyType_Check(arg0)) {
+            if (out_target) *out_target = (PyTypeObject*)arg0;
+            Py_DECREF(args);
+            return true;
+        }
+    }
+    Py_DECREF(args);
+    if (out_target) *out_target = (PyTypeObject*)&PyType_Type;
+    return true;
+}
+
 static inline bool is_plain_type(PyObject* obj) {
     if (!obj || !PyType_Check(obj)) return false;
     PyTypeObject* t = (PyTypeObject*)obj;
@@ -734,6 +916,10 @@ static std::shared_ptr<TypeValidatorNode> build_node(nb::handle spec, SampleStra
     PyObject* ptr = spec.ptr();
     if (is_plain_type(ptr)) {
         return std::make_shared<SubclassTypeValidatorNode>((PyTypeObject*)ptr);
+    }
+    PyTypeObject* origin_target = nullptr;
+    if (is_type_origin(ptr, &origin_target)) {
+        return std::make_shared<UninitializedClassValidatorNode>(origin_target);
     }
 
     if (PyList_Check(ptr)) {
@@ -769,6 +955,10 @@ static std::shared_ptr<TypeValidatorNode> build_node(nb::handle spec, SampleStra
         PyObject* extra = PyDict_GetItemString(ptr, "__extra__");
         if (extra != nullptr) {
             if (PyDict_Check(extra)) {
+                PyObject* cb = PyDict_GetItemString(extra, "__callable__");
+                if (cb && cb == Py_True) {
+                    return std::make_shared<CallableValidatorNode>();
+                }
                 PyObject* td = PyDict_GetItemString(extra, "__typeddict__");
                 if (td != nullptr && PyDict_Check(td)) {
                     PyObject* fields_dict = PyDict_GetItemString(td, "fields");
@@ -801,27 +991,42 @@ static std::shared_ptr<TypeValidatorNode> build_node(nb::handle spec, SampleStra
 
         bool all_none = true;
         bool all_keys_are_types = true;
+        bool has_uninit_type = false;
         Py_ssize_t pos = 0;
         PyObject *key, *value;
         while (PyDict_Next(ptr, &pos, &key, &value)) {
             if (value != Py_None) all_none = false;
-            if (!is_plain_type(key)) all_keys_are_types = false;
+            if (is_plain_type(key)) {
+                // ok
+            } else {
+                PyTypeObject* tgt = nullptr;
+                if (is_type_origin(key, &tgt)) {
+                    has_uninit_type = true;
+                } else {
+                    all_keys_are_types = false;
+                }
+            }
         }
 
-        if (all_none) {
-            if (!all_keys_are_types) return nullptr;
+        if (all_none && all_keys_are_types) {
             if (size == 1) {
                 pos = 0;
                 PyDict_Next(ptr, &pos, &key, &value);
+                PyTypeObject* tgt = nullptr;
+                if (is_type_origin(key, &tgt)) {
+                    return std::make_shared<UninitializedClassValidatorNode>(tgt);
+                }
                 return std::make_shared<SubclassTypeValidatorNode>((PyTypeObject*)key);
             }
-            std::vector<PyTypeObject*> types;
-            types.reserve(size);
-            pos = 0;
-            while (PyDict_Next(ptr, &pos, &key, &value)) {
-                types.push_back((PyTypeObject*)key);
+            if (!has_uninit_type) {
+                std::vector<PyTypeObject*> types;
+                types.reserve(size);
+                pos = 0;
+                while (PyDict_Next(ptr, &pos, &key, &value)) {
+                    types.push_back((PyTypeObject*)key);
+                }
+                return std::make_shared<UnionTypeValidatorNode>(std::move(types));
             }
-            return std::make_shared<UnionTypeValidatorNode>(std::move(types));
         }
 
         if (size == 1) {
@@ -968,8 +1173,9 @@ static std::shared_ptr<TypeValidatorNode> build_node(nb::handle spec, SampleStra
 
 struct PyValidatorObject {
     PyObject_HEAD
-    std::shared_ptr<TypeValidatorNode> root;
     vectorcallfunc vectorcall;
+    TypeValidatorNode* raw_root;
+    std::shared_ptr<TypeValidatorNode> root;
 };
 
 static PyObject* validator_vectorcall(PyObject* self, PyObject* const* args, size_t nargsf, PyObject* kwnames) {
@@ -979,7 +1185,7 @@ static PyObject* validator_vectorcall(PyObject* self, PyObject* const* args, siz
         return nullptr;
     }
     PyValidatorObject* v = (PyValidatorObject*)self;
-    if (__builtin_expect(v->root && v->root->validate(args[0]), 1)) {
+    if (__builtin_expect(v->raw_root && v->raw_root->validate(args[0]), 1)) {
         Py_RETURN_TRUE;
     } else {
         Py_RETURN_FALSE;
@@ -996,11 +1202,8 @@ static PyObject* validator_tp_call(PyObject* self, PyObject* args, PyObject* kwa
         return nullptr;
     }
     PyValidatorObject* v = (PyValidatorObject*)self;
-    if (__builtin_expect(v->root && v->root->validate(PyTuple_GET_ITEM(args, 0)), 1)) {
-        Py_RETURN_TRUE;
-    } else {
-        Py_RETURN_FALSE;
-    }
+    PyObject* arg = PyTuple_GET_ITEM(args, 0);
+    return v->vectorcall(self, &arg, 1, nullptr);
 }
 
 static void validator_dealloc(PyObject* self) {
@@ -1051,6 +1254,7 @@ nb::object create_validator(nb::handle spec, nb::handle sample_pct) {
         PyValidatorObject* obj = PyObject_New(PyValidatorObject, PyValidator_Type);
         if (!obj) return nb::none();
         new (&obj->root) std::shared_ptr<TypeValidatorNode>(std::move(node));
+        obj->raw_root = obj->root.get();
         obj->vectorcall = validator_vectorcall;
         return nb::steal(reinterpret_cast<PyObject*>(obj));
     }
@@ -1100,32 +1304,34 @@ struct FastParamInfo {
 struct PyFastCallObject {
     PyObject_HEAD
     vectorcallfunc vectorcall;
-    PyObject* self_enforcer;
     PyObject* fn;
     vectorcallfunc fn_vectorcall;
+    PyTypeObject* pos_types[8];
+    PyTypeObject* pos0_union_t0;
+    PyTypeObject* pos0_union_t1;
+    PyTypeObject* pos0_union_t2;
+    PyTypeObject* ret_single_type;
+    RetCheckKind ret_kind;
+    bool has_varargs;
+    bool has_varkw;
+    bool all_pos_single_types;
+    size_t num_pos;
+
+    // Cold fields below (only accessed on error path, fallback, kwargs, or destruction)
+    PyObject* self_enforcer;
     PyObject* check_fn;
+    PyObject* ret_exp;
+    PyObject* ret_str;
+    FastTypeCheck ret_check;
+    FastParamInfo varargs_info;
+    FastParamInfo varkw_info;
     std::vector<FastParamInfo> pos_params;
     std::vector<FastParamInfo> kwonly_params;
     std::vector<PyTypeObject*> pos_single_types;
     std::unordered_map<std::string, std::pair<bool, size_t>> kw_to_param;
-    size_t num_pos;
-    bool all_pos_single_types;
-    PyTypeObject* pos_types[8];
-    PyTypeObject* homogeneous_pos_type;
-    PyTypeObject* pos0_union_t0;
-    PyTypeObject* pos0_union_t1;
-    bool has_varargs;
-    FastParamInfo varargs_info;
-    bool has_varkw;
-    FastParamInfo varkw_info;
-    RetCheckKind ret_kind;
-    FastTypeCheck ret_check;
-    PyTypeObject* ret_single_type;
-    PyObject* ret_exp;
-    PyObject* ret_str;
 };
 
-static inline bool handle_type_error(PyObject* check_fn, PyObject* self_enforcer, PyObject* arg, PyObject* exp, PyObject* name) noexcept {
+[[gnu::noinline]] static bool handle_type_error_cold(PyObject* check_fn, PyObject* self_enforcer, PyObject* arg, PyObject* exp, PyObject* name) noexcept {
     PyObject* check_args[4] = {self_enforcer, arg, exp, name};
     PyObject* check_res = _PyObject_Vectorcall(check_fn, check_args, 4, nullptr);
     if (!check_res) return false;
@@ -1133,7 +1339,11 @@ static inline bool handle_type_error(PyObject* check_fn, PyObject* self_enforcer
     return true;
 }
 
-static inline bool handle_return_check(const PyFastCallObject* fc, PyObject* self, PyObject* res, PyObject* const* fn_args, size_t fn_nargs) noexcept {
+static inline bool handle_type_error(PyObject* check_fn, PyObject* self_enforcer, PyObject* arg, PyObject* exp, PyObject* name) noexcept {
+    return handle_type_error_cold(check_fn, self_enforcer, arg, exp, name);
+}
+
+[[gnu::noinline]] static bool handle_return_check(const PyFastCallObject* fc, PyObject* self, PyObject* res, PyObject* const* fn_args, size_t fn_nargs) noexcept {
     switch (fc->ret_kind) {
         case RetCheckKind::NONE_RETURN:
             if (__builtin_expect(res == Py_None, 1)) return true;
@@ -1225,10 +1435,9 @@ static PyObject* fast_call_general_vectorcall(PyObject* self, PyObject* const* a
 }
 
 enum class ArgPattern : uint8_t {
-    SINGLE_TYPES = 0,       // 0..8 args, each with single_type in pos_types[i] (or null if unvalidated)
-    COMPLEX_TYPES = 1,      // 0..8 args, arbitrary type_check nodes (nested list, dict, union, tuple, etc.)
-    POS1_UNION2 = 2,        // 1 arg with 2-union (pos0_union_t0 / pos0_union_t1)
-    HOMOGENEOUS = 3         // N args all matching homogeneous_pos_type
+    SINGLE_TYPES = 0,   // 0..8 args, each with single_type in pos_types[i] (or null if unvalidated)
+    POS1_UNION = 1,     // 1 arg with 2-type or 3-type scalar union (pos0_union_t0 / pos0_union_t1 / pos0_union_t2)
+    COMPLEX_TYPES = 2   // 0..8 args, arbitrary type_check nodes (nested list, dict, union, tuple, etc.)
 };
 
 enum class RetPattern : uint8_t {
@@ -1241,50 +1450,103 @@ enum class RetPattern : uint8_t {
 
 template <size_t N_POS, ArgPattern ARG_PAT, RetPattern RET_PAT>
 static PyObject* fast_vectorcall(PyObject* self, PyObject* const* args, size_t nargsf, PyObject* kwnames) {
-    PyFastCallObject* fc = (PyFastCallObject*)self;
     if (__builtin_expect(kwnames == nullptr && PyVectorcall_NARGS(nargsf) == N_POS, 1)) {
-        PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+        PyFastCallObject* fc = (PyFastCallObject*)self;
 
         if constexpr (ARG_PAT == ArgPattern::SINGLE_TYPES) {
-            for (size_t i = 0; i < N_POS; ++i) {
-                PyTypeObject* exp_t = fc->pos_types[i];
+            if constexpr (N_POS == 1) {
+                PyTypeObject* exp_t = fc->pos_types[0];
                 if (exp_t) {
-                    PyObject* a = args[i];
+                    PyObject* a = args[0];
                     if (__builtin_expect(Py_TYPE(a) != exp_t, 0) && !PyObject_TypeCheck(a, exp_t)) {
-                        if (!handle_type_error(fc->check_fn, enforcer, a, fc->pos_params[i].exp, fc->pos_params[i].name_str)) return nullptr;
+                        PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                        if (!handle_type_error(fc->check_fn, enforcer, a, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
+                    }
+                }
+            } else if constexpr (N_POS == 2) {
+                PyTypeObject* exp_t0 = fc->pos_types[0];
+                PyTypeObject* exp_t1 = fc->pos_types[1];
+                PyObject* a0 = args[0];
+                PyObject* a1 = args[1];
+                if (exp_t0 && __builtin_expect(Py_TYPE(a0) != exp_t0, 0) && !PyObject_TypeCheck(a0, exp_t0)) {
+                    PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                    if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
+                }
+                if (exp_t1 && __builtin_expect(Py_TYPE(a1) != exp_t1, 0) && !PyObject_TypeCheck(a1, exp_t1)) {
+                    PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                    if (!handle_type_error(fc->check_fn, enforcer, a1, fc->pos_params[1].exp, fc->pos_params[1].name_str)) return nullptr;
+                }
+            } else if constexpr (N_POS == 3) {
+                PyTypeObject* exp_t0 = fc->pos_types[0];
+                PyTypeObject* exp_t1 = fc->pos_types[1];
+                PyTypeObject* exp_t2 = fc->pos_types[2];
+                PyObject* a0 = args[0];
+                PyObject* a1 = args[1];
+                PyObject* a2 = args[2];
+                if (exp_t0 && __builtin_expect(Py_TYPE(a0) != exp_t0, 0) && !PyObject_TypeCheck(a0, exp_t0)) {
+                    PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                    if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
+                }
+                if (exp_t1 && __builtin_expect(Py_TYPE(a1) != exp_t1, 0) && !PyObject_TypeCheck(a1, exp_t1)) {
+                    PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                    if (!handle_type_error(fc->check_fn, enforcer, a1, fc->pos_params[1].exp, fc->pos_params[1].name_str)) return nullptr;
+                }
+                if (exp_t2 && __builtin_expect(Py_TYPE(a2) != exp_t2, 0) && !PyObject_TypeCheck(a2, exp_t2)) {
+                    PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                    if (!handle_type_error(fc->check_fn, enforcer, a2, fc->pos_params[2].exp, fc->pos_params[2].name_str)) return nullptr;
+                }
+            } else {
+                for (size_t i = 0; i < N_POS; ++i) {
+                    PyTypeObject* exp_t = fc->pos_types[i];
+                    if (exp_t) {
+                        PyObject* a = args[i];
+                        if (__builtin_expect(Py_TYPE(a) != exp_t, 0) && !PyObject_TypeCheck(a, exp_t)) {
+                            PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                            if (!handle_type_error(fc->check_fn, enforcer, a, fc->pos_params[i].exp, fc->pos_params[i].name_str)) return nullptr;
+                        }
+                    }
+                }
+            }
+        } else if constexpr (ARG_PAT == ArgPattern::POS1_UNION) {
+            PyObject* a0 = args[0];
+            PyTypeObject* t0 = fc->pos0_union_t0;
+            PyTypeObject* t1 = fc->pos0_union_t1;
+            PyTypeObject* t2 = fc->pos0_union_t2;
+            PyTypeObject* at = Py_TYPE(a0);
+            if (t2) {
+                if (__builtin_expect(at != t0 && at != t1 && at != t2, 0)) {
+                    if (!PyObject_TypeCheck(a0, t0) && !PyObject_TypeCheck(a0, t1) && !PyObject_TypeCheck(a0, t2)) {
+                        PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                        if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
+                    }
+                }
+            } else {
+                if (__builtin_expect(at != t0 && at != t1, 0)) {
+                    if (!PyObject_TypeCheck(a0, t0) && !PyObject_TypeCheck(a0, t1)) {
+                        PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                        if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
                     }
                 }
             }
         } else if constexpr (ARG_PAT == ArgPattern::COMPLEX_TYPES) {
             for (size_t i = 0; i < N_POS; ++i) {
                 if (__builtin_expect(!fc->pos_params[i].type_check.check(args[i]), 0)) {
+                    PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
                     if (!handle_type_error(fc->check_fn, enforcer, args[i], fc->pos_params[i].exp, fc->pos_params[i].name_str)) return nullptr;
                 }
             }
-        } else if constexpr (ARG_PAT == ArgPattern::POS1_UNION2) {
-            PyObject* a0 = args[0];
-            if (__builtin_expect(Py_TYPE(a0) != fc->pos0_union_t0 && Py_TYPE(a0) != fc->pos0_union_t1, 0)) {
-                if (!PyObject_TypeCheck(a0, fc->pos0_union_t0) && !PyObject_TypeCheck(a0, fc->pos0_union_t1)) {
-                    if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
-                }
-            }
-        } else if constexpr (ARG_PAT == ArgPattern::HOMOGENEOUS) {
-            PyTypeObject* exp_t = fc->homogeneous_pos_type;
-            for (size_t i = 0; i < N_POS; ++i) {
-                PyObject* a = args[i];
-                if (__builtin_expect(Py_TYPE(a) != exp_t, 0) && !PyObject_TypeCheck(a, exp_t)) {
-                    if (!handle_type_error(fc->check_fn, enforcer, a, fc->pos_params[i].exp, fc->pos_params[i].name_str)) return nullptr;
-                }
-            }
+        }
+
+        if constexpr (RET_PAT == RetPattern::NO_CHECK) {
+            return fc->fn_vectorcall(fc->fn, args, nargsf, nullptr);
         }
 
         PyObject* res = fc->fn_vectorcall(fc->fn, args, nargsf, nullptr);
         if (__builtin_expect(!res, 0)) return nullptr;
 
-        if constexpr (RET_PAT == RetPattern::NO_CHECK) {
-            return res;
-        } else if constexpr (RET_PAT == RetPattern::NONE) {
+        if constexpr (RET_PAT == RetPattern::NONE) {
             if (__builtin_expect(res != Py_None, 0)) {
+                PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
                 if (!handle_type_error(fc->check_fn, enforcer, res, fc->ret_exp, fc->ret_str)) {
                     Py_DECREF(res);
                     return nullptr;
@@ -1295,6 +1557,7 @@ static PyObject* fast_vectorcall(PyObject* self, PyObject* const* args, size_t n
             if constexpr (N_POS > 0) {
                 PyTypeObject* self_cls = Py_TYPE(args[0]);
                 if (__builtin_expect(Py_TYPE(res) != self_cls, 0) && !PyObject_TypeCheck(res, self_cls)) {
+                    PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
                     if (!handle_type_error(fc->check_fn, enforcer, res, fc->ret_exp, fc->ret_str)) {
                         Py_DECREF(res);
                         return nullptr;
@@ -1303,8 +1566,9 @@ static PyObject* fast_vectorcall(PyObject* self, PyObject* const* args, size_t n
             }
             return res;
         } else if constexpr (RET_PAT == RetPattern::SINGLE_TYPE) {
-            PyTypeObject* rt = Py_TYPE(res);
-            if (__builtin_expect(rt != fc->ret_single_type, 0) && !PyObject_TypeCheck(res, fc->ret_single_type)) {
+            PyTypeObject* rt = fc->ret_single_type;
+            if (__builtin_expect(Py_TYPE(res) != rt, 0) && !PyObject_TypeCheck(res, rt)) {
+                PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
                 if (!handle_type_error(fc->check_fn, enforcer, res, fc->ret_exp, fc->ret_str)) {
                     Py_DECREF(res);
                     return nullptr;
@@ -1412,9 +1676,9 @@ static PyObject* fast_call_new(PyTypeObject* type, PyObject* args, PyObject* kwa
         for (size_t i = 0; i < 8; ++i) {
             self->pos_types[i] = nullptr;
         }
-        self->homogeneous_pos_type = nullptr;
         self->pos0_union_t0 = nullptr;
         self->pos0_union_t1 = nullptr;
+        self->pos0_union_t2 = nullptr;
         self->has_varargs = false;
         self->has_varkw = false;
         new (&self->pos_params) std::vector<FastParamInfo>();
@@ -1528,9 +1792,9 @@ static bool setup_fast_call_internal(
     for (size_t i = 0; i < 8; ++i) {
         obj->pos_types[i] = nullptr;
     }
-    obj->homogeneous_pos_type = nullptr;
     obj->pos0_union_t0 = nullptr;
     obj->pos0_union_t1 = nullptr;
+    obj->pos0_union_t2 = nullptr;
     obj->ret_kind = RetCheckKind::NO_CHECK;
     obj->ret_single_type = nullptr;
     Py_XDECREF(obj->ret_exp);
@@ -1545,8 +1809,6 @@ static bool setup_fast_call_internal(
         auto exps_seq = nb::borrow<nb::sequence>(pos_param_exps);
         size_t n = nb::len(names_seq);
         obj->pos_single_types.reserve(n);
-        PyTypeObject* first_single_type = nullptr;
-        bool is_homogeneous = true;
 
         for (size_t i = 0; i < n; ++i) {
             FastParamInfo p;
@@ -1562,26 +1824,15 @@ static bool setup_fast_call_internal(
                     obj->pos_types[i] = p.type_check.single_type;
                 }
                 obj->pos_single_types.push_back(p.type_check.single_type);
-                if (first_single_type == nullptr) {
-                    first_single_type = p.type_check.single_type;
-                } else if (first_single_type != p.type_check.single_type) {
-                    is_homogeneous = false;
-                }
             } else if (!p.type_check.has_check()) {
                 if (i < 8) {
                     obj->pos_types[i] = nullptr;
                 }
-                is_homogeneous = false;
             } else {
                 can_use_fast_pos = false;
                 obj->all_pos_single_types = false;
-                is_homogeneous = false;
             }
             obj->pos_params.push_back(std::move(p));
-        }
-
-        if (n > 0 && is_homogeneous && first_single_type != nullptr) {
-            obj->homogeneous_pos_type = first_single_type;
         }
     }
 
@@ -1651,12 +1902,7 @@ static bool setup_fast_call_internal(
     }
 
     obj->ret_single_type = obj->ret_check.single_type;
-
     obj->num_pos = obj->pos_params.size();
-    if (obj->num_pos == 1 && obj->pos_params[0].type_check.union_t0 != nullptr) {
-        obj->pos0_union_t0 = obj->pos_params[0].type_check.union_t0;
-        obj->pos0_union_t1 = obj->pos_params[0].type_check.union_t1;
-    }
 
     RetPattern ret_pat = RetPattern::GENERAL;
     if (obj->ret_kind == RetCheckKind::NO_CHECK) {
@@ -1672,14 +1918,15 @@ static bool setup_fast_call_internal(
     }
 
     obj->vectorcall = fast_call_general_vectorcall;
-    if (!has_varargs && !has_varkw && obj->kwonly_params.empty()) {
-        if (can_use_fast_pos && obj->num_pos <= 8) {
+    if (!has_varargs && !has_varkw && obj->kwonly_params.empty() && obj->num_pos <= 8) {
+        if (can_use_fast_pos) {
             obj->vectorcall = select_vectorcall_n<ArgPattern::SINGLE_TYPES>(obj->num_pos, ret_pat);
-        } else if (!can_use_fast_pos && obj->num_pos == 1 && obj->pos0_union_t0 != nullptr) {
-            obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_UNION2>(ret_pat);
-        } else if (!can_use_fast_pos && obj->homogeneous_pos_type != nullptr && obj->num_pos <= 8) {
-            obj->vectorcall = select_vectorcall_n<ArgPattern::HOMOGENEOUS>(obj->num_pos, ret_pat);
-        } else if (obj->num_pos <= 8) {
+        } else if (obj->num_pos == 1 && obj->pos_params[0].type_check.union_t0 != nullptr) {
+            obj->pos0_union_t0 = obj->pos_params[0].type_check.union_t0;
+            obj->pos0_union_t1 = obj->pos_params[0].type_check.union_t1;
+            obj->pos0_union_t2 = obj->pos_params[0].type_check.union_t2;
+            obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_UNION>(ret_pat);
+        } else {
             obj->vectorcall = select_vectorcall_n<ArgPattern::COMPLEX_TYPES>(obj->num_pos, ret_pat);
         }
     }
@@ -1764,3 +2011,4 @@ nb::object create_fast_call(
 }
 
 } // namespace type_enforced
+
