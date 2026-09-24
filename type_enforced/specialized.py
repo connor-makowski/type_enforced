@@ -5,12 +5,17 @@ import types
 from itertools import islice
 from typing import Type
 
-try:
-    from type_enforced import cpp as _cpp
+from type_enforced.utils import has_cpp
 
-    if not hasattr(_cpp, "create_validator"):
+if has_cpp():
+    try:
+        from type_enforced import cpp as _cpp
+
+        if not hasattr(_cpp, "create_validator"):
+            _cpp = None
+    except ImportError:
         _cpp = None
-except ImportError:
+else:
     _cpp = None
 
 _CODE_CACHE = {}
@@ -2380,10 +2385,6 @@ def build_inlined_code(enforcer, fn):
             )
         elif is_uninitialized_class_type(exp):
             target_classes, has_bare_type = _extract_uninit_class_info(exp)
-            if _cpp is not None and (
-                not has_bare_type and len(target_classes) > 1
-            ):
-                return None
             check_stmts.extend(
                 _make_uninit_class_check_ast(
                     var_name,
@@ -2566,10 +2567,6 @@ def build_inlined_code(enforcer, fn):
             )
         elif is_uninitialized_class_type(ret_exp):
             target_classes, has_bare_type = _extract_uninit_class_info(ret_exp)
-            if _cpp is not None and (
-                not has_bare_type and len(target_classes) > 1
-            ):
-                return None
 
             def make_ret_check(res_expr):
                 if isinstance(res_expr, ast.Constant):
