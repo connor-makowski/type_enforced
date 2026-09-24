@@ -67,6 +67,10 @@ else()
             type_enforced/cpp/src/validators.cpp
         )
 
+        if(APPLE)
+            target_link_options(cpp PRIVATE "-Wl,-U,_PyVectorcall_Function" "-Wl,-U,__PySet_NextEntry")
+        endif()
+
         install(TARGETS cpp DESTINATION type_enforced)
     else()
         message(WARNING
