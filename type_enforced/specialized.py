@@ -263,6 +263,65 @@ def _calc_sample_count_ast(var_expr, sample_pct, prefix, fn_globals):
     )
 
 
+_VARIANT_VALIDATOR_CACHE = {}
+_FALLBACK_ENFORCERS = {}
+
+
+def _compile_py_variant_validator(k, variant, sample_pct):
+    cache_key = (k, _freeze_exp(variant), sample_pct)
+    if cache_key in _VARIANT_VALIDATOR_CACHE:
+        return _VARIANT_VALIDATOR_CACHE[cache_key]
+
+    fn_globals = {
+        "type": type,
+        "isinstance": isinstance,
+        "len": len,
+        "max": max,
+        "callable": callable,
+        "_fast_quasi_rand": _fast_quasi_rand,
+    }
+    obj_expr = ast.Name(id="obj", ctx=ast.Load())
+    fail_ret = ast.Return(value=ast.Constant(value=False))
+    check_stmts = generate_type_check_ast(
+        obj_expr,
+        {k: variant},
+        fail_ret,
+        fn_globals,
+        "_val",
+        sample_pct,
+    )
+    body = list(check_stmts)
+    body.append(ast.Return(value=ast.Constant(value=True)))
+
+    fn_def = ast.FunctionDef(
+        name="_check_variant",
+        args=ast.arguments(
+            posonlyargs=[],
+            args=[ast.arg(arg="obj")],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[],
+        ),
+        body=body,
+        decorator_list=[],
+    )
+    module = ast.Module(body=[fn_def], type_ignores=[])
+    _fast_fix_locations(module)
+    code_mod = compile(module, "<type_enforced_variant_validator>", "exec")
+    func_code = [
+        c
+        for c in code_mod.co_consts
+        if isinstance(c, types.CodeType) and c.co_name == "_check_variant"
+    ][0]
+    validator_fn = types.FunctionType(
+        func_code, fn_globals, name="_check_variant"
+    )
+    _VARIANT_VALIDATOR_CACHE[cache_key] = validator_fn
+    return validator_fn
+
+
 def _generate_variant_test_ast(
     var_expr, k, variant, sample_pct, prefix, fn_globals
 ):
@@ -283,26 +342,39 @@ def _generate_variant_test_ast(
         except Exception:
             pass
 
-    fn_name = f"_py_val_var_{prefix}"
-    fn_globals[fn_name] = (
-        lambda obj, o_type=k, var=variant: _validate_variant_fallback(
-            obj, o_type, var, sample_pct
+    try:
+        val_fn = _compile_py_variant_validator(k, variant, sample_pct)
+        fn_name = f"_py_val_var_{prefix}"
+        fn_globals[fn_name] = val_fn
+        return ast.Call(
+            func=ast.Name(id=fn_name, ctx=ast.Load()),
+            args=[var_expr],
+            keywords=[],
         )
-    )
-    return ast.Call(
-        func=ast.Name(id=fn_name, ctx=ast.Load()),
-        args=[var_expr],
-        keywords=[],
-    )
+    except Exception:
+        fn_name = f"_py_val_var_{prefix}"
+        fn_globals[fn_name] = (
+            lambda obj, o_type=k, var=variant: _validate_variant_fallback(
+                obj, o_type, var, sample_pct
+            )
+        )
+        return ast.Call(
+            func=ast.Name(id=fn_name, ctx=ast.Load()),
+            args=[var_expr],
+            keywords=[],
+        )
 
 
 def _validate_variant_fallback(obj, obj_type, variant, sample_pct):
     from .enforcer import FunctionMethodEnforcer
 
-    enforcer = FunctionMethodEnforcer(
-        lambda: None, __iterable_sample_pct__=sample_pct
-    )
-    return enforcer.__validate_collection_variant__(obj, obj_type, variant)
+    enf = _FALLBACK_ENFORCERS.get(sample_pct)
+    if enf is None:
+        enf = FunctionMethodEnforcer(
+            lambda: None, __iterable_sample_pct__=sample_pct
+        )
+        _FALLBACK_ENFORCERS[sample_pct] = enf
+    return enf.__validate_collection_variant__(obj, obj_type, variant)
 
 
 def _make_scalar_check_ast(
@@ -699,6 +771,8 @@ def _emit_strided_sequence_check(
 
 
 def _make_elem_fail_call(var_expr, exp, prefix, fn_globals, parent_fail_call):
+    if isinstance(parent_fail_call, ast.Return):
+        return parent_fail_call
     param_name_expr = (
         parent_fail_call.value.args[3]
         if (
