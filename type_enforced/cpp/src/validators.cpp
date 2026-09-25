@@ -1239,7 +1239,6 @@ struct FastParamInfo {
 struct PyFastCallObject {
     PyObject_HEAD
     vectorcallfunc vectorcall;
-    vectorcallfunc target_vectorcall;
     PyObject* fn;
     PyTypeObject* pos_types[8];
     PyTypeObject* pos0_union_t0;
@@ -1313,9 +1312,6 @@ static inline bool handle_type_error(PyObject* check_fn, PyObject* self_enforcer
 }
 
 static inline PyObject* call_target(const PyFastCallObject* fc, PyObject* const* args, size_t nargsf, PyObject* kwnames = nullptr) noexcept {
-    if (fc->target_vectorcall) {
-        return fc->target_vectorcall(fc->fn, args, nargsf, kwnames);
-    }
     return PyObject_Vectorcall(fc->fn, args, nargsf, kwnames);
 }
 
@@ -1711,7 +1707,6 @@ static bool setup_fast_call_internal(
     Py_XDECREF(obj->fn);
     obj->fn = fn.ptr();
     Py_XINCREF(obj->fn);
-    obj->target_vectorcall = PyVectorcall_Function(obj->fn);
 
     Py_XDECREF(obj->check_fn);
     obj->check_fn = check_fn.ptr();
