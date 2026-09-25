@@ -916,159 +916,83 @@ try:
 
         return f
 
-    def type_enforced_factory(typ):
-        if typ in MULTI_PARAM_FUNCS:
-            return type_enforced.Enforcer()(MULTI_PARAM_FUNCS[typ])
-        if typ == "int_to_float":
+    import type_enforced.enforcer as _te_enforcer
+    import type_enforced.specialized as _te_specialized
 
-            @type_enforced.Enforcer()
-            def f(x: int) -> float:
-                return float(x)
+    _te_orig_cpp_enforcer = getattr(_te_enforcer, "_cpp", None)
+    _te_orig_cpp_specialized = getattr(_te_specialized, "_cpp", None)
+
+    def _make_te_fn(typ, sample_pct=100, use_cpp=True):
+        try:
+            if not use_cpp:
+                _te_enforcer._cpp = None
+                _te_specialized._cpp = None
+            else:
+                _te_enforcer._cpp = _te_orig_cpp_enforcer
+                _te_specialized._cpp = _te_orig_cpp_specialized
+
+            if typ in MULTI_PARAM_FUNCS:
+                return type_enforced.Enforcer(iterable_sample_pct=sample_pct)(
+                    MULTI_PARAM_FUNCS[typ]
+                )
+            if typ == "int_to_float":
+
+                @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
+                def f(x: int) -> float:
+                    return float(x)
+
+                return f
+            if typ == "method_dict_str_int":
+
+                @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
+                class _TECls:
+                    def method(self, x: Dict[str, int]) -> None:
+                        pass
+
+                _inst = _TECls()
+                return _inst.method
+
+            if typ == "method_self":
+
+                @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
+                class _TESelfCls:
+                    def method(self, x: int) -> Self:
+                        return self
+
+                _inst = _TESelfCls()
+                return _inst.method
+
+            @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
+            def f(x: typ) -> None:
+                pass
 
             return f
-        if typ == "method_dict_str_int":
+        finally:
+            _te_enforcer._cpp = _te_orig_cpp_enforcer
+            _te_specialized._cpp = _te_orig_cpp_specialized
 
-            @type_enforced.Enforcer
-            class _TECls:
-                def method(self, x: Dict[str, int]) -> None:
-                    pass
+    def type_enforced_factory(typ):
+        return _make_te_fn(typ, sample_pct=100, use_cpp=True)
 
-            _inst = _TECls()
-            return _inst.method
-
-        if typ == "method_self":
-
-            @type_enforced.Enforcer
-            class _TESelfCls:
-                def method(self, x: int) -> Self:
-                    return self
-
-            _inst = _TESelfCls()
-            return _inst.method
-
-        @type_enforced.Enforcer()
-        def f(x: typ) -> None:
-            pass
-
-        return f
+    def type_enforced_py_factory(typ):
+        return _make_te_fn(typ, sample_pct=100, use_cpp=False)
 
     def type_enforced_5pct_factory(typ):
-        if typ in MULTI_PARAM_FUNCS:
-            return type_enforced.Enforcer(iterable_sample_pct=5)(
-                MULTI_PARAM_FUNCS[typ]
-            )
-        if typ == "int_to_float":
-
-            @type_enforced.Enforcer(iterable_sample_pct=5)
-            def f(x: int) -> float:
-                return float(x)
-
-            return f
-        if typ == "method_dict_str_int":
-
-            @type_enforced.Enforcer(iterable_sample_pct=5)
-            class _TE5Cls:
-                def method(self, x: Dict[str, int]) -> None:
-                    pass
-
-            _inst = _TE5Cls()
-            return _inst.method
-
-        if typ == "method_self":
-
-            @type_enforced.Enforcer(iterable_sample_pct=5)
-            class _TE5SelfCls:
-                def method(self, x: int) -> Self:
-                    return self
-
-            _inst = _TE5SelfCls()
-            return _inst.method
-
-        @type_enforced.Enforcer(iterable_sample_pct=5)
-        def f(x: typ) -> None:
-            pass
-
-        return f
+        return _make_te_fn(typ, sample_pct=5, use_cpp=True)
 
     def type_enforced_sampled_factory(typ):
-        if typ in MULTI_PARAM_FUNCS:
-            return type_enforced.Enforcer(iterable_sample_pct="first")(
-                MULTI_PARAM_FUNCS[typ]
-            )
-        if typ == "int_to_float":
+        return _make_te_fn(typ, sample_pct="first", use_cpp=True)
 
-            @type_enforced.Enforcer(iterable_sample_pct="first")
-            def f(x: int) -> float:
-                return float(x)
-
-            return f
-        if typ == "method_dict_str_int":
-
-            @type_enforced.Enforcer(iterable_sample_pct="first")
-            class _TESampleCls:
-                def method(self, x: Dict[str, int]) -> None:
-                    pass
-
-            _inst = _TESampleCls()
-            return _inst.method
-
-        if typ == "method_self":
-
-            @type_enforced.Enforcer(iterable_sample_pct="first")
-            class _TESampleSelfCls:
-                def method(self, x: int) -> Self:
-                    return self
-
-            _inst = _TESampleSelfCls()
-            return _inst.method
-
-        @type_enforced.Enforcer(iterable_sample_pct="first")
-        def f(x: typ) -> None:
-            pass
-
-        return f
+    def type_enforced_py_sampled_factory(typ):
+        return _make_te_fn(typ, sample_pct="first", use_cpp=False)
 
     def type_enforced_bookend_plus_factory(typ):
-        if typ in MULTI_PARAM_FUNCS:
-            return type_enforced.Enforcer(iterable_sample_pct="bookend_plus")(
-                MULTI_PARAM_FUNCS[typ]
-            )
-        if typ == "int_to_float":
-
-            @type_enforced.Enforcer(iterable_sample_pct="bookend_plus")
-            def f(x: int) -> float:
-                return float(x)
-
-            return f
-        if typ == "method_dict_str_int":
-
-            @type_enforced.Enforcer(iterable_sample_pct="bookend_plus")
-            class _TEBookendPlusCls:
-                def method(self, x: Dict[str, int]) -> None:
-                    pass
-
-            _inst = _TEBookendPlusCls()
-            return _inst.method
-
-        if typ == "method_self":
-
-            @type_enforced.Enforcer(iterable_sample_pct="bookend_plus")
-            class _TEBookendPlusSelfCls:
-                def method(self, x: int) -> Self:
-                    return self
-
-            _inst = _TEBookendPlusSelfCls()
-            return _inst.method
-
-        @type_enforced.Enforcer(iterable_sample_pct="bookend_plus")
-        def f(x: typ) -> None:
-            pass
-
-        return f
+        return _make_te_fn(typ, sample_pct="bookend_plus", use_cpp=True)
 
     # --- Checkers groups
     full_checkers = {
         "type_enforced": type_enforced_factory,
+        "type_enforced (Python)": type_enforced_py_factory,
         "Pydantic": pydantic_factory,
         "msgspec": msgspec_factory,
         "cattrs": cattrs_factory,
@@ -1077,6 +1001,7 @@ try:
 
     sampled_checkers = {
         "type_enforced (1 sample)": type_enforced_sampled_factory,
+        "type_enforced (Python, 1 sample)": type_enforced_py_sampled_factory,
         "type_enforced (bookend_plus)": type_enforced_bookend_plus_factory,
         "type_enforced (5%)": type_enforced_5pct_factory,
         "Beartype (1 sample)": beartype_factory,
