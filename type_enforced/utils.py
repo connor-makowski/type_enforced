@@ -1,4 +1,4 @@
-import types, re, copy
+import types, re, copy, sys
 from functools import update_wrapper
 from typing import Union
 
@@ -338,6 +338,8 @@ def WithSubclasses(cls):
 
 
 def has_cpp():
+    if sys.implementation.name != "cpython":
+        return False
     try:
         from type_enforced.cpp import create_validator  # noqa: F401
 

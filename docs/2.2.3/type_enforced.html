@@ -43,18 +43,18 @@
 
             <h2>Submodules</h2>
             <ul>
-                    <li><a href="type_enforced/cpp.html">cpp</a></li>
                     <li><a href="type_enforced/enforcer.html">enforcer</a></li>
                     <li><a href="type_enforced/module.html">module</a></li>
                     <li><a href="type_enforced/specialized.html">specialized</a></li>
                     <li><a href="type_enforced/utils.html">utils</a></li>
+                    <li><a href="type_enforced/cpp.html">cpp</a></li>
             </ul>
 
 
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
-        <option value="2.12.0">2.12.0</option>
+        <option value="2.12.1">2.12.1</option>
         <option value="2.11.0">2.11.0</option>
         <option value="2.10.1">2.10.1</option>
         <option value="2.9.0">2.9.0</option>
@@ -219,7 +219,7 @@ type_enforced    </h1>
 <ul>
 <li><strong>Guaranteed Complete Validation</strong>: Validates every single item across large collections and nested data structures (e.g. <code>list[dict[str, int]]</code> or dicts with 10,000+ keys) by default, with zero shortcuts.</li>
 <li><strong>Fastest Full Validation</strong>: Delivers full, uncompromising validation at a fraction of other packages' overhead.</li>
-<li><strong>Fastest Sampled Validation</strong>: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set <code>iterable_sample_pct='first'</code>, <code>'last'</code>, <code>'bookend'</code>, <code>'bookend_plus'</code>, <code>'log'</code>, <code>0</code> (random pick), or a percentage. Sampled validation in <code><a href="">type_enforced</a></code> runs up to 8x faster than Beartype.</li>
+<li><strong>Fastest Sampled Validation</strong>: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set <code>iterable_sample_pct='first'</code>, <code>'last'</code>, <code>'bookend'</code>, <code>'bookend_plus'</code>, <code>'log'</code>, <code>0</code> (random pick), or a percentage. Sampled validation in <code><a href="">type_enforced</a></code> runs up to ~15x faster than Beartype.</li>
 <li><strong>Zero Dependencies &amp; Pure Python Compatible</strong>: Zero external runtime dependencies. Runs everywhere standard Python 3.11+ runs, with optional automatic C++ acceleration via nanobind when available.</li>
 <li><strong>Rich Type Support &amp; Constraints</strong>: Seamlessly supports standard Python <code>|</code> unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation <code>Constraint</code> rules.</li>
 <li><strong>Clean Tracebacks</strong>: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.</li>
@@ -248,132 +248,132 @@ type_enforced    </h1>
 <tr>
   <td style="text-align:left;"><code>int</code></td>
   <td style="text-align:center;">—</td>
+  <td style="text-align:center;">0.015 µs</td>
+  <td style="text-align:center;">0.193 µs</td>
+  <td style="text-align:center;">1.926 µs</td>
   <td style="text-align:center;">0.014 µs</td>
-  <td style="text-align:center;">0.203 µs</td>
-  <td style="text-align:center;">1.902 µs</td>
-  <td style="text-align:center;">0.014 µs</td>
-  <td style="text-align:center;">0.458 µs</td>
-  <td style="text-align:center;">0.280 µs</td>
+  <td style="text-align:center;">0.502 µs</td>
+  <td style="text-align:center;">0.277 µs</td>
   <td style="text-align:center;">0.117 µs</td>
-  <td style="text-align:center;">1.888 µs</td>
+  <td style="text-align:center;">1.874 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>Union[int, float]</code></td>
   <td style="text-align:center;">—</td>
   <td style="text-align:center;">0.014 µs</td>
-  <td style="text-align:center;">0.212 µs</td>
-  <td style="text-align:center;">3.951 µs</td>
-  <td style="text-align:center;">0.013 µs</td>
-  <td style="text-align:center;">0.505 µs</td>
-  <td style="text-align:center;">0.425 µs</td>
-  <td style="text-align:center;">0.464 µs</td>
-  <td style="text-align:center;">3.896 µs</td>
+  <td style="text-align:center;">0.217 µs</td>
+  <td style="text-align:center;">4.028 µs</td>
+  <td style="text-align:center;">0.014 µs</td>
+  <td style="text-align:center;">0.557 µs</td>
+  <td style="text-align:center;">0.422 µs</td>
+  <td style="text-align:center;">0.459 µs</td>
+  <td style="text-align:center;">3.976 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>str</code></td>
   <td style="text-align:center;">—</td>
+  <td style="text-align:center;">0.015 µs</td>
+  <td style="text-align:center;">0.200 µs</td>
+  <td style="text-align:center;">1.917 µs</td>
   <td style="text-align:center;">0.014 µs</td>
-  <td style="text-align:center;">0.207 µs</td>
-  <td style="text-align:center;">1.894 µs</td>
-  <td style="text-align:center;">0.014 µs</td>
-  <td style="text-align:center;">0.459 µs</td>
-  <td style="text-align:center;">0.266 µs</td>
-  <td style="text-align:center;">0.119 µs ⚠</td>
-  <td style="text-align:center;">1.847 µs</td>
+  <td style="text-align:center;">0.509 µs</td>
+  <td style="text-align:center;">0.265 µs</td>
+  <td style="text-align:center;">0.120 µs ⚠</td>
+  <td style="text-align:center;">1.864 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>list[int]</code></td>
   <td style="text-align:center;">1 000 items</td>
   <td style="text-align:center;">0.019 µs ⚠</td>
-  <td style="text-align:center;">0.335 µs ⚠</td>
-  <td style="text-align:center;">3.151 µs ⚠</td>
-  <td style="text-align:center;">0.429 µs</td>
-  <td style="text-align:center;">10.946 µs</td>
-  <td style="text-align:center;">5.053 µs</td>
-  <td style="text-align:center;">47.520 µs</td>
-  <td style="text-align:center;">1043.583 µs</td>
+  <td style="text-align:center;">0.342 µs ⚠</td>
+  <td style="text-align:center;">3.194 µs ⚠</td>
+  <td style="text-align:center;">0.440 µs</td>
+  <td style="text-align:center;">11.324 µs</td>
+  <td style="text-align:center;">5.145 µs</td>
+  <td style="text-align:center;">47.823 µs</td>
+  <td style="text-align:center;">1047.473 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>list[int]</code></td>
   <td style="text-align:center;">10 000 items</td>
-  <td style="text-align:center;">0.020 µs ⚠</td>
-  <td style="text-align:center;">0.425 µs ⚠</td>
-  <td style="text-align:center;">3.165 µs ⚠</td>
-  <td style="text-align:center;">4.451 µs</td>
-  <td style="text-align:center;">105.927 µs</td>
-  <td style="text-align:center;">44.827 µs</td>
-  <td style="text-align:center;">477.761 µs</td>
-  <td style="text-align:center;">10451.041 µs</td>
+  <td style="text-align:center;">0.019 µs ⚠</td>
+  <td style="text-align:center;">0.420 µs ⚠</td>
+  <td style="text-align:center;">3.157 µs ⚠</td>
+  <td style="text-align:center;">4.569 µs</td>
+  <td style="text-align:center;">107.136 µs</td>
+  <td style="text-align:center;">45.229 µs</td>
+  <td style="text-align:center;">485.161 µs</td>
+  <td style="text-align:center;">10477.726 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>dict[str, int]</code></td>
   <td style="text-align:center;">1 000 keys</td>
-  <td style="text-align:center;">0.024 µs ⚠</td>
-  <td style="text-align:center;">0.348 µs ⚠</td>
-  <td style="text-align:center;">4.410 µs ⚠</td>
-  <td style="text-align:center;">3.149 µs</td>
-  <td style="text-align:center;">40.282 µs</td>
-  <td style="text-align:center;">26.908 µs</td>
-  <td style="text-align:center;">69.954 µs</td>
-  <td style="text-align:center;">2064.560 µs</td>
+  <td style="text-align:center;">0.028 µs ⚠</td>
+  <td style="text-align:center;">0.353 µs ⚠</td>
+  <td style="text-align:center;">4.473 µs ⚠</td>
+  <td style="text-align:center;">3.233 µs</td>
+  <td style="text-align:center;">40.778 µs</td>
+  <td style="text-align:center;">26.982 µs</td>
+  <td style="text-align:center;">68.831 µs</td>
+  <td style="text-align:center;">2084.674 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>dict[str, int]</code></td>
   <td style="text-align:center;">10 000 keys</td>
-  <td style="text-align:center;">0.027 µs ⚠</td>
-  <td style="text-align:center;">0.346 µs ⚠</td>
-  <td style="text-align:center;">4.390 µs ⚠</td>
-  <td style="text-align:center;">41.214 µs</td>
-  <td style="text-align:center;">443.875 µs</td>
-  <td style="text-align:center;">319.566 µs</td>
-  <td style="text-align:center;">723.084 µs</td>
-  <td style="text-align:center;">20530.390 µs</td>
+  <td style="text-align:center;">0.026 µs ⚠</td>
+  <td style="text-align:center;">0.344 µs ⚠</td>
+  <td style="text-align:center;">4.405 µs ⚠</td>
+  <td style="text-align:center;">41.106 µs</td>
+  <td style="text-align:center;">449.057 µs</td>
+  <td style="text-align:center;">319.557 µs</td>
+  <td style="text-align:center;">724.451 µs</td>
+  <td style="text-align:center;">21080.617 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>list[list[int]]</code></td>
   <td style="text-align:center;">100 x 100 items</td>
-  <td style="text-align:center;">0.026 µs ⚠</td>
-  <td style="text-align:center;">0.375 µs ⚠</td>
-  <td style="text-align:center;">4.456 µs ⚠</td>
-  <td style="text-align:center;">3.443 µs</td>
-  <td style="text-align:center;">107.959 µs</td>
-  <td style="text-align:center;">48.582 µs</td>
-  <td style="text-align:center;">477.303 µs</td>
-  <td style="text-align:center;">10526.167 µs</td>
+  <td style="text-align:center;">0.023 µs ⚠</td>
+  <td style="text-align:center;">0.380 µs ⚠</td>
+  <td style="text-align:center;">4.439 µs ⚠</td>
+  <td style="text-align:center;">3.463 µs</td>
+  <td style="text-align:center;">108.277 µs</td>
+  <td style="text-align:center;">48.580 µs</td>
+  <td style="text-align:center;">480.083 µs</td>
+  <td style="text-align:center;">10552.618 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>dict[str, list[int]]</code></td>
   <td style="text-align:center;">100 x 100 items</td>
-  <td style="text-align:center;">0.031 µs ⚠</td>
-  <td style="text-align:center;">0.453 µs ⚠</td>
-  <td style="text-align:center;">5.715 µs ⚠</td>
-  <td style="text-align:center;">4.084 µs</td>
-  <td style="text-align:center;">114.067 µs</td>
-  <td style="text-align:center;">54.316 µs</td>
-  <td style="text-align:center;">484.277 µs</td>
-  <td style="text-align:center;">10751.799 µs</td>
+  <td style="text-align:center;">0.032 µs ⚠</td>
+  <td style="text-align:center;">0.456 µs ⚠</td>
+  <td style="text-align:center;">5.819 µs ⚠</td>
+  <td style="text-align:center;">4.102 µs</td>
+  <td style="text-align:center;">115.546 µs</td>
+  <td style="text-align:center;">53.714 µs</td>
+  <td style="text-align:center;">495.185 µs</td>
+  <td style="text-align:center;">10784.123 µs</td>
 </tr>
 <tr>
   <td style="text-align:left;"><code>list[dict[str, int]]</code></td>
   <td style="text-align:center;">100 x 100 items</td>
-  <td style="text-align:center;">0.034 µs ⚠</td>
-  <td style="text-align:center;">0.478 µs ⚠</td>
-  <td style="text-align:center;">5.810 µs ⚠</td>
-  <td style="text-align:center;">42.881 µs</td>
-  <td style="text-align:center;">398.183 µs</td>
-  <td style="text-align:center;">267.584 µs</td>
-  <td style="text-align:center;">704.102 µs</td>
-  <td style="text-align:center;">20922.011 µs</td>
+  <td style="text-align:center;">0.032 µs ⚠</td>
+  <td style="text-align:center;">0.531 µs ⚠</td>
+  <td style="text-align:center;">5.869 µs ⚠</td>
+  <td style="text-align:center;">47.917 µs</td>
+  <td style="text-align:center;">420.268 µs</td>
+  <td style="text-align:center;">274.532 µs</td>
+  <td style="text-align:center;">714.918 µs</td>
+  <td style="text-align:center;">21578.933 µs</td>
 </tr>
 </tbody>
 </table>
 
 <blockquote>
-  <p><strong>Sampled Validation:</strong> When 1 sample validation is acceptable, <code>type_enforced.FastEnforcer</code> is <strong>up to 8x faster than Beartype</strong>.</p>
+  <p><strong>Sampled Validation:</strong> When 1 sample validation is acceptable, <code>type_enforced.FastEnforcer</code> is <strong>up to ~15x faster than Beartype</strong>.</p>
 </blockquote>
 
 <blockquote>
-  <p><strong>Full Validation:</strong> When full validation is required, <code>type_enforced.Enforcer</code> is <strong>up to 26x faster than Pydantic</strong>.</p>
+  <p><strong>Full Validation:</strong> When full validation is required, <code>type_enforced.Enforcer</code> is <strong>up to ~40x faster than Pydantic on scalars and up to ~20x faster on larger data structures</strong>.</p>
 </blockquote>
 
 <hr />
@@ -924,7 +924,7 @@ type_enforced    </h1>
 <p>For large or performance-critical collections, use <code>@type_enforced.FastEnforcer</code> or configure sampling instead of full iteration:</p>
 
 <ul>
-<li><code>'first'</code> (default for <code>FastEnforcer</code> / <code>FastModuleEnforcer</code>): Validates the first element in O(1) time (runs up to 8x faster than Beartype).</li>
+<li><code>'first'</code> (default for <code>FastEnforcer</code> / <code>FastModuleEnforcer</code>): Validates the first element in O(1) time (runs up to ~15x faster than Beartype).</li>
 <li><code>'last'</code>: Validates the last element in O(1) time for indexable sequences (<code>list</code>, <code>tuple</code>). For non-indexed collections like <code>dict</code> and <code>set</code>, <code>'last'</code> validates the first item to avoid reverse iteration and hash table lookup overhead.</li>
 <li><code>'bookend'</code>: Validates the first and last elements in O(1) time for sequences (the first 2 items for <code>dict</code> and <code>set</code>).</li>
 <li><code>'bookend_plus'</code>: Validates the first, last, and a random middle element in O(1) time for sequences (the first 2 items and 1 random item for <code>dict</code> and <code>set</code>).</li>
@@ -1154,7 +1154,7 @@ uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </
 </span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a>
 </span><span id="L-82"><a href="#L-82"><span class="linenos"> 82</span></a><span class="sd">- **Guaranteed Complete Validation**: Validates every single item across large collections and nested data structures (e.g. `list[dict[str, int]]` or dicts with 10,000+ keys) by default, with zero shortcuts.</span>
 </span><span id="L-83"><a href="#L-83"><span class="linenos"> 83</span></a><span class="sd">- **Fastest Full Validation**: Delivers full, uncompromising validation at a fraction of other packages&#39; overhead.</span>
-</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a><span class="sd">- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct=&#39;first&#39;`, `&#39;last&#39;`, `&#39;bookend&#39;`, `&#39;bookend_plus&#39;`, `&#39;log&#39;`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to 8x faster than Beartype.</span>
+</span><span id="L-84"><a href="#L-84"><span class="linenos"> 84</span></a><span class="sd">- **Fastest Sampled Validation**: Need O(1) or logarithmic sampling for massive collections? This is how Beartype works. Set `iterable_sample_pct=&#39;first&#39;`, `&#39;last&#39;`, `&#39;bookend&#39;`, `&#39;bookend_plus&#39;`, `&#39;log&#39;`, `0` (random pick), or a percentage. Sampled validation in `type_enforced` runs up to ~15x faster than Beartype.</span>
 </span><span id="L-85"><a href="#L-85"><span class="linenos"> 85</span></a><span class="sd">- **Zero Dependencies &amp; Pure Python Compatible**: Zero external runtime dependencies. Runs everywhere standard Python 3.11+ runs, with optional automatic C++ acceleration via nanobind when available.</span>
 </span><span id="L-86"><a href="#L-86"><span class="linenos"> 86</span></a><span class="sd">- **Rich Type Support &amp; Constraints**: Seamlessly supports standard Python `|` unions, nested generics, Literals, Callables, Dataclasses, custom class inheritance, and custom validation `Constraint` rules.</span>
 </span><span id="L-87"><a href="#L-87"><span class="linenos"> 87</span></a><span class="sd">- **Clean Tracebacks**: Strips internal validation frames from tracebacks by default, pinpointing the exact line in your code that caused the issue.</span>
@@ -1165,20 +1165,20 @@ uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </
 </span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a>
 </span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a><span class="sd">| Type                   |       Size       | type_enforced (sample=1) | Beartype (sample=1) | Typeguard (sample=1) | type_enforced (100%) | Pydantic (100%)  |  msgspec (100%)  |  cattrs (100%)   | Typeguard (100%) |</span>
 </span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a><span class="sd">| :--------------------- | :--------------: | :----------------------: | :-----------------: | :------------------: | :------------------: | :--------------: | :--------------: | :--------------: | :--------------: |</span>
-</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="sd">| `int`                  |        —         |         0.014 µs         |      0.203 µs       |       1.902 µs       |       0.014 µs       |     0.458 µs     |     0.280 µs     |     0.117 µs     |     1.888 µs     |</span>
-</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="sd">| `Union[int, float]`    |        —         |         0.014 µs         |      0.212 µs       |       3.951 µs       |       0.013 µs       |     0.505 µs     |     0.425 µs     |     0.464 µs     |     3.896 µs     |</span>
-</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="sd">| `str`                  |        —         |         0.014 µs         |      0.207 µs       |       1.894 µs       |       0.014 µs       |     0.459 µs     |     0.266 µs     |    0.119 µs ⚠    |     1.847 µs     |</span>
-</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="sd">| `list[int]`            |   1 000 items    |        0.019 µs ⚠        |     0.335 µs ⚠      |      3.151 µs ⚠      |       0.429 µs       |    10.946 µs     |     5.053 µs     |    47.520 µs     |   1043.583 µs    |</span>
-</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="sd">| `list[int]`            |   10 000 items   |        0.020 µs ⚠        |     0.425 µs ⚠      |      3.165 µs ⚠      |       4.451 µs       |    105.927 µs    |    44.827 µs     |    477.761 µs    |   10451.041 µs   |</span>
-</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a><span class="sd">| `dict[str, int]`       |    1 000 keys    |        0.024 µs ⚠        |     0.348 µs ⚠      |      4.410 µs ⚠      |       3.149 µs       |    40.282 µs     |    26.908 µs     |    69.954 µs     |   2064.560 µs    |</span>
-</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a><span class="sd">| `dict[str, int]`       |   10 000 keys    |        0.027 µs ⚠        |     0.346 µs ⚠      |      4.390 µs ⚠      |      41.214 µs       |    443.875 µs    |    319.566 µs    |    723.084 µs    |   20530.390 µs   |</span>
-</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a><span class="sd">| `list[list[int]]`      | 100 x 100 items  |        0.026 µs ⚠        |     0.375 µs ⚠      |      4.456 µs ⚠      |       3.443 µs       |    107.959 µs    |    48.582 µs     |    477.303 µs    |   10526.167 µs   |</span>
-</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="sd">| `dict[str, list[int]]` | 100 x 100 items  |        0.031 µs ⚠        |     0.453 µs ⚠      |      5.715 µs ⚠      |       4.084 µs       |    114.067 µs    |    54.316 µs     |    484.277 µs    |   10751.799 µs   |</span>
-</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a><span class="sd">| `list[dict[str, int]]` | 100 x 100 items  |        0.034 µs ⚠        |     0.478 µs ⚠      |      5.810 µs ⚠      |      42.881 µs       |    398.183 µs    |    267.584 µs    |    704.102 µs    |   20922.011 µs   |</span>
+</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="sd">| `int`                  |        —         |         0.015 µs         |      0.193 µs       |       1.926 µs       |       0.014 µs       |     0.502 µs     |     0.277 µs     |     0.117 µs     |     1.874 µs     |</span>
+</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="sd">| `Union[int, float]`    |        —         |         0.014 µs         |      0.217 µs       |       4.028 µs       |       0.014 µs       |     0.557 µs     |     0.422 µs     |     0.459 µs     |     3.976 µs     |</span>
+</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="sd">| `str`                  |        —         |         0.015 µs         |      0.200 µs       |       1.917 µs       |       0.014 µs       |     0.509 µs     |     0.265 µs     |    0.120 µs ⚠    |     1.864 µs     |</span>
+</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="sd">| `list[int]`            |   1 000 items    |        0.019 µs ⚠        |     0.342 µs ⚠      |      3.194 µs ⚠      |       0.440 µs       |    11.324 µs     |     5.145 µs     |    47.823 µs     |   1047.473 µs    |</span>
+</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="sd">| `list[int]`            |   10 000 items   |        0.019 µs ⚠        |     0.420 µs ⚠      |      3.157 µs ⚠      |       4.569 µs       |    107.136 µs    |    45.229 µs     |    485.161 µs    |   10477.726 µs   |</span>
+</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a><span class="sd">| `dict[str, int]`       |    1 000 keys    |        0.028 µs ⚠        |     0.353 µs ⚠      |      4.473 µs ⚠      |       3.233 µs       |    40.778 µs     |    26.982 µs     |    68.831 µs     |   2084.674 µs    |</span>
+</span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a><span class="sd">| `dict[str, int]`       |   10 000 keys    |        0.026 µs ⚠        |     0.344 µs ⚠      |      4.405 µs ⚠      |      41.106 µs       |    449.057 µs    |    319.557 µs    |    724.451 µs    |   21080.617 µs   |</span>
+</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a><span class="sd">| `list[list[int]]`      | 100 x 100 items  |        0.023 µs ⚠        |     0.380 µs ⚠      |      4.439 µs ⚠      |       3.463 µs       |    108.277 µs    |    48.580 µs     |    480.083 µs    |   10552.618 µs   |</span>
+</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="sd">| `dict[str, list[int]]` | 100 x 100 items  |        0.032 µs ⚠        |     0.456 µs ⚠      |      5.819 µs ⚠      |       4.102 µs       |    115.546 µs    |    53.714 µs     |    495.185 µs    |   10784.123 µs   |</span>
+</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a><span class="sd">| `list[dict[str, int]]` | 100 x 100 items  |        0.032 µs ⚠        |     0.531 µs ⚠      |      5.869 µs ⚠      |      47.917 µs       |    420.268 µs    |    274.532 µs    |    714.918 µs    |   21578.933 µs   |</span>
 </span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a>
-</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="sd">&gt; **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to 8x faster than Beartype**.</span>
+</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="sd">&gt; **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to ~15x faster than Beartype**.</span>
 </span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="sd">&gt; **Full Validation:** When full validation is required, `type_enforced.Enforcer` is **up to 26x faster than Pydantic**.</span>
+</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="sd">&gt; **Full Validation:** When full validation is required, `type_enforced.Enforcer` is **up to ~40x faster than Pydantic on scalars and up to ~20x faster on larger data structures**.</span>
 </span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>
 </span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">---</span>
 </span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>
@@ -1624,7 +1624,7 @@ uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </
 </span><span id="L-551"><a href="#L-551"><span class="linenos">551</span></a>
 </span><span id="L-552"><a href="#L-552"><span class="linenos">552</span></a><span class="sd">#### 4. Sampled Validation (`FastEnforcer`, `FastModuleEnforcer`, `iterable_sample_pct`)</span>
 </span><span id="L-553"><a href="#L-553"><span class="linenos">553</span></a><span class="sd">For large or performance-critical collections, use `@type_enforced.FastEnforcer` or configure sampling instead of full iteration:</span>
-</span><span id="L-554"><a href="#L-554"><span class="linenos">554</span></a><span class="sd">- `&#39;first&#39;` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to 8x faster than Beartype).</span>
+</span><span id="L-554"><a href="#L-554"><span class="linenos">554</span></a><span class="sd">- `&#39;first&#39;` (default for `FastEnforcer` / `FastModuleEnforcer`): Validates the first element in O(1) time (runs up to ~15x faster than Beartype).</span>
 </span><span id="L-555"><a href="#L-555"><span class="linenos">555</span></a><span class="sd">- `&#39;last&#39;`: Validates the last element in O(1) time for indexable sequences (`list`, `tuple`). For non-indexed collections like `dict` and `set`, `&#39;last&#39;` validates the first item to avoid reverse iteration and hash table lookup overhead.</span>
 </span><span id="L-556"><a href="#L-556"><span class="linenos">556</span></a><span class="sd">- `&#39;bookend&#39;`: Validates the first and last elements in O(1) time for sequences (the first 2 items for `dict` and `set`).</span>
 </span><span id="L-557"><a href="#L-557"><span class="linenos">557</span></a><span class="sd">- `&#39;bookend_plus&#39;`: Validates the first, last, and a random middle element in O(1) time for sequences (the first 2 items and 1 random item for `dict` and `set`).</span>

@@ -1,14 +1,21 @@
 import ast
+import inspect
+import textwrap
 import types
 from itertools import islice
 from typing import Type
 
-try:
-    from type_enforced import cpp as _cpp
+from type_enforced.utils import has_cpp
 
-    if not hasattr(_cpp, "create_validator"):
+if has_cpp():
+    try:
+        from type_enforced import cpp as _cpp
+
+        if not hasattr(_cpp, "create_validator"):
+            _cpp = None
+    except ImportError:
         _cpp = None
-except ImportError:
+else:
     _cpp = None
 
 _CODE_CACHE = {}
@@ -261,6 +268,65 @@ def _calc_sample_count_ast(var_expr, sample_pct, prefix, fn_globals):
     )
 
 
+_VARIANT_VALIDATOR_CACHE = {}
+_FALLBACK_ENFORCERS = {}
+
+
+def _compile_py_variant_validator(k, variant, sample_pct):
+    cache_key = (k, _freeze_exp(variant), sample_pct)
+    if cache_key in _VARIANT_VALIDATOR_CACHE:
+        return _VARIANT_VALIDATOR_CACHE[cache_key]
+
+    fn_globals = {
+        "type": type,
+        "isinstance": isinstance,
+        "len": len,
+        "max": max,
+        "callable": callable,
+        "_fast_quasi_rand": _fast_quasi_rand,
+    }
+    obj_expr = ast.Name(id="obj", ctx=ast.Load())
+    fail_ret = ast.Return(value=ast.Constant(value=False))
+    check_stmts = generate_type_check_ast(
+        obj_expr,
+        {k: variant},
+        fail_ret,
+        fn_globals,
+        "_val",
+        sample_pct,
+    )
+    body = list(check_stmts)
+    body.append(ast.Return(value=ast.Constant(value=True)))
+
+    fn_def = ast.FunctionDef(
+        name="_check_variant",
+        args=ast.arguments(
+            posonlyargs=[],
+            args=[ast.arg(arg="obj")],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[],
+        ),
+        body=body,
+        decorator_list=[],
+    )
+    module = ast.Module(body=[fn_def], type_ignores=[])
+    _fast_fix_locations(module)
+    code_mod = compile(module, "<type_enforced_variant_validator>", "exec")
+    func_code = [
+        c
+        for c in code_mod.co_consts
+        if isinstance(c, types.CodeType) and c.co_name == "_check_variant"
+    ][0]
+    validator_fn = types.FunctionType(
+        func_code, fn_globals, name="_check_variant"
+    )
+    _VARIANT_VALIDATOR_CACHE[cache_key] = validator_fn
+    return validator_fn
+
+
 def _generate_variant_test_ast(
     var_expr, k, variant, sample_pct, prefix, fn_globals
 ):
@@ -281,110 +347,126 @@ def _generate_variant_test_ast(
         except Exception:
             pass
 
-    fn_name = f"_py_val_var_{prefix}"
-    fn_globals[fn_name] = (
-        lambda obj, o_type=k, var=variant: _validate_variant_fallback(
-            obj, o_type, var, sample_pct
+    try:
+        val_fn = _compile_py_variant_validator(k, variant, sample_pct)
+        fn_name = f"_py_val_var_{prefix}"
+        fn_globals[fn_name] = val_fn
+        return ast.Call(
+            func=ast.Name(id=fn_name, ctx=ast.Load()),
+            args=[var_expr],
+            keywords=[],
         )
-    )
-    return ast.Call(
-        func=ast.Name(id=fn_name, ctx=ast.Load()),
-        args=[var_expr],
-        keywords=[],
-    )
+    except Exception:
+        fn_name = f"_py_val_var_{prefix}"
+        fn_globals[fn_name] = (
+            lambda obj, o_type=k, var=variant: _validate_variant_fallback(
+                obj, o_type, var, sample_pct
+            )
+        )
+        return ast.Call(
+            func=ast.Name(id=fn_name, ctx=ast.Load()),
+            args=[var_expr],
+            keywords=[],
+        )
 
 
 def _validate_variant_fallback(obj, obj_type, variant, sample_pct):
     from .enforcer import FunctionMethodEnforcer
 
-    enforcer = FunctionMethodEnforcer(
-        lambda: None, __iterable_sample_pct__=sample_pct
-    )
-    return enforcer.__validate_collection_variant__(obj, obj_type, variant)
+    enf = _FALLBACK_ENFORCERS.get(sample_pct)
+    if enf is None:
+        enf = FunctionMethodEnforcer(
+            lambda: None, __iterable_sample_pct__=sample_pct
+        )
+        _FALLBACK_ENFORCERS[sample_pct] = enf
+    return enf.__validate_collection_variant__(obj, obj_type, variant)
 
 
-def _generate_scalar_check(
-    var_expr, exp, fail_call, fn_globals, prefix, is_loop=False
+def _make_scalar_check_ast(
+    var_expr, types_tuple, fail_call, ns, prefix, is_loop=False
 ):
-    """
-    Generates AST statements for checking a simple scalar or union of scalar types.
-    """
-    tt = tuple(exp.keys())
-    fn_globals[f"{prefix}_types"] = tt
-    fn_globals[f"{prefix}_t0"] = tt[0]
-
-    t0_name = f"__loc_{prefix}_t0" if is_loop else f"{prefix}_t0"
-    types_name = f"__loc_{prefix}_types" if is_loop else f"{prefix}_types"
-
     var_class = ast.Attribute(value=var_expr, attr="__class__", ctx=ast.Load())
+    if len(types_tuple) <= 3:
+        comparators = []
+        for j, t in enumerate(types_tuple):
+            t_name = f"{prefix}_t{j}"
+            ns[t_name] = t
+            loc_name = f"__loc_{t_name}" if is_loop else t_name
+            comparators.append(
+                ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[ast.Name(id=loc_name, ctx=ast.Load())],
+                )
+            )
+        if len(types_tuple) == 1:
+            t0_name = f"__loc_{prefix}_t0" if is_loop else f"{prefix}_t0"
+            isinst_target = ast.Name(id=t0_name, ctx=ast.Load())
+        else:
+            ns[f"{prefix}_types"] = types_tuple
+            types_name = (
+                f"__loc_{prefix}_types" if is_loop else f"{prefix}_types"
+            )
+            isinst_target = ast.Name(id=types_name, ctx=ast.Load())
 
-    if len(tt) == 1:
         test = ast.BoolOp(
             op=ast.And(),
-            values=[
-                ast.Compare(
-                    left=var_class,
-                    ops=[ast.IsNot()],
-                    comparators=[ast.Name(id=t0_name, ctx=ast.Load())],
-                ),
+            values=comparators
+            + [
                 ast.UnaryOp(
                     op=ast.Not(),
                     operand=ast.Call(
                         func=ast.Name(id="isinstance", ctx=ast.Load()),
-                        args=[
-                            var_expr,
-                            ast.Name(id=types_name, ctx=ast.Load()),
-                        ],
+                        args=[var_expr, isinst_target],
                         keywords=[],
                     ),
-                ),
+                )
             ],
         )
-    elif len(tt) == 2:
-        fn_globals[f"{prefix}_t1"] = tt[1]
-        t1_name = f"__loc_{prefix}_t1" if is_loop else f"{prefix}_t1"
-        test = ast.BoolOp(
-            op=ast.And(),
-            values=[
-                ast.Compare(
-                    left=var_class,
-                    ops=[ast.IsNot()],
-                    comparators=[ast.Name(id=t0_name, ctx=ast.Load())],
-                ),
-                ast.Compare(
-                    left=var_class,
-                    ops=[ast.IsNot()],
-                    comparators=[ast.Name(id=t1_name, ctx=ast.Load())],
-                ),
-                ast.UnaryOp(
-                    op=ast.Not(),
-                    operand=ast.Call(
-                        func=ast.Name(id="isinstance", ctx=ast.Load()),
-                        args=[
-                            var_expr,
-                            ast.Name(id=types_name, ctx=ast.Load()),
-                        ],
-                        keywords=[],
-                    ),
-                ),
-            ],
-        )
+        return [ast.If(test=test, body=[fail_call], orelse=[])]
     else:
-        test = ast.UnaryOp(
-            op=ast.Not(),
-            operand=ast.Call(
-                func=ast.Name(id="isinstance", ctx=ast.Load()),
-                args=[var_expr, ast.Name(id=types_name, ctx=ast.Load())],
-                keywords=[],
-            ),
+        ns[f"{prefix}_types_set"] = frozenset(types_tuple)
+        ns[f"{prefix}_types_tuple"] = types_tuple
+        type_call = ast.Call(
+            func=ast.Name(id="type", ctx=ast.Load()),
+            args=[var_expr],
+            keywords=[],
         )
+        return [
+            ast.If(
+                test=ast.Compare(
+                    left=type_call,
+                    ops=[ast.NotIn()],
+                    comparators=[
+                        ast.Name(id=f"{prefix}_types_set", ctx=ast.Load())
+                    ],
+                ),
+                body=[
+                    ast.If(
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=ast.Call(
+                                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                                args=[
+                                    var_expr,
+                                    ast.Name(
+                                        id=f"{prefix}_types_tuple",
+                                        ctx=ast.Load(),
+                                    ),
+                                ],
+                                keywords=[],
+                            ),
+                        ),
+                        body=[fail_call],
+                        orelse=[],
+                    )
+                ],
+                orelse=[],
+            )
+        ]
 
-    return [ast.If(test=test, body=[fail_call], orelse=[])]
 
-
-def _generate_uninitialized_class_check(
-    var_expr, exp, fail_call, fn_globals, prefix
-):
+def _extract_uninit_class_info(exp):
     target_classes = []
     has_bare_type = False
     for k in exp.keys():
@@ -398,43 +480,80 @@ def _generate_uninitialized_class_check(
                 has_bare_type = True
         elif isinstance(k, type):
             target_classes.append(k)
+    return target_classes, has_bare_type
 
-    is_type_check = ast.Call(
-        func=ast.Name(id="isinstance", ctx=ast.Load()),
-        args=[var_expr, ast.Name(id="type", ctx=ast.Load())],
-        keywords=[],
-    )
 
+def _make_uninit_class_check_ast(
+    var_expr, target_classes, has_bare_type, fail_call, ns, prefix
+):
     if has_bare_type or object in target_classes:
-        test = ast.UnaryOp(op=ast.Not(), operand=is_type_check)
+        test = ast.UnaryOp(
+            op=ast.Not(),
+            operand=ast.Call(
+                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                args=[var_expr, ast.Name(id="type", ctx=ast.Load())],
+                keywords=[],
+            ),
+        )
     elif len(target_classes) == 1:
-        fn_globals[f"{prefix}_tgt_cls"] = target_classes[0]
-        match_check = ast.Compare(
+        ns[f"{prefix}_tgt_cls"] = target_classes[0]
+        test = ast.Compare(
             left=var_expr,
-            ops=[ast.Is()],
+            ops=[ast.IsNot()],
             comparators=[ast.Name(id=f"{prefix}_tgt_cls", ctx=ast.Load())],
         )
-        test = ast.UnaryOp(
-            op=ast.Not(),
-            operand=ast.BoolOp(
-                op=ast.And(), values=[is_type_check, match_check]
-            ),
-        )
+    elif len(target_classes) <= 3:
+        comparators = []
+        for j, tc in enumerate(target_classes):
+            ns[f"{prefix}_tgt_cls{j}"] = tc
+            comparators.append(
+                ast.Compare(
+                    left=var_expr,
+                    ops=[ast.IsNot()],
+                    comparators=[
+                        ast.Name(id=f"{prefix}_tgt_cls{j}", ctx=ast.Load())
+                    ],
+                )
+            )
+        test = ast.BoolOp(op=ast.And(), values=comparators)
     else:
-        fn_globals[f"{prefix}_tgt_classes"] = tuple(target_classes)
-        match_check = ast.Compare(
+        ns[f"{prefix}_tgt_classes"] = tuple(target_classes)
+        test = ast.Compare(
             left=var_expr,
-            ops=[ast.In()],
+            ops=[ast.NotIn()],
             comparators=[ast.Name(id=f"{prefix}_tgt_classes", ctx=ast.Load())],
         )
-        test = ast.UnaryOp(
-            op=ast.Not(),
-            operand=ast.BoolOp(
-                op=ast.And(), values=[is_type_check, match_check]
-            ),
-        )
-
     return [ast.If(test=test, body=[fail_call], orelse=[])]
+
+
+def _generate_scalar_check(
+    var_expr, exp, fail_call, fn_globals, prefix, is_loop=False
+):
+    """
+    Generates AST statements for checking a simple scalar or union of scalar types.
+    """
+    return _make_scalar_check_ast(
+        var_expr,
+        tuple(exp.keys()),
+        fail_call,
+        fn_globals,
+        prefix,
+        is_loop=is_loop,
+    )
+
+
+def _generate_uninitialized_class_check(
+    var_expr, exp, fail_call, fn_globals, prefix
+):
+    target_classes, has_bare_type = _extract_uninit_class_info(exp)
+    return _make_uninit_class_check_ast(
+        var_expr,
+        target_classes,
+        has_bare_type,
+        fail_call,
+        fn_globals,
+        prefix,
+    )
 
 
 def _generate_callable_check(var_expr, fail_call):
@@ -481,10 +600,13 @@ def _generate_typeddict_check(
                 )
             )
             val_expr = ast.Name(id=val_id, ctx=ast.Load())
+            field_fail = _make_elem_fail_call(
+                val_expr, fexp, val_id, fn_globals, fail_call
+            )
             field_checks = generate_type_check_ast(
                 val_expr,
                 fexp,
-                fail_call,
+                field_fail,
                 fn_globals,
                 val_id,
                 sample_pct,
@@ -529,10 +651,13 @@ def _generate_typeddict_check(
                 ),
             )
             val_expr = ast.Name(id=val_id, ctx=ast.Load())
+            opt_field_fail = _make_elem_fail_call(
+                val_expr, fexp, val_id, fn_globals, fail_call
+            )
             field_checks = generate_type_check_ast(
                 val_expr,
                 fexp,
-                fail_call,
+                opt_field_fail,
                 fn_globals,
                 val_id,
                 sample_pct,
@@ -650,6 +775,33 @@ def _emit_strided_sequence_check(
     return [step_calc, start_calc, range_loop]
 
 
+def _make_elem_fail_call(var_expr, exp, prefix, fn_globals, parent_fail_call):
+    if isinstance(parent_fail_call, ast.Return):
+        return parent_fail_call
+    param_name_expr = (
+        parent_fail_call.value.args[3]
+        if (
+            isinstance(parent_fail_call, ast.Expr)
+            and isinstance(parent_fail_call.value, ast.Call)
+            and len(parent_fail_call.value.args) >= 4
+        )
+        else ast.Constant(value=prefix)
+    )
+    fn_globals[f"{prefix}_exp"] = exp
+    return ast.Expr(
+        value=ast.Call(
+            func=ast.Name(id="_check_fn", ctx=ast.Load()),
+            args=[
+                ast.Name(id="__enf_self__", ctx=ast.Load()),
+                var_expr,
+                ast.Name(id=f"{prefix}_exp", ctx=ast.Load()),
+                param_name_expr,
+            ],
+            keywords=[],
+        )
+    )
+
+
 def _emit_set_superset_fallback(
     var_expr, sub_exp, loop_var_id, sub_checks, fail_stmt, prefix, fn_globals
 ):
@@ -716,10 +868,13 @@ def _emit_sequence_check(
     elem_is_simple = is_simple_type(sub_exp)
     loop_var_id = f"{prefix}_el"
     loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
+    elem_fail = _make_elem_fail_call(
+        loop_var_expr, sub_exp, f"{prefix}_el", fn_globals, fail_stmt
+    )
     sub_checks = generate_type_check_ast(
         loop_var_expr,
         sub_exp,
-        fail_stmt,
+        elem_fail,
         fn_globals,
         f"{prefix}_el",
         sample_pct,
@@ -915,10 +1070,15 @@ def _emit_sequence_check(
     elif sample_pct == 100:
         if elem_is_simple:
             if len(sub_exp) == 1:
+                loop_elem_fail = ast.If(
+                    test=ast.Constant(value=True),
+                    body=[elem_fail, ast.Break()],
+                    orelse=[],
+                )
                 sub_checks_fast = generate_type_check_ast(
                     loop_var_expr,
                     sub_exp,
-                    loop_fail,
+                    loop_elem_fail,
                     fn_globals,
                     f"{prefix}_el",
                     sample_pct,
@@ -933,14 +1093,6 @@ def _emit_sequence_check(
                             )
                         ],
                         value=ast.Name(id=f"{prefix}_el_t0", ctx=ast.Load()),
-                    ),
-                    ast.Assign(
-                        targets=[
-                            ast.Name(
-                                id=f"__loc_{prefix}_el_types", ctx=ast.Store()
-                            )
-                        ],
-                        value=ast.Name(id=f"{prefix}_el_types", ctx=ast.Load()),
                     ),
                 ]
                 for_loop = ast.For(
@@ -1032,7 +1184,15 @@ def generate_type_check_ast(
             var_expr, exp, fail_call, fn_globals, prefix, sample_pct
         )
 
-    if _cpp is not None and not is_loop:
+    should_use_cpp = (
+        _cpp is not None
+        and not is_loop
+        and (
+            sample_pct not in ("first", "last", 0)
+            or not can_specialize_type(exp)
+        )
+    )
+    if should_use_cpp:
         try:
             cpp_validator = _cpp.create_validator(exp, sample_pct)
         except Exception:
@@ -1096,10 +1256,13 @@ def generate_type_check_ast(
             elem_is_simple = is_simple_type(sub_exp)
             loop_var_id = f"{prefix}_el"
             loop_var_expr = ast.Name(id=loop_var_id, ctx=ast.Load())
+            elem_fail = _make_elem_fail_call(
+                loop_var_expr, sub_exp, f"{prefix}_el", fn_globals, fail_stmt
+            )
             sub_checks = generate_type_check_ast(
                 loop_var_expr,
                 sub_exp,
-                fail_stmt,
+                elem_fail,
                 fn_globals,
                 f"{prefix}_el",
                 sample_pct,
@@ -1108,10 +1271,15 @@ def generate_type_check_ast(
             if sample_pct == 100:
                 if elem_is_simple:
                     if len(sub_exp) == 1:
+                        loop_elem_fail = ast.If(
+                            test=ast.Constant(value=True),
+                            body=[elem_fail, ast.Break()],
+                            orelse=[],
+                        )
                         sub_checks_fast = generate_type_check_ast(
                             loop_var_expr,
                             sub_exp,
-                            loop_fail,
+                            loop_elem_fail,
                             fn_globals,
                             f"{prefix}_el",
                             sample_pct,
@@ -1128,17 +1296,6 @@ def generate_type_check_ast(
                                 ],
                                 value=ast.Name(
                                     id=f"{prefix}_el_t0", ctx=ast.Load()
-                                ),
-                            ),
-                            ast.Assign(
-                                targets=[
-                                    ast.Name(
-                                        id=f"__loc_{prefix}_el_types",
-                                        ctx=ast.Store(),
-                                    )
-                                ],
-                                value=ast.Name(
-                                    id=f"{prefix}_el_types", ctx=ast.Load()
                                 ),
                             ),
                         ]
@@ -1244,10 +1401,16 @@ def generate_type_check_ast(
         k_var_expr = ast.Name(id=k_var_id, ctx=ast.Load())
         v_var_expr = ast.Name(id=v_var_id, ctx=ast.Load())
 
+        k_fail = _make_elem_fail_call(
+            k_var_expr, k_exp, f"{prefix}_k", fn_globals, fail_stmt
+        )
+        v_fail = _make_elem_fail_call(
+            v_var_expr, v_exp, f"{prefix}_v", fn_globals, fail_stmt
+        )
         k_checks = generate_type_check_ast(
             k_var_expr,
             k_exp,
-            fail_stmt,
+            k_fail,
             fn_globals,
             f"{prefix}_k",
             sample_pct,
@@ -1256,7 +1419,7 @@ def generate_type_check_ast(
         v_checks = generate_type_check_ast(
             v_var_expr,
             v_exp,
-            fail_stmt,
+            v_fail,
             fn_globals,
             f"{prefix}_v",
             sample_pct,
@@ -1307,27 +1470,61 @@ def generate_type_check_ast(
                 orelse=[],
             )
         elif sample_pct in ("first", "last"):
-            content_check = ast.If(
-                test=var_expr,
-                body=[
-                    ast.Assign(
-                        targets=[item_target],
-                        value=ast.Call(
-                            func=ast.Name(id="next", ctx=ast.Load()),
-                            args=[
-                                ast.Call(
-                                    func=ast.Name(id="iter", ctx=ast.Load()),
-                                    args=[dict_iter_call],
-                                    keywords=[],
-                                )
-                            ],
-                            keywords=[],
-                        ),
-                    )
-                ]
-                + checks_to_run,
-                orelse=[],
-            )
+            if k_checks and v_checks:
+                first_key_assign = ast.Assign(
+                    targets=[ast.Name(id=k_var_id, ctx=ast.Store())],
+                    value=ast.Call(
+                        func=ast.Name(id="next", ctx=ast.Load()),
+                        args=[
+                            ast.Call(
+                                func=ast.Name(id="iter", ctx=ast.Load()),
+                                args=[var_expr],
+                                keywords=[],
+                            )
+                        ],
+                        keywords=[],
+                    ),
+                )
+                val_assign = ast.Assign(
+                    targets=[ast.Name(id=v_var_id, ctx=ast.Store())],
+                    value=ast.Subscript(
+                        value=var_expr,
+                        slice=ast.Name(id=k_var_id, ctx=ast.Load()),
+                        ctx=ast.Load(),
+                    ),
+                )
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[first_key_assign]
+                    + k_checks
+                    + [val_assign]
+                    + v_checks,
+                    orelse=[],
+                )
+            else:
+                content_check = ast.If(
+                    test=var_expr,
+                    body=[
+                        ast.Assign(
+                            targets=[item_target],
+                            value=ast.Call(
+                                func=ast.Name(id="next", ctx=ast.Load()),
+                                args=[
+                                    ast.Call(
+                                        func=ast.Name(
+                                            id="iter", ctx=ast.Load()
+                                        ),
+                                        args=[dict_iter_call],
+                                        keywords=[],
+                                    )
+                                ],
+                                keywords=[],
+                            ),
+                        )
+                    ]
+                    + checks_to_run,
+                    orelse=[],
+                )
         elif sample_pct == "bookend":
             it_var_id = f"{prefix}_it"
             it_expr = ast.Name(id=it_var_id, ctx=ast.Load())
@@ -1559,10 +1756,17 @@ def generate_type_check_ast(
                         ctx=ast.Load(),
                     ),
                 )
+                t_fail = _make_elem_fail_call(
+                    t_var_expr,
+                    item_exp,
+                    f"{prefix}_t{j}",
+                    fn_globals,
+                    fail_stmt,
+                )
                 t_checks = generate_type_check_ast(
                     t_var_expr,
                     item_exp,
-                    fail_stmt,
+                    t_fail,
                     fn_globals,
                     f"{prefix}_t{j}",
                     sample_pct,
@@ -2040,3 +2244,386 @@ def build_specialized_call(
         call_method.__kwdefaults__ = kwdefaults
 
     return call_method
+
+
+class _ReturnTransformer(ast.NodeTransformer):
+    def __init__(self, make_ret_check):
+        self.make_ret_check = make_ret_check
+
+    def visit_FunctionDef(self, node):
+        return node
+
+    def visit_AsyncFunctionDef(self, node):
+        return node
+
+    def visit_Lambda(self, node):
+        return node
+
+    def visit_Return(self, node):
+        val_expr = (
+            node.value if node.value is not None else ast.Constant(value=None)
+        )
+        checks = self.make_ret_check(val_expr)
+        if not checks:
+            return node
+        if isinstance(val_expr, (ast.Name, ast.Constant)):
+            stmts = list(checks)
+            stmts.append(ast.Return(value=val_expr))
+        else:
+            res_var = ast.Name(id="__enf_res__", ctx=ast.Load())
+            stmts = [
+                ast.Assign(
+                    targets=[ast.Name(id="__enf_res__", ctx=ast.Store())],
+                    value=val_expr,
+                )
+            ]
+            stmts.extend(self.make_ret_check(res_var))
+            stmts.append(ast.Return(value=res_var))
+        for s in stmts:
+            ast.copy_location(s, node)
+        return stmts
+
+
+def _transform_body_returns(body, make_ret_check):
+    transformer = _ReturnTransformer(make_ret_check)
+    new_body = []
+    for stmt in body:
+        res = transformer.visit(stmt)
+        if isinstance(res, list):
+            new_body.extend(res)
+        elif res is not None:
+            new_body.append(res)
+    return new_body
+
+
+def build_inlined_code(enforcer, fn):
+    """
+    Attempts to compile an inlined single-frame specialized code object for fn.
+    Returns the compiled code object if successful, or None if inlining is not possible
+    (e.g. source unavailable, complex containers, or dynamic types requiring C++ validation).
+    """
+    if not isinstance(fn, types.FunctionType):
+        return None
+
+    if fn.__code__.co_freevars:
+        return None
+
+    if inspect.isgeneratorfunction(fn) or inspect.iscoroutinefunction(fn):
+        return None
+
+    try:
+        src = inspect.getsource(fn)
+    except (OSError, TypeError):
+        return None
+
+    src = textwrap.dedent(src)
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return None
+
+    if not tree.body or not isinstance(
+        tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef)
+    ):
+        return None
+
+    func_def = tree.body[0]
+    func_def.decorator_list = []
+
+    enforcer.__get_checkable_types__()
+    checkable = enforcer.__checkable_types__
+    ret_exp = enforcer.__return_type__
+
+    fn_globals = fn.__globals__
+    ns = {}
+    ns["type"] = type
+    ns["isinstance"] = isinstance
+    ns["callable"] = callable
+    prefix = f"__enf_{func_def.name}_{id(enforcer)}"
+    ns[f"{prefix}_check_fn"] = enforcer.__check_type__
+
+    check_stmts = []
+
+    co = fn.__code__
+    if co.co_flags & (0x04 | 0x08):
+        return None
+    total_args = co.co_argcount + co.co_kwonlyargcount
+    if total_args > 3:
+        return None
+    param_names = list(co.co_varnames[:total_args])
+    first_p = param_names[0] if param_names else None
+
+    for p in param_names:
+        if p in ("self", "cls") and p not in checkable:
+            continue
+        exp = checkable.get(p)
+        if exp is None:
+            continue
+
+        var_name = ast.Name(id=p, ctx=ast.Load())
+        fail_call = ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id=f"{prefix}_check_fn", ctx=ast.Load()),
+                args=[
+                    var_name,
+                    ast.Name(id=f"{prefix}_exp_{p}", ctx=ast.Load()),
+                    ast.Constant(value=p),
+                ],
+                keywords=[],
+            )
+        )
+        ns[f"{prefix}_exp_{p}"] = exp
+
+        if is_simple_type(exp):
+            types_tuple = tuple(exp.keys())
+            if _cpp is not None and len(types_tuple) > 1:
+                return None
+            check_stmts.extend(
+                _make_scalar_check_ast(
+                    var_name, types_tuple, fail_call, ns, f"{prefix}_{p}"
+                )
+            )
+        elif is_uninitialized_class_type(exp):
+            target_classes, has_bare_type = _extract_uninit_class_info(exp)
+            check_stmts.extend(
+                _make_uninit_class_check_ast(
+                    var_name,
+                    target_classes,
+                    has_bare_type,
+                    fail_call,
+                    ns,
+                    f"{prefix}_{p}",
+                )
+            )
+        elif is_callable_type(exp):
+            check_stmts.append(_generate_callable_check(var_name, fail_call)[0])
+        elif is_self_type(exp):
+            if p == first_p:
+                continue
+            target_cls = getattr(enforcer, "__self_type__", None)
+            if target_cls is not None:
+                ns[f"{prefix}_self_cls_{p}"] = target_cls
+                cls_expr = ast.Name(id=f"{prefix}_self_cls_{p}", ctx=ast.Load())
+            elif first_p:
+                cls_expr = ast.Attribute(
+                    value=ast.Name(id=first_p, ctx=ast.Load()),
+                    attr="__class__",
+                    ctx=ast.Load(),
+                )
+            else:
+                return None
+            var_class = ast.Attribute(
+                value=var_name, attr="__class__", ctx=ast.Load()
+            )
+            chk = ast.If(
+                test=ast.Compare(
+                    left=var_class,
+                    ops=[ast.IsNot()],
+                    comparators=[cls_expr],
+                ),
+                body=[
+                    ast.If(
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=ast.Call(
+                                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                                args=[var_name, cls_expr],
+                                keywords=[],
+                            ),
+                        ),
+                        body=[fail_call],
+                        orelse=[],
+                    )
+                ],
+                orelse=[],
+            )
+            check_stmts.append(chk)
+        else:
+            return None
+
+    if ret_exp is not None:
+        ns[f"{prefix}_ret_exp"] = ret_exp
+
+        def make_fail_ret(res_expr):
+            return ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id=f"{prefix}_check_fn", ctx=ast.Load()),
+                    args=[
+                        res_expr,
+                        ast.Name(id=f"{prefix}_ret_exp", ctx=ast.Load()),
+                        ast.Constant(value="return"),
+                    ],
+                    keywords=[],
+                )
+            )
+
+        if (
+            len(ret_exp) == 1
+            and type(None) in ret_exp
+            and ret_exp[type(None)] is None
+        ):
+
+            def make_ret_check(res_expr):
+                if (
+                    res_expr is None
+                    or (
+                        isinstance(res_expr, ast.Constant)
+                        and res_expr.value is None
+                    )
+                    or (
+                        isinstance(res_expr, ast.Name) and res_expr.id == "None"
+                    )
+                ):
+                    return []
+                if isinstance(res_expr, ast.Constant):
+                    return [make_fail_ret(res_expr)]
+                return [
+                    ast.If(
+                        test=ast.Compare(
+                            left=res_expr,
+                            ops=[ast.IsNot()],
+                            comparators=[ast.Constant(value=None)],
+                        ),
+                        body=[make_fail_ret(res_expr)],
+                        orelse=[],
+                    )
+                ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_self_type(ret_exp) and first_p:
+
+            def make_ret_check(res_expr):
+                if isinstance(res_expr, ast.Name) and res_expr.id == first_p:
+                    return []
+                if isinstance(res_expr, ast.Constant):
+                    return [make_fail_ret(res_expr)]
+                target_cls = getattr(enforcer, "__self_type__", None)
+                if target_cls is not None:
+                    ns[f"{prefix}_ret_self_cls"] = target_cls
+                    cls_expr = ast.Name(
+                        id=f"{prefix}_ret_self_cls", ctx=ast.Load()
+                    )
+                else:
+                    cls_expr = ast.Attribute(
+                        value=ast.Name(id=first_p, ctx=ast.Load()),
+                        attr="__class__",
+                        ctx=ast.Load(),
+                    )
+                ret_var_class = ast.Attribute(
+                    value=res_expr, attr="__class__", ctx=ast.Load()
+                )
+                return [
+                    ast.If(
+                        test=ast.Compare(
+                            left=ret_var_class,
+                            ops=[ast.IsNot()],
+                            comparators=[cls_expr],
+                        ),
+                        body=[
+                            ast.If(
+                                test=ast.UnaryOp(
+                                    op=ast.Not(),
+                                    operand=ast.Call(
+                                        func=ast.Name(
+                                            id="isinstance", ctx=ast.Load()
+                                        ),
+                                        args=[res_expr, cls_expr],
+                                        keywords=[],
+                                    ),
+                                ),
+                                body=[make_fail_ret(res_expr)],
+                                orelse=[],
+                            )
+                        ],
+                        orelse=[],
+                    )
+                ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_simple_type(ret_exp):
+            ret_types_tuple = tuple(ret_exp.keys())
+            if _cpp is not None and len(ret_types_tuple) > 1:
+                return None
+
+            def make_ret_check(res_expr):
+                if isinstance(res_expr, ast.Constant):
+                    if type(res_expr.value) in ret_types_tuple:
+                        return []
+                    return [make_fail_ret(res_expr)]
+                return _make_scalar_check_ast(
+                    res_expr,
+                    ret_types_tuple,
+                    make_fail_ret(res_expr),
+                    ns,
+                    f"{prefix}_ret",
+                )
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_uninitialized_class_type(ret_exp):
+            target_classes, has_bare_type = _extract_uninit_class_info(ret_exp)
+
+            def make_ret_check(res_expr):
+                if isinstance(res_expr, ast.Constant):
+                    if has_bare_type or object in target_classes:
+                        if isinstance(res_expr.value, type):
+                            return []
+                    elif res_expr.value in target_classes:
+                        return []
+                    return [make_fail_ret(res_expr)]
+                return _make_uninit_class_check_ast(
+                    res_expr,
+                    target_classes,
+                    has_bare_type,
+                    make_fail_ret(res_expr),
+                    ns,
+                    f"{prefix}_ret",
+                )
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        elif is_callable_type(ret_exp):
+
+            def make_ret_check(res_expr):
+                if isinstance(res_expr, ast.Constant):
+                    if callable(res_expr.value):
+                        return []
+                    return [make_fail_ret(res_expr)]
+                return [
+                    ast.If(
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=ast.Call(
+                                func=ast.Name(id="callable", ctx=ast.Load()),
+                                args=[res_expr],
+                                keywords=[],
+                            ),
+                        ),
+                        body=[make_fail_ret(res_expr)],
+                        orelse=[],
+                    )
+                ]
+
+            func_def.body = _transform_body_returns(
+                func_def.body, make_ret_check
+            )
+        else:
+            return None
+
+    func_def.body = check_stmts + func_def.body
+    tree = ast.fix_missing_locations(tree)
+    code_mod = compile(tree, fn.__code__.co_filename, "exec")
+    compiled_code = [
+        c
+        for c in code_mod.co_consts
+        if isinstance(c, types.CodeType) and c.co_name == func_def.name
+    ][0]
+
+    fn_globals.update(ns)
+    return compiled_code

@@ -22,6 +22,7 @@ from type_enforced.specialized import (
     build_specialized_call,
     can_specialize_type,
     is_simple_type,
+    build_inlined_code,
 )
 import sys
 import traceback
@@ -61,7 +62,16 @@ __CO_VARKEYWORDS__ = 0x08
 __NO_DEFAULT__ = object()
 
 
-class FunctionMethodEnforcer(_BaseEnforcer):
+class FunctionMethodEnforcerMeta(type):
+    def __instancecheck__(cls, instance):
+        if getattr(instance, "__is_type_enforced__", False):
+            return True
+        return super().__instancecheck__(instance)
+
+
+class FunctionMethodEnforcer(
+    _BaseEnforcer, metaclass=FunctionMethodEnforcerMeta
+):
     __slots__ = (
         "__fn__",
         "__strict__",
@@ -93,6 +103,54 @@ class FunctionMethodEnforcer(_BaseEnforcer):
         "__doc__",
         "__dict__",
     )
+
+    def __new__(cls, __fn__=None, *args, **kwargs):
+        if __fn__ is None and "__fn__" in kwargs:
+            __fn__ = kwargs.pop("__fn__")
+
+        if cls is not FunctionMethodEnforcer or not isinstance(
+            __fn__, (FunctionType, MethodType)
+        ):
+            return super().__new__(cls)
+
+        self = super().__new__(cls)
+        self.__init__(__fn__, *args, **kwargs)
+
+        target_fn = (
+            __fn__.__func__ if isinstance(__fn__, MethodType) else __fn__
+        )
+        if isinstance(target_fn, FunctionType):
+            try:
+                code = build_inlined_code(self, target_fn)
+                if (
+                    code is not None
+                    and getattr(target_fn.__code__, "co_freevars", ()) == ()
+                ):
+                    target_fn.__code__ = code
+                    target_fn.__is_type_enforced__ = True
+                    target_fn.__fn__ = target_fn
+                    target_fn.__strict__ = self.__strict__
+                    target_fn.__clean_traceback__ = self.__clean_traceback__
+                    target_fn.__iterable_sample_pct__ = (
+                        self.__iterable_sample_pct__
+                    )
+                    target_fn.__only_typed__ = self.__only_typed__
+                    target_fn.__self_type__ = self.__self_type__
+                    target_fn.__get_sample_indices__ = (
+                        self.__get_sample_indices__
+                    )
+                    target_fn.__get_sample_keys__ = self.__get_sample_keys__
+                    target_fn.__check_type__ = self.__check_type__
+                    target_fn.__get_defaults__ = self.__get_defaults__
+                    target_fn.__get_checkable_types__ = (
+                        self.__get_checkable_types__
+                    )
+                    target_fn.__check_only_typed__ = self.__check_only_typed__
+                    return __fn__
+            except Exception:
+                pass
+
+        return self
 
     def __init__(
         self,
@@ -135,6 +193,8 @@ class FunctionMethodEnforcer(_BaseEnforcer):
                 - Type: bool
                 - Default: False
         """
+        if getattr(self, "__types_parsed__", False):
+            return
         update_wrapper(self, __fn__)
         self.__fn__ = __fn__
         self.__strict__ = __strict__
@@ -169,6 +229,11 @@ class FunctionMethodEnforcer(_BaseEnforcer):
             self.__check_only_typed__()
         # Get input defaults for the function or method
         self.__get_defaults__()
+        try:
+            self.__get_checkable_types__()
+            self.__specialize__()
+        except Exception:
+            pass
 
     def __check_only_typed__(self):
         """
@@ -333,6 +398,11 @@ class FunctionMethodEnforcer(_BaseEnforcer):
         Creates class attributes for validation.
         """
         if not self.__types_parsed__:
+            if (
+                not hasattr(self, "__fn_varnames__")
+                or self.__fn_varnames__ is None
+            ):
+                self.__get_defaults__()
             self.__checkable_types__ = {
                 key: self.__get_checkable_type__(value)
                 for key, value in get_type_hints(self.__fn__).items()
@@ -1581,6 +1651,8 @@ def Enforcer(
             return clsFnMethod
     if not clsFnMethod.__type_enforced_enabled__:
         return clsFnMethod
+    if getattr(clsFnMethod, "__is_type_enforced__", False):
+        return clsFnMethod
     if isinstance(
         clsFnMethod, (staticmethod, classmethod, FunctionType, MethodType)
     ):
@@ -1623,7 +1695,7 @@ def Enforcer(
                 self_type=self_type,
             )
     elif hasattr(clsFnMethod, "__dict__"):
-        for key, value in clsFnMethod.__dict__.items():
+        for key, value in list(clsFnMethod.__dict__.items()):
             # Skip the __annotate__ method if present in __dict__ as it deletes itself upon invocation
             # Skip any previously wrapped methods if they are already a FunctionMethodEnforcer
             if key == "__annotate__" or isinstance(
