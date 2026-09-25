@@ -1421,7 +1421,6 @@ struct PyFastCallObject {
     PyObject_HEAD
     vectorcallfunc vectorcall;
     PyObject* fn;
-    vectorcallfunc fn_vectorcall;
     RetCheckKind ret_kind;
     uint8_t num_pos;
     bool has_varargs;
@@ -1495,9 +1494,6 @@ static inline bool handle_type_error(PyObject* check_fn, PyObject* self_enforcer
 }
 
 static inline PyObject* call_target(const PyFastCallObject* fc, PyObject* const* args, size_t nargsf, PyObject* kwnames = nullptr) noexcept {
-    if (__builtin_expect(fc->fn_vectorcall != nullptr, 1)) {
-        return fc->fn_vectorcall(fc->fn, args, nargsf, kwnames);
-    }
     return PyObject_Vectorcall(fc->fn, args, nargsf, kwnames);
 }
 
@@ -1810,7 +1806,6 @@ static PyObject* fast_call_new(PyTypeObject* type, PyObject* args, PyObject* kwa
         self->vectorcall = fast_call_general_vectorcall;
         self->self_enforcer = nullptr;
         self->fn = nullptr;
-        self->fn_vectorcall = nullptr;
         self->check_fn = nullptr;
         self->ret_exp = nullptr;
         self->ret_str = nullptr;
@@ -1923,7 +1918,6 @@ static bool setup_fast_call_internal(
     Py_XDECREF(obj->fn);
     obj->fn = fn.ptr();
     Py_XINCREF(obj->fn);
-    obj->fn_vectorcall = PyVectorcall_Function(obj->fn);
 
     Py_XDECREF(obj->check_fn);
     obj->check_fn = check_fn.ptr();
