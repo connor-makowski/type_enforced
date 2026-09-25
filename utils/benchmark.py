@@ -87,6 +87,9 @@ try:
         pools["int"] = [i * 42 for i in range(POOL_SIZE)]
         invalid_cases["int"] = "not an int"
 
+        pools["int -> float"] = [i * 42 for i in range(POOL_SIZE)]
+        invalid_cases["int -> float"] = "not an int"
+
         pools["Union[int,float]"] = [
             float(i) if i % 2 else i for i in range(POOL_SIZE)
         ]
@@ -362,6 +365,7 @@ try:
     # --- Typing definitions
     types = {
         "int": int,
+        "int -> float": "int_to_float",
         "Union[int,float]": Union[int, float],
         "str": str,
         "NewType (int)": UserId,
@@ -558,6 +562,12 @@ try:
     def base_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return MULTI_PARAM_FUNCS[typ]
+        if typ == "int_to_float":
+
+            def f(x: int) -> float:
+                return float(x)
+
+            return f
         if typ == "method_dict_str_int":
 
             class _PlainCls:
@@ -583,6 +593,13 @@ try:
     def pydantic_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return validate_call(MULTI_PARAM_FUNCS[typ])
+        if typ == "int_to_float":
+
+            @validate_call
+            def f(x: int) -> float:
+                return float(x)
+
+            return f
         if typ == "method_dict_str_int":
 
             class _PydanticCls:
@@ -611,6 +628,13 @@ try:
     def beartype_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return beartype(MULTI_PARAM_FUNCS[typ])
+        if typ == "int_to_float":
+
+            @beartype
+            def f(x: int) -> float:
+                return float(x)
+
+            return f
         if typ == "method_dict_str_int":
 
             class _BeartypeCls:
@@ -653,6 +677,24 @@ try:
                         collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
                     )
                 return fn(*args, **kwargs)
+
+            return f
+
+        if typ == "int_to_float":
+
+            def f(x):
+                typeguard.check_type(
+                    x,
+                    int,
+                    collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
+                )
+                res = float(x)
+                typeguard.check_type(
+                    res,
+                    float,
+                    collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
+                )
+                return res
 
             return f
 
@@ -710,6 +752,24 @@ try:
 
             return f
 
+        if typ == "int_to_float":
+
+            def f(x):
+                typeguard.check_type(
+                    x,
+                    int,
+                    collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+                )
+                res = float(x)
+                typeguard.check_type(
+                    res,
+                    float,
+                    collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+                )
+                return res
+
+            return f
+
         if typ == "method_dict_str_int":
 
             def f(x):
@@ -757,6 +817,14 @@ try:
                 for t, v in zip(hints, args):
                     msgspec.convert(v, type=t)
                 return fn(*args, **kwargs)
+
+            return f
+
+        if typ == "int_to_float":
+
+            def f(x):
+                msgspec.convert(x, type=int)
+                return msgspec.convert(float(x), type=float)
 
             return f
 
@@ -816,6 +884,14 @@ try:
 
             return f
 
+        if typ == "int_to_float":
+
+            def f(x):
+                cattrs_conv.structure(x, int)
+                return cattrs_conv.structure(float(x), float)
+
+            return f
+
         if typ == "method_dict_str_int":
 
             class _CattrsCls:
@@ -859,6 +935,13 @@ try:
                 return type_enforced.Enforcer(iterable_sample_pct=sample_pct)(
                     MULTI_PARAM_FUNCS[typ]
                 )
+            if typ == "int_to_float":
+
+                @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
+                def f(x: int) -> float:
+                    return float(x)
+
+                return f
             if typ == "method_dict_str_int":
 
                 @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
