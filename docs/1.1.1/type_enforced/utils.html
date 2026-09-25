@@ -81,7 +81,7 @@
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
-        <option value="2.12.0">2.12.0</option>
+        <option value="2.12.1">2.12.1</option>
         <option value="2.11.0">2.11.0</option>
         <option value="2.10.1">2.10.1</option>
         <option value="2.9.0">2.9.0</option>
@@ -152,7 +152,7 @@
 
                         <label class="view-source-button" for="mod-utils-view-source"><span>View Source</span></label>
 
-                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">types</span><span class="o">,</span><span class="w"> </span><span class="nn">re</span><span class="o">,</span><span class="w"> </span><span class="nn">copy</span>
+                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">types</span><span class="o">,</span><span class="w"> </span><span class="nn">re</span><span class="o">,</span><span class="w"> </span><span class="nn">copy</span><span class="o">,</span><span class="w"> </span><span class="nn">sys</span>
 </span><span id="L-2"><a href="#L-2"><span class="linenos">  2</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_wrapper</span>
 </span><span id="L-3"><a href="#L-3"><span class="linenos">  3</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
 </span><span id="L-4"><a href="#L-4"><span class="linenos">  4</span></a>
@@ -492,21 +492,23 @@
 </span><span id="L-338"><a href="#L-338"><span class="linenos">338</span></a>
 </span><span id="L-339"><a href="#L-339"><span class="linenos">339</span></a>
 </span><span id="L-340"><a href="#L-340"><span class="linenos">340</span></a><span class="k">def</span><span class="w"> </span><span class="nf">has_cpp</span><span class="p">():</span>
-</span><span id="L-341"><a href="#L-341"><span class="linenos">341</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="L-342"><a href="#L-342"><span class="linenos">342</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
-</span><span id="L-343"><a href="#L-343"><span class="linenos">343</span></a>
-</span><span id="L-344"><a href="#L-344"><span class="linenos">344</span></a>        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="L-345"><a href="#L-345"><span class="linenos">345</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="L-346"><a href="#L-346"><span class="linenos">346</span></a>        <span class="k">return</span> <span class="kc">False</span>
-</span><span id="L-347"><a href="#L-347"><span class="linenos">347</span></a>
-</span><span id="L-348"><a href="#L-348"><span class="linenos">348</span></a>
-</span><span id="L-349"><a href="#L-349"><span class="linenos">349</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
-</span><span id="L-350"><a href="#L-350"><span class="linenos">350</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="L-351"><a href="#L-351"><span class="linenos">351</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
-</span><span id="L-352"><a href="#L-352"><span class="linenos">352</span></a>
-</span><span id="L-353"><a href="#L-353"><span class="linenos">353</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
-</span><span id="L-354"><a href="#L-354"><span class="linenos">354</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="L-355"><a href="#L-355"><span class="linenos">355</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+</span><span id="L-341"><a href="#L-341"><span class="linenos">341</span></a>    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">implementation</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;cpython&quot;</span><span class="p">:</span>
+</span><span id="L-342"><a href="#L-342"><span class="linenos">342</span></a>        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="L-343"><a href="#L-343"><span class="linenos">343</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="L-344"><a href="#L-344"><span class="linenos">344</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
+</span><span id="L-345"><a href="#L-345"><span class="linenos">345</span></a>
+</span><span id="L-346"><a href="#L-346"><span class="linenos">346</span></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="L-347"><a href="#L-347"><span class="linenos">347</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="L-348"><a href="#L-348"><span class="linenos">348</span></a>        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="L-349"><a href="#L-349"><span class="linenos">349</span></a>
+</span><span id="L-350"><a href="#L-350"><span class="linenos">350</span></a>
+</span><span id="L-351"><a href="#L-351"><span class="linenos">351</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
+</span><span id="L-352"><a href="#L-352"><span class="linenos">352</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="L-353"><a href="#L-353"><span class="linenos">353</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
+</span><span id="L-354"><a href="#L-354"><span class="linenos">354</span></a>
+</span><span id="L-355"><a href="#L-355"><span class="linenos">355</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+</span><span id="L-356"><a href="#L-356"><span class="linenos">356</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="L-357"><a href="#L-357"><span class="linenos">357</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -1256,12 +1258,14 @@ with the older versions of type_enforced.</p>
     </div>
     <a class="headerlink" href="#has_cpp"></a>
             <div class="pdoc-code codehilite"><pre><span></span><span id="has_cpp-341"><a href="#has_cpp-341"><span class="linenos">341</span></a><span class="k">def</span><span class="w"> </span><span class="nf">has_cpp</span><span class="p">():</span>
-</span><span id="has_cpp-342"><a href="#has_cpp-342"><span class="linenos">342</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="has_cpp-343"><a href="#has_cpp-343"><span class="linenos">343</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
-</span><span id="has_cpp-344"><a href="#has_cpp-344"><span class="linenos">344</span></a>
-</span><span id="has_cpp-345"><a href="#has_cpp-345"><span class="linenos">345</span></a>        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="has_cpp-346"><a href="#has_cpp-346"><span class="linenos">346</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="has_cpp-347"><a href="#has_cpp-347"><span class="linenos">347</span></a>        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="has_cpp-342"><a href="#has_cpp-342"><span class="linenos">342</span></a>    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">implementation</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;cpython&quot;</span><span class="p">:</span>
+</span><span id="has_cpp-343"><a href="#has_cpp-343"><span class="linenos">343</span></a>        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="has_cpp-344"><a href="#has_cpp-344"><span class="linenos">344</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="has_cpp-345"><a href="#has_cpp-345"><span class="linenos">345</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
+</span><span id="has_cpp-346"><a href="#has_cpp-346"><span class="linenos">346</span></a>
+</span><span id="has_cpp-347"><a href="#has_cpp-347"><span class="linenos">347</span></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="has_cpp-348"><a href="#has_cpp-348"><span class="linenos">348</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="has_cpp-349"><a href="#has_cpp-349"><span class="linenos">349</span></a>        <span class="k">return</span> <span class="kc">False</span>
 </span></pre></div>
 
 
@@ -1279,13 +1283,13 @@ with the older versions of type_enforced.</p>
 
     </div>
     <a class="headerlink" href="#cpp_check"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="cpp_check-350"><a href="#cpp_check-350"><span class="linenos">350</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
-</span><span id="cpp_check-351"><a href="#cpp_check-351"><span class="linenos">351</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="cpp_check-352"><a href="#cpp_check-352"><span class="linenos">352</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
-</span><span id="cpp_check-353"><a href="#cpp_check-353"><span class="linenos">353</span></a>
-</span><span id="cpp_check-354"><a href="#cpp_check-354"><span class="linenos">354</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
-</span><span id="cpp_check-355"><a href="#cpp_check-355"><span class="linenos">355</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span id="cpp_check-356"><a href="#cpp_check-356"><span class="linenos">356</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="cpp_check-352"><a href="#cpp_check-352"><span class="linenos">352</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cpp_check</span><span class="p">():</span>
+</span><span id="cpp_check-353"><a href="#cpp_check-353"><span class="linenos">353</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="cpp_check-354"><a href="#cpp_check-354"><span class="linenos">354</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">type_enforced.cpp</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_validator</span>  <span class="c1"># noqa: F401</span>
+</span><span id="cpp_check-355"><a href="#cpp_check-355"><span class="linenos">355</span></a>
+</span><span id="cpp_check-356"><a href="#cpp_check-356"><span class="linenos">356</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+</span><span id="cpp_check-357"><a href="#cpp_check-357"><span class="linenos">357</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span id="cpp_check-358"><a href="#cpp_check-358"><span class="linenos">358</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
 </span></pre></div>
 
 
