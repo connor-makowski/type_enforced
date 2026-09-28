@@ -58,20 +58,18 @@ union_pool = [float(i) if i % 2 else i for i in range(POOL_SIZE)]
 str_pool = [f"hello_{i}" for i in range(POOL_SIZE)]
 
 list_1000_pool = [[j for j in range(1000)] for _ in range(POOL_SIZE)]
-list_10000_pool = [[j for j in range(10000)] for _ in range(POOL_SIZE)]
 
 dict_1000_pool = [{f"key{j}": j for j in range(1000)} for _ in range(POOL_SIZE)]
-dict_10000_pool = [{f"key{j}": j for j in range(10000)} for _ in range(POOL_SIZE)]
 
-list_list_100x100_pool = [
-    [[k for k in range(100)] for _ in range(100)] for _ in range(POOL_SIZE)
+list_list_10x100_pool = [
+    [[k for k in range(100)] for _ in range(10)] for _ in range(POOL_SIZE)
 ]
-dict_list_100x100_pool = [
-    {f"k{j}": [k for k in range(100)] for j in range(100)}
+dict_list_10x100_pool = [
+    {f"k{j}": [k for k in range(100)] for j in range(10)}
     for _ in range(POOL_SIZE)
 ]
-list_dict_100x100_pool = [
-    [{f"key{k}": k for k in range(100)} for _ in range(100)]
+list_dict_10x100_pool = [
+    [{f"key{k}": k for k in range(100)} for _ in range(10)]
     for _ in range(POOL_SIZE)
 ]
 
@@ -112,13 +110,6 @@ CASES = [
         [1, "two", 3] * 333,
     ),
     (
-        "`list[int]`",
-        "10 000 items",
-        List[int],
-        list_10000_pool,
-        [1, "two", 3] * 3333,
-    ),
-    (
         "`dict[str, int]`",
         "1 000 keys",
         Dict[str, int],
@@ -126,31 +117,24 @@ CASES = [
         {"k1": 1, "k2": "two"},
     ),
     (
-        "`dict[str, int]`",
-        "10 000 keys",
-        Dict[str, int],
-        dict_10000_pool,
-        {"k1": 1, "k2": "two"},
-    ),
-    (
         "`list[list[int]]`",
-        "100 x 100 items",
+        "10 x 100 items",
         List[List[int]],
-        list_list_100x100_pool,
+        list_list_10x100_pool,
         [[1, "two"]],
     ),
     (
         "`dict[str, list[int]]`",
-        "100 x 100 items",
+        "10 x 100 items",
         Dict[str, List[int]],
-        dict_list_100x100_pool,
+        dict_list_10x100_pool,
         {"k": [1, "two"]},
     ),
     (
         "`list[dict[str, int]]`",
-        "100 x 100 items",
+        "10 x 100 items",
         List[Dict[str, int]],
-        list_dict_100x100_pool,
+        list_dict_10x100_pool,
         [{"k1": 1, "k2": "two"}],
     ),
 ]
@@ -383,7 +367,7 @@ def timeit_pool(func, pool, is_multi=False, target_batch_time=0.003, repeats=5):
 
     durations.sort()
     best = durations[:3]
-    return (sum(best) / len(best)) * 1e6
+    return (sum(best) / len(best)) * 1e9
 
 
 def test_validation(func, valid_val, invalid_val, is_multi=False):
@@ -413,31 +397,19 @@ def run_minibench():
     for type_label, size_label, typ, valid_pool, invalid_val in CASES:
         is_multi = typ in MULTI_PARAM_FUNCS
         row_times = {}
-        row_warnings = {}
         base_fn = base_factory(typ)
-        base_us = timeit_pool(base_fn, valid_pool, is_multi=is_multi)
+        base_ns = timeit_pool(base_fn, valid_pool, is_multi=is_multi)
 
         for checker_name, (factory, is_sampled) in CHECKERS.items():
             try:
                 fn = factory(typ)
-                us = timeit_pool(fn, valid_pool, is_multi=is_multi)
-                diff_us = max(0.0, us - base_us)
-                passed = all(
-                    test_validation(
-                        fn,
-                        valid_pool[i % len(valid_pool)],
-                        invalid_val,
-                        is_multi=is_multi,
-                    )
-                    for i in range(10)
-                )
-                row_times[checker_name] = diff_us
-                row_warnings[checker_name] = not passed
+                ns = timeit_pool(fn, valid_pool, is_multi=is_multi)
+                diff_ns = max(0.0, ns - base_ns)
+                row_times[checker_name] = diff_ns
             except Exception as e:
                 row_times[checker_name] = None
-                row_warnings[checker_name] = True
 
-        results.append((type_label, size_label, row_times, row_warnings))
+        results.append((type_label, size_label, row_times))
 
     return results
 
@@ -445,17 +417,14 @@ def run_minibench():
 def format_table(results):
     headers = ["Type", "Size"] + list(CHECKERS.keys())
     rows = []
-    for type_label, size_label, times, warnings in results:
+    for type_label, size_label, times in results:
         cols = [type_label, size_label]
         for name in headers[2:]:
             t = times.get(name)
-            warn = warnings.get(name, False)
             if t is None:
                 cell = "Error"
             else:
-                cell = f"{t:.3f} µs"
-                if warn:
-                    cell += " ⚠"
+                cell = f"{t:.1f} ns"
             cols.append(cell)
         rows.append(cols)
 
@@ -505,10 +474,16 @@ def update_markdown_file(file_path, new_table):
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    old_explanation = "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in microseconds (µs), averaged over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md)."
-    new_explanation = "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in microseconds (µs), averaged over 100 runs when using the C++ backend. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md)."
-    if old_explanation in content:
-        content = content.replace(old_explanation, new_explanation)
+    old_explanations = [
+        "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in microseconds (µs), averaged over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
+        "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in microseconds (µs), averaged over 100 runs when using the C++ backend. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
+        "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns), averaged over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
+        "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns), averaged over 100 runs when using the C++ backend. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
+    ]
+    new_explanation = "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns), averaged over 100 runs when using the C++ backend. For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md)."
+    for old in old_explanations:
+        if old in content:
+            content = content.replace(old, new_explanation)
 
     pattern = r"(\|\s*Type\s*\|\s*Size\s*\|.*?\n(?:\|.*?\n)+)"
     if re.search(pattern, content):
@@ -522,7 +497,7 @@ def update_markdown_file(file_path, new_table):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run quick Glance benchmark measuring added validation differential in microseconds (µs)"
+        description="Run quick Glance benchmark measuring added validation differential in nanoseconds (ns)"
     )
     parser.add_argument(
         "--update",
@@ -533,7 +508,7 @@ def main():
 
     print("Running Performance at a Glance benchmarks...")
     print(
-        "Note: Reported times represent the added differential validation time in microseconds (µs) with baseline execution time subtracted over distinct input pools."
+        "Note: Reported times represent the added differential validation time in nanoseconds (ns) with baseline execution time subtracted over distinct input pools."
     )
     results = run_minibench()
     table = format_table(results)

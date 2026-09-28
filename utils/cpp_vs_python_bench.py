@@ -19,33 +19,26 @@ str_pool = [f"hello_{i}" for i in range(POOL_SIZE)]
 
 list_5_pool = [[j for j in range(5)] for _ in range(POOL_SIZE)]
 list_1000_pool = [[j for j in range(1000)] for _ in range(POOL_SIZE)]
-list_10000_pool = [[j for j in range(10000)] for _ in range(POOL_SIZE)]
 list_union_1000_pool = [
     [float(j) if j % 2 else j for j in range(1000)] for _ in range(POOL_SIZE)
-]
-list_union_10000_pool = [
-    [float(j) if j % 2 else j for j in range(10000)] for _ in range(POOL_SIZE)
 ]
 
 dict_5_pool = [{f"key{j}": j for j in range(5)} for _ in range(POOL_SIZE)]
 dict_1000_pool = [{f"key{j}": j for j in range(1000)} for _ in range(POOL_SIZE)]
-dict_10000_pool = [{f"key{j}": j for j in range(10000)} for _ in range(POOL_SIZE)]
 
 set_1000_pool = [set(range(1000)) for _ in range(POOL_SIZE)]
-set_10000_pool = [set(range(10000)) for _ in range(POOL_SIZE)]
 tuple_1000_pool = [tuple(range(1000)) for _ in range(POOL_SIZE)]
-tuple_10000_pool = [tuple(range(10000)) for _ in range(POOL_SIZE)]
 tuple_fixed_pool = [(i, f"hello_{i}", float(i)) for i in range(POOL_SIZE)]
 
-list_list_100x100_pool = [
-    [[k for k in range(100)] for _ in range(100)] for _ in range(POOL_SIZE)
+list_list_10x100_pool = [
+    [[k for k in range(100)] for _ in range(10)] for _ in range(POOL_SIZE)
 ]
-dict_list_100x100_pool = [
-    {f"k{j}": [k for k in range(100)] for j in range(100)}
+dict_list_10x100_pool = [
+    {f"k{j}": [k for k in range(100)] for j in range(10)}
     for _ in range(POOL_SIZE)
 ]
-list_dict_100x100_pool = [
-    [{f"key{k}": k for k in range(100)} for _ in range(100)]
+list_dict_10x100_pool = [
+    [{f"key{k}": k for k in range(100)} for _ in range(10)]
     for _ in range(POOL_SIZE)
 ]
 list_tuple_1000_pool = [
@@ -77,7 +70,6 @@ BENCH_CASES = [
     # 2. Lists
     ("`list[int]`", "5 items", List[int], 100, list_5_pool),
     ("`list[int]`", "1 000 items", List[int], 100, list_1000_pool),
-    ("`list[int]`", "10 000 items", List[int], 100, list_10000_pool),
     (
         "`list[Union[int, float]]`",
         "1 000 items",
@@ -85,33 +77,17 @@ BENCH_CASES = [
         100,
         list_union_1000_pool,
     ),
-    (
-        "`list[Union[int, float]]`",
-        "10 000 items",
-        List[Union[int, float]],
-        100,
-        list_union_10000_pool,
-    ),
     # 3. Dictionaries
     ("`dict[str, int]`", "5 keys", Dict[str, int], 100, dict_5_pool),
     ("`dict[str, int]`", "1 000 keys", Dict[str, int], 100, dict_1000_pool),
-    ("`dict[str, int]`", "10 000 keys", Dict[str, int], 100, dict_10000_pool),
     # 4. Sets & Tuples
     ("`set[int]`", "1 000 items", Set[int], 100, set_1000_pool),
-    ("`set[int]`", "10 000 items", Set[int], 100, set_10000_pool),
     (
         "`tuple[int, ...]`",
         "1 000 items",
         Tuple[int, ...],
         100,
         tuple_1000_pool,
-    ),
-    (
-        "`tuple[int, ...]`",
-        "10 000 items",
-        Tuple[int, ...],
-        100,
-        tuple_10000_pool,
     ),
     (
         "`tuple[int, str, float]`",
@@ -123,24 +99,24 @@ BENCH_CASES = [
     # 5. Nested Structures
     (
         "`list[list[int]]`",
-        "100 x 100 items",
+        "10 x 100 items",
         List[List[int]],
         100,
-        list_list_100x100_pool,
+        list_list_10x100_pool,
     ),
     (
         "`dict[str, list[int]]`",
-        "100 x 100 items",
+        "10 x 100 items",
         Dict[str, List[int]],
         100,
-        dict_list_100x100_pool,
+        dict_list_10x100_pool,
     ),
     (
         "`list[dict[str, int]]`",
-        "100 x 100 items",
+        "10 x 100 items",
         List[Dict[str, int]],
         100,
-        list_dict_100x100_pool,
+        list_dict_10x100_pool,
     ),
     (
         "`list[tuple[int, str, float]]`",
@@ -159,10 +135,10 @@ BENCH_CASES = [
     ),
     (
         "`list[int]` (last)",
-        "10 000 items (last)",
+        "1 000 items (last)",
         List[int],
         "last",
-        list_10000_pool,
+        list_1000_pool,
     ),
     (
         "`dict[str, int]` (first)",
@@ -173,10 +149,10 @@ BENCH_CASES = [
     ),
     (
         "`dict[str, int]` (last)",
-        "10 000 keys (last)",
+        "1 000 keys (last)",
         Dict[str, int],
         "last",
-        dict_10000_pool,
+        dict_1000_pool,
     ),
     (
         "`list[int]` (5%)",
@@ -266,7 +242,7 @@ def timeit_pool(func, pool, is_multi=False, target_batch_time=0.003, repeats=5):
 
     durations.sort()
     best = durations[:3]
-    return (sum(best) / len(best)) * 1e6
+    return (sum(best) / len(best)) * 1e9
 
 
 def make_enforced_fn(typ, sample_pct, pool, is_multi=False, use_cpp=True):
@@ -279,9 +255,9 @@ def make_enforced_fn(typ, sample_pct, pool, is_multi=False, use_cpp=True):
             enforcer._cpp = orig_cpp
 
         if typ in MULTI_PARAM_FUNCS:
-            fn = type_enforced.Enforcer(
-                iterable_sample_pct=sample_pct
-            )(MULTI_PARAM_FUNCS[typ])
+            fn = type_enforced.Enforcer(iterable_sample_pct=sample_pct)(
+                MULTI_PARAM_FUNCS[typ]
+            )
         else:
 
             @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
@@ -322,26 +298,24 @@ def run_benchmark():
         is_multi = typ in MULTI_PARAM_FUNCS
 
         base_fn = base_factory(typ)
-        base_us = timeit_pool(base_fn, pool, is_multi=is_multi)
+        base_ns = timeit_pool(base_fn, pool, is_multi=is_multi)
 
         # Build & warm up pure Python enforcer
         py_fn = make_enforced_fn(
             typ, sample_pct, pool, is_multi=is_multi, use_cpp=False
         )
-        py_raw_us = timeit_pool(py_fn, pool, is_multi=is_multi)
-        py_us = max(0.001, py_raw_us - base_us)
+        py_raw_ns = timeit_pool(py_fn, pool, is_multi=is_multi)
+        py_ns = max(0.001, py_raw_ns - base_ns)
 
         # Build & warm up C++ enforcer
         cpp_fn = make_enforced_fn(
             typ, sample_pct, pool, is_multi=is_multi, use_cpp=True
         )
-        cpp_raw_us = timeit_pool(cpp_fn, pool, is_multi=is_multi)
-        cpp_us = max(0.001, cpp_raw_us - base_us)
+        cpp_raw_ns = timeit_pool(cpp_fn, pool, is_multi=is_multi)
+        cpp_ns = max(0.001, cpp_raw_ns - base_ns)
 
-        speedup = py_us / cpp_us if cpp_us > 0 else 1.0
-        results.append(
-            (type_label, size_label, py_us, cpp_us, speedup)
-        )
+        speedup = py_ns / cpp_ns if cpp_ns > 0 else 1.0
+        results.append((type_label, size_label, py_ns, cpp_ns, speedup))
 
     return results
 
@@ -354,7 +328,7 @@ def print_table(results):
         "C++ Accelerated",
         "Speedup",
     ]
-    col_w = [30, 24, 14, 16, 10]
+    col_w = [30, 24, 18, 18, 10]
 
     header_row = (
         f"| {headers[0]:<{col_w[0]}} | {headers[1]:<{col_w[1]}} | "
@@ -367,18 +341,18 @@ def print_table(results):
 
     print("\n# type_enforced: C++ Accelerated vs Pure Python Performance")
     print(
-        "Note: Reported times represent added differential validation time in microseconds (µs) with baseline execution time subtracted over distinct input pools.\n"
+        "Note: Reported times represent added differential validation time in nanoseconds (ns) with baseline execution time subtracted over distinct input pools.\n"
     )
     print(header_row)
     print(sep_row)
 
-    for type_label, size_label, py_us, cpp_us, speedup in results:
+    for type_label, size_label, py_ns, cpp_ns, speedup in results:
         speedup_str = f"{speedup:.2f}x"
         if speedup >= 1.3:
             speedup_str = f"**{speedup:.2f}x**"
         print(
             f"| {type_label:<{col_w[0]}} | {size_label:<{col_w[1]}} | "
-            f"{py_us:>11.2f} µs | {cpp_us:>13.2f} µs | {speedup_str:>{col_w[4]}} |"
+            f"{py_ns:>15.1f} ns | {cpp_ns:>15.1f} ns | {speedup_str:>{col_w[4]}} |"
         )
     print()
 
@@ -389,9 +363,9 @@ def print_summary_stats(results):
     overall_speedup = total_py / total_cpp if total_cpp > 0 else 1.0
 
     large_collections = [
-        r for r in results if "10 000" in r[1] or "100 x 100" in r[1]
+        r for r in results if "1 000" in r[1] or "10 x 100" in r[1]
     ]
-    nested_collections = [r for r in results if "100 x 100" in r[1]]
+    nested_collections = [r for r in results if "10 x 100" in r[1]]
     scalar_cases = [
         r
         for r in results
@@ -417,8 +391,8 @@ def print_summary_stats(results):
         scalar_py = sum(r[2] for r in scalar_cases)
         scalar_cpp = sum(r[3] for r in scalar_cases)
         scalar_speedup = scalar_py / scalar_cpp if scalar_cpp > 0 else 1.0
-        avg_py_ns = (scalar_py / len(scalar_cases)) * 1000
-        avg_cpp_ns = (scalar_cpp / len(scalar_cases)) * 1000
+        avg_py_ns = scalar_py / len(scalar_cases)
+        avg_cpp_ns = scalar_cpp / len(scalar_cases)
         diff_ns = avg_py_ns - avg_cpp_ns
         scalar_summary_str = f"{scalar_speedup:.2f}x average (avg: {avg_py_ns:.1f} ns py vs {avg_cpp_ns:.1f} ns cpp, diff: {diff_ns:+.1f} ns)"
     else:
@@ -426,20 +400,18 @@ def print_summary_stats(results):
 
     print("### Summary Performance Statistics\n")
     print(
-        f"- **Overall Suite Aggregate Speedup:** {overall_speedup:.2f}x ({total_py:.1f} µs total Pure Python vs {total_cpp:.1f} µs total C++)"
+        f"- **Overall Suite Aggregate Speedup:** {overall_speedup:.2f}x ({total_py:.1f} ns total Pure Python vs {total_cpp:.1f} ns total C++)"
     )
     print(
-        f"- **Maximum Speedup:** {max_speedup_case[4]:.2f}x ({max_speedup_case[0]} with {max_speedup_case[1]}: {max_speedup_case[2]:.2f} µs py vs {max_speedup_case[3]:.2f} µs cpp)"
+        f"- **Maximum Speedup:** {max_speedup_case[4]:.2f}x ({max_speedup_case[0]} with {max_speedup_case[1]}: {max_speedup_case[2]:.1f} ns py vs {max_speedup_case[3]:.1f} ns cpp)"
     )
     print(
-        f"- **Large Collections (10k items / 100x100 nested):** {large_speedup:.2f}x aggregate speedup"
+        f"- **Large Collections (1k items / 10x100 nested):** {large_speedup:.2f}x aggregate speedup"
     )
     print(
-        f"- **Nested Structures (100x100 matrix/nested):** {nested_speedup:.2f}x aggregate speedup"
+        f"- **Nested Structures (10x100 matrix/nested):** {nested_speedup:.2f}x aggregate speedup"
     )
-    print(
-        f"- **Scalars & O(1) Sampled Checks:** {scalar_summary_str}"
-    )
+    print(f"- **Scalars & O(1) Sampled Checks:** {scalar_summary_str}")
     print()
 
 

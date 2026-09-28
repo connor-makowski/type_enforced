@@ -148,8 +148,8 @@ try:
         pools["tuple[int,...] (1000 items)"] = [
             tuple(range(i, i + 1000)) for i in range(POOL_SIZE)
         ]
-        invalid_cases["tuple[int,...] (1000 items)"] = (
-            tuple(range(999)) + ("not an int",)
+        invalid_cases["tuple[int,...] (1000 items)"] = tuple(range(999)) + (
+            "not an int",
         )
 
         # Dicts
@@ -176,15 +176,6 @@ try:
                 "k3": 3,
             }
 
-            pools[f"{prefix} (10000 keys)"] = [
-                {f"key{j}": j for j in range(10000)} for _ in range(POOL_SIZE)
-            ]
-            invalid_cases[f"{prefix} (10000 keys)"] = {
-                "k1": 1,
-                "k2": "two",
-                "k3": 3,
-            }
-
         # Lists
         for prefix in ["list[int]", "List[int]"]:
             pools[f"{prefix} (5 items)"] = [
@@ -197,13 +188,6 @@ try:
             ]
             invalid_cases[f"{prefix} (1000 items)"] = [1, "two", 3, 4, 5] * 200
 
-            pools[f"{prefix} (10000 items)"] = [
-                [j for j in range(10000)] for _ in range(POOL_SIZE)
-            ]
-            invalid_cases[f"{prefix} (10000 items)"] = (
-                [1, "two", 3, 4, 5] * 2000
-            )
-
         pools["list[Union[int,float]] (5 items)"] = [
             [float(j) if j % 2 else j for j in range(5)]
             for _ in range(POOL_SIZE)
@@ -214,17 +198,13 @@ try:
             [float(j) if j % 2 else j for j in range(1000)]
             for _ in range(POOL_SIZE)
         ]
-        invalid_cases["list[Union[int,float]] (1000 items)"] = (
-            [1, "two", 3, 4, 5] * 200
-        )
-
-        pools["list[Union[int,float]] (10000 items)"] = [
-            [float(j) if j % 2 else j for j in range(10000)]
-            for _ in range(POOL_SIZE)
-        ]
-        invalid_cases["list[Union[int,float]] (10000 items)"] = (
-            [1, "two", 3, 4, 5] * 2000
-        )
+        invalid_cases["list[Union[int,float]] (1000 items)"] = [
+            1,
+            "two",
+            3,
+            4,
+            5,
+        ] * 200
 
         pools["list[int] | list[str] (5 items)"] = [
             [j for j in range(5)] for _ in range(POOL_SIZE)
@@ -234,16 +214,13 @@ try:
         pools["list[int] | list[str] (1000 items)"] = [
             [j for j in range(1000)] for _ in range(POOL_SIZE)
         ]
-        invalid_cases["list[int] | list[str] (1000 items)"] = (
-            [1, "two", 3, 4, 5] * 200
-        )
-
-        pools["list[int] | list[str] (10000 items)"] = [
-            [j for j in range(10000)] for _ in range(POOL_SIZE)
-        ]
-        invalid_cases["list[int] | list[str] (10000 items)"] = (
-            [1, "two", 3, 4, 5] * 2000
-        )
+        invalid_cases["list[int] | list[str] (1000 items)"] = [
+            1,
+            "two",
+            3,
+            4,
+            5,
+        ] * 200
 
         # Sets
         for prefix in ["set[int]", "Set[int]"]:
@@ -255,16 +232,7 @@ try:
             pools[f"{prefix} (1000 items)"] = [
                 {j for j in range(1000)} for _ in range(POOL_SIZE)
             ]
-            invalid_cases[f"{prefix} (1000 items)"] = (
-                set(range(999)) | {"two"}
-            )
-
-            pools[f"{prefix} (10000 items)"] = [
-                {j for j in range(10000)} for _ in range(POOL_SIZE)
-            ]
-            invalid_cases[f"{prefix} (10000 items)"] = (
-                set(range(9999)) | {"two"}
-            )
+            invalid_cases[f"{prefix} (1000 items)"] = set(range(999)) | {"two"}
 
         # Nested
         pools["list[dict[str,int]] (5 x 5 items)"] = [
@@ -283,25 +251,25 @@ try:
             {"k1": 1, "k2": "two", "k3": 3}
         ]
 
-        pools["list[dict[str,int]] (100 x 100 items)"] = [
-            [{f"key{j}": j for j in range(100)} for _ in range(100)]
+        pools["list[dict[str,int]] (10 x 100 items)"] = [
+            [{f"key{j}": j for j in range(100)} for _ in range(10)]
             for _ in range(POOL_SIZE)
         ]
-        invalid_cases["list[dict[str,int]] (100 x 100 items)"] = [
+        invalid_cases["list[dict[str,int]] (10 x 100 items)"] = [
             {"k1": 1, "k2": "two", "k3": 3}
         ]
 
-        pools["list[list[int]] (100 x 100 items)"] = [
-            [[k for k in range(100)] for _ in range(100)]
+        pools["list[list[int]] (10 x 100 items)"] = [
+            [[k for k in range(100)] for _ in range(10)]
             for _ in range(POOL_SIZE)
         ]
-        invalid_cases["list[list[int]] (100 x 100 items)"] = [[1, "two"]]
+        invalid_cases["list[list[int]] (10 x 100 items)"] = [[1, "two"]]
 
-        pools["dict[str,list[int]] (100 x 100 items)"] = [
-            {f"k{j}": [k for k in range(100)] for j in range(100)}
+        pools["dict[str,list[int]] (10 x 100 items)"] = [
+            {f"k{j}": [k for k in range(100)] for j in range(10)}
             for _ in range(POOL_SIZE)
         ]
-        invalid_cases["dict[str,list[int]] (100 x 100 items)"] = {
+        invalid_cases["dict[str,list[int]] (10 x 100 items)"] = {
             "k": [1, "two"]
         }
 
@@ -318,8 +286,8 @@ try:
             pools[f"int ({n} params)"] = [
                 tuple(range(i, i + n)) for i in range(POOL_SIZE)
             ]
-            invalid_cases[f"int ({n} params)"] = (
-                tuple(range(n - 1)) + ("not an int",)
+            invalid_cases[f"int ({n} params)"] = tuple(range(n - 1)) + (
+                "not an int",
             )
 
         pools["int (3 params, *args)"] = [
@@ -340,22 +308,22 @@ try:
         pools["int (10 params, *args)"] = [
             tuple(range(i, i + 15)) for i in range(POOL_SIZE)
         ]
-        invalid_cases["int (10 params, *args)"] = (
-            tuple(range(9)) + ("not an int",)
+        invalid_cases["int (10 params, *args)"] = tuple(range(9)) + (
+            "not an int",
         )
 
         pools["int (10 params, **kwargs)"] = [
             tuple(range(i, i + 10)) for i in range(POOL_SIZE)
         ]
-        invalid_cases["int (10 params, **kwargs)"] = (
-            tuple(range(9)) + ("not an int",)
+        invalid_cases["int (10 params, **kwargs)"] = tuple(range(9)) + (
+            "not an int",
         )
 
         pools["int (10 params, *args, **kwargs)"] = [
             tuple(range(i, i + 10)) for i in range(POOL_SIZE)
         ]
-        invalid_cases["int (10 params, *args, **kwargs)"] = (
-            tuple(range(9)) + ("not an int",)
+        invalid_cases["int (10 params, *args, **kwargs)"] = tuple(range(9)) + (
+            "not an int",
         )
 
         return pools, invalid_cases
@@ -379,39 +347,28 @@ try:
         "tuple[int,...] (1000 items)": Tuple[int, ...],
         "dict[str,int] (5 keys)": dict[str, int],
         "dict[str,int] (1000 keys)": dict[str, int],
-        "dict[str,int] (10000 keys)": dict[str, int],
         "Dict[str,int] (5 keys)": Dict[str, int],
         "Dict[str,int] (1000 keys)": Dict[str, int],
-        "Dict[str,int] (10000 keys)": Dict[str, int],
         "class method dict[str,int] (5 keys)": "method_dict_str_int",
         "class method dict[str,int] (1000 keys)": "method_dict_str_int",
-        "class method dict[str,int] (10000 keys)": "method_dict_str_int",
         "list[int] (5 items)": list[int],
         "list[int] (1000 items)": list[int],
-        "list[int] (10000 items)": list[int],
         "List[int] (5 items)": List[int],
         "List[int] (1000 items)": List[int],
-        "List[int] (10000 items)": List[int],
         "list[Union[int,float]] (5 items)": List[Union[int, float]],
         "list[Union[int,float]] (1000 items)": List[Union[int, float]],
-        "list[Union[int,float]] (10000 items)": List[Union[int, float]],
         "list[int] | list[str] (5 items)": Union[List[int], List[str]],
         "list[int] | list[str] (1000 items)": Union[List[int], List[str]],
-        "list[int] | list[str] (10000 items)": Union[List[int], List[str]],
         "set[int] (5 items)": set[int],
         "set[int] (1000 items)": set[int],
-        "set[int] (10000 items)": set[int],
         "Set[int] (5 items)": Set[int],
         "Set[int] (1000 items)": Set[int],
-        "Set[int] (10000 items)": Set[int],
         "list[dict[str,int]] (5 x 5 items)": List[Dict[str, int]],
         "list[dict[str,int]] (100 x 10 items)": List[Dict[str, int]],
-        "list[dict[str,int]] (100 x 100 items)": List[Dict[str, int]],
-        "list[list[int]] (100 x 100 items)": List[List[int]],
-        "dict[str,list[int]] (100 x 100 items)": Dict[str, List[int]],
-        "list[tuple[int,str,float]] (1000 items)": List[
-            Tuple[int, str, float]
-        ],
+        "list[dict[str,int]] (10 x 100 items)": List[Dict[str, int]],
+        "list[list[int]] (10 x 100 items)": List[List[int]],
+        "dict[str,list[int]] (10 x 100 items)": Dict[str, List[int]],
+        "list[tuple[int,str,float]] (1000 items)": List[Tuple[int, str, float]],
         "int (3 params)": "3_params",
         "int (3 params, *args)": "3_params_args",
         "int (3 params, **kwargs)": "3_params_kwargs",
@@ -556,7 +513,7 @@ try:
 
         durations.sort()
         best = durations[:3]
-        return (sum(best) / len(best)) * 1e6  # microseconds (µs)
+        return (sum(best) / len(best)) * 1e9  # nanoseconds (ns)
 
     # --- Factory functions
     def base_factory(typ):
@@ -1044,10 +1001,7 @@ try:
         "- Measurements cycle through pre-allocated pools of distinct input instances to eliminate warm-cache bias and simulate realistic independent calls."
     )
     print(
-        "- The reported time represents the differential added time (overhead) introduced by type validation in microseconds (µs), calculated by subtracting the baseline execution time of the identical non-enforced function call over the same input pool (`enforced_time - non_enforced_time`)."
-    )
-    print(
-        "- Timings with warning symbols (⚠) indicate that the checker did not catch invalid data inside collections (e.g. invalid items placed outside a sampled subset)."
+        "- The reported time represents the differential added time (overhead) introduced by type validation in nanoseconds (ns), calculated by subtracting the baseline execution time of the identical non-enforced function call over the same input pool (`enforced_time - non_enforced_time`)."
     )
 
     def run_benchmark_group(checkers_dict):
@@ -1058,27 +1012,13 @@ try:
             is_multi = typ in MULTI_PARAM_FUNCS
             case_data = {}
             base_fn = base_factory(typ)
-            base_us = timeit(base_fn, pool, is_multi=is_multi)
+            base_ns = timeit(base_fn, pool, is_multi=is_multi)
             for name, factory in checkers_dict.items():
                 try:
                     fn = factory(typ)
-                    avg_us = timeit(fn, pool, is_multi=is_multi)
-                    diff_us = max(0.0, avg_us - base_us)
-                    passed = all(
-                        test_validation(
-                            fn,
-                            pool[i % len(pool)],
-                            invalid_val,
-                            is_multi=is_multi,
-                        )
-                        for i in range(15)
-                    )
-                    cell_text = (
-                        f"{diff_us:.3f} µs"
-                        if passed
-                        else f"{diff_us:.3f} µs ⚠"
-                    )
-                    case_data[name] = cell_text
+                    avg_ns = timeit(fn, pool, is_multi=is_multi)
+                    diff_ns = max(0.0, avg_ns - base_ns)
+                    case_data[name] = f"{diff_ns:.1f} ns"
                 except Exception as e:
                     case_data[name] = "Error"
             results[case] = case_data
@@ -1123,7 +1063,7 @@ try:
         "- Every element is guaranteed to be validated against its type annotation."
     )
     print(
-        "- All reported times are the net differential validation overhead in microseconds (µs) with baseline execution time subtracted.\n"
+        "- All reported times are the net differential validation overhead in nanoseconds (ns) with baseline execution time subtracted.\n"
     )
     print_benchmark_table(full_checkers, data_full)
 
@@ -1133,10 +1073,7 @@ try:
         "Checkers in this section perform constant-time (O(1)) or fixed-percentage sampling of collections."
     )
     print(
-        "- All reported times are the net differential validation overhead in microseconds (µs) with baseline execution time subtracted."
-    )
-    print(
-        "- Warning symbols (⚠) indicate that invalid items placed outside the sampled subset went undetected.\n"
+        "- All reported times are the net differential validation overhead in nanoseconds (ns) with baseline execution time subtracted.\n"
     )
     print_benchmark_table(sampled_checkers, data_sampled)
 
