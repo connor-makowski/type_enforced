@@ -91,14 +91,14 @@ Timings represent the added differential validation time (enforced call time min
 
 | Type                   |       Size       | type_enforced (sample=1) | Beartype (sample=1) | Typeguard (sample=1) | type_enforced (100%) | Pydantic (100%)  |  msgspec (100%)  |  cattrs (100%)   | Typeguard (100%) |
 | :--------------------- | :--------------: | :----------------------: | :-----------------: | :------------------: | :------------------: | :--------------: | :--------------: | :--------------: | :--------------: |
-| `int`                  |        —         |         10.7 ns          |      191.6 ns       |      1905.1 ns       |       10.6 ns        |     491.5 ns     |     270.1 ns     |     116.4 ns     |    1888.3 ns     |
-| `Union[int, float]`    |        —         |         13.8 ns          |      209.6 ns       |      3897.3 ns       |       14.2 ns        |     548.7 ns     |     407.7 ns     |     427.8 ns     |    3861.8 ns     |
-| `str`                  |        —         |         10.6 ns          |      193.3 ns       |      1890.4 ns       |       10.9 ns        |     487.5 ns     |     261.7 ns     |     118.3 ns     |    1895.3 ns     |
-| `list[int]`            |   1 000 items    |         27.6 ns          |      330.3 ns       |      3245.3 ns       |       453.8 ns       |    10966.0 ns    |    5012.6 ns     |    47805.9 ns    |   1037171.1 ns   |
-| `dict[str, int]`       |    1 000 keys    |         38.5 ns          |      343.8 ns       |      4563.8 ns       |      3113.5 ns       |    40713.4 ns    |    26772.0 ns    |    67459.8 ns    |   2088759.7 ns   |
-| `list[list[int]]`      |  10 x 100 items  |         37.6 ns          |      373.2 ns       |      4607.5 ns       |       376.7 ns       |    11547.6 ns    |    5887.3 ns     |    48536.0 ns    |   1058692.5 ns   |
-| `dict[str, list[int]]` |  10 x 100 items  |         41.6 ns          |      451.1 ns       |      5866.5 ns       |       418.0 ns       |    11952.9 ns    |    6370.2 ns     |    49444.5 ns    |   1062981.1 ns   |
-| `list[dict[str, int]]` |  10 x 100 items  |         43.3 ns          |      444.9 ns       |      6023.1 ns       |      3286.5 ns       |    39506.4 ns    |    26526.3 ns    |    66451.8 ns    |   2139628.8 ns   |
+| `int`                  |        —         |         10.5 ns          |      190.8 ns       |      1879.2 ns       |       10.6 ns        |     490.6 ns     |     264.4 ns     |     116.1 ns     |    1903.7 ns     |
+| `Union[int, float]`    |        —         |         14.6 ns          |      214.5 ns       |      3903.9 ns       |       13.3 ns        |     536.8 ns     |     400.0 ns     |     426.0 ns     |    3905.0 ns     |
+| `str`                  |        —         |         10.5 ns          |      198.2 ns       |      1885.0 ns       |       10.6 ns        |     489.1 ns     |     263.5 ns     |     119.1 ns     |    1910.0 ns     |
+| `list[int]`            |   1 000 items    |         17.4 ns          |      335.2 ns       |      3221.6 ns       |       455.0 ns       |    11312.0 ns    |    5169.1 ns     |    48737.6 ns    |   1052411.9 ns   |
+| `dict[str, int]`       |    1 000 keys    |         39.7 ns          |      350.6 ns       |      4496.5 ns       |      3084.8 ns       |    40401.9 ns    |    26886.3 ns    |    68340.9 ns    |   2086004.8 ns   |
+| `list[list[int]]`      |  10 x 100 items  |         20.5 ns          |      376.4 ns       |      4438.1 ns       |       363.7 ns       |    11703.8 ns    |    5985.2 ns     |    48919.3 ns    |   1062224.5 ns   |
+| `dict[str, list[int]]` |  10 x 100 items  |         42.4 ns          |      453.5 ns       |      5793.9 ns       |       412.2 ns       |    12182.7 ns    |    6494.8 ns     |    49395.8 ns    |   1072765.8 ns   |
+| `list[dict[str, int]]` |  10 x 100 items  |         42.6 ns          |      444.6 ns       |      5728.2 ns       |      3494.7 ns       |    39740.2 ns    |    26101.5 ns    |    66918.9 ns    |   2145857.3 ns   |
 
 > **Sampled Validation:** When 1 sample validation is acceptable, `type_enforced.FastEnforcer` is **up to ~15x faster than Beartype**.
 
