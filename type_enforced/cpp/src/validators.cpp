@@ -1423,12 +1423,11 @@ struct PyFastCallObject {
     PyObject* fn;
     vectorcallfunc fn_vectorcall;
     RetCheckKind ret_kind;
-    uint8_t num_pos;
     bool has_varargs;
     bool has_varkw;
     bool all_pos_single_types;
+    uint32_t num_pos;
     ParamCheckKind pos_kinds[8];
-    uint8_t _pad[3];
     PyTypeObject* ret_single_type;
     PyTypeObject* pos_types[8];
     PyTypeObject* pos_types_extra[8];
@@ -2085,7 +2084,8 @@ static bool setup_fast_call_internal(
     }
 
     bool all_single_types = true;
-    for (size_t i = 0; i < obj->num_pos; ++i) {
+    size_t check_limit = obj->num_pos < 8 ? obj->num_pos : 8;
+    for (size_t i = 0; i < check_limit; ++i) {
         if (obj->pos_kinds[i] != ParamCheckKind::SINGLE_TYPE && obj->pos_kinds[i] != ParamCheckKind::PASS) {
             all_single_types = false;
             break;
