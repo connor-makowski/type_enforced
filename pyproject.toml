@@ -4,7 +4,7 @@ target-version = ['py311']
 exclude = '/.*(__pycache__).*/'
 
 [build-system]
-requires = ["scikit_build_core", "nanobind"]
+requires = ["scikit_build_core", "nanobind>=3.1.0"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
@@ -28,7 +28,7 @@ include = [
 
 [project]
 name = "type_enforced"
-version = "2.12.1"
+version = "2.12.2"
 description = "A dependency free type enforcer for python type annotations"
 authors = [
     {name="Connor Makowski", email="conmak@mit.edu"}
@@ -59,7 +59,7 @@ dev = [
     "msgspec>=0.21.1; implementation_name != 'pypy'",
     "cattrs>=26.1.0",
     "scikit-build-core>=1.0.3",
-    "nanobind>=3.0.0",
+    "nanobind>=3.1.0",
 ]
 
 [project.urls]

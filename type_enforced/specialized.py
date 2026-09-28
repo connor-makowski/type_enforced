@@ -2312,7 +2312,8 @@ def build_inlined_code(enforcer, fn):
         return None
 
     try:
-        src = inspect.getsource(fn)
+        lines, start_lineno = inspect.getsourcelines(fn)
+        src = "".join(lines)
     except (OSError, TypeError):
         return None
 
@@ -2327,6 +2328,7 @@ def build_inlined_code(enforcer, fn):
     ):
         return None
 
+    ast.increment_lineno(tree, start_lineno - 1)
     func_def = tree.body[0]
     func_def.decorator_list = []
 
