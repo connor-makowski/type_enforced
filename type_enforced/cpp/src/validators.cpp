@@ -2,6 +2,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <string_view>
 #include <cstdlib>
 
 namespace type_enforced {
@@ -1417,6 +1418,18 @@ struct FastParamInfo {
     }
 };
 
+struct StringViewHash {
+    using is_transparent = void;
+
+    size_t operator()(std::string_view value) const noexcept {
+        return std::hash<std::string_view>{}(value);
+    }
+};
+
+// Own parameter names, but look up keywords without allocating temporary strings.
+using KeywordParamMap = std::unordered_map<
+    std::string, std::pair<bool, size_t>, StringViewHash, std::equal_to<>>;
+
 struct PyFastCallObject {
     PyObject_HEAD
     vectorcallfunc vectorcall;
@@ -1448,7 +1461,7 @@ struct PyFastCallObject {
     FastParamInfo varkw_info;
     std::vector<FastParamInfo> pos_params;
     std::vector<FastParamInfo> kwonly_params;
-    std::unordered_map<std::string, std::pair<bool, size_t>> kw_to_param;
+    KeywordParamMap kw_to_param;
 };
 
 static inline vectorcallfunc get_vectorcall_func(PyObject* callable) noexcept {
@@ -1553,9 +1566,10 @@ static PyObject* fast_call_general_vectorcall(PyObject* self, PyObject* const* a
         PyObject* const* kw_values = args + fn_nargs;
         for (size_t j = 0; j < n_kwargs; ++j) {
             PyObject* key_obj = PyTuple_GET_ITEM(kwnames, j);
-            const char* key_cstr = PyUnicode_AsUTF8(key_obj);
+            Py_ssize_t key_size;
+            const char* key_cstr = PyUnicode_AsUTF8AndSize(key_obj, &key_size);
             if (key_cstr) {
-                auto it = fc->kw_to_param.find(key_cstr);
+                auto it = fc->kw_to_param.find(std::string_view(key_cstr, key_size));
                 if (it != fc->kw_to_param.end()) {
                     const auto& [is_kwonly, idx] = it->second;
                     const auto& p = is_kwonly ? fc->kwonly_params[idx] : fc->pos_params[idx];
@@ -1847,7 +1861,7 @@ static PyObject* fast_call_new(PyTypeObject* type, PyObject* args, PyObject* kwa
         self->has_varkw = false;
         new (&self->pos_params) std::vector<FastParamInfo>();
         new (&self->kwonly_params) std::vector<FastParamInfo>();
-        new (&self->kw_to_param) std::unordered_map<std::string, std::pair<bool, size_t>>();
+        new (&self->kw_to_param) KeywordParamMap();
         new (&self->varargs_info) FastParamInfo();
         new (&self->varkw_info) FastParamInfo();
         new (&self->ret_check) FastTypeCheck();
