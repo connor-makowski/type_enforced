@@ -137,6 +137,25 @@ static inline bool check_list_single_all(PyObject* obj, PyTypeObject* elem_type)
     return check_sequence_single_all<true>(obj, elem_type);
 }
 
+template <bool IsList, bool Last, bool Union2 = false>
+static inline bool check_sequence_single_sample(PyObject* obj, PyTypeObject* elem_type, PyTypeObject* elem_type2 = nullptr) noexcept {
+    if constexpr (IsList) {
+        if (__builtin_expect(!obj || !PyList_Check(obj), 0)) return false;
+        Py_ssize_t size = PyList_GET_SIZE(obj);
+        if (__builtin_expect(size == 0, 0)) return true;
+        PyObject* item = PyList_GET_ITEM(obj, Last ? size - 1 : 0);
+        if constexpr (Union2) return check_union2(item, elem_type, elem_type2);
+        return check_single_type(item, elem_type);
+    } else {
+        if (__builtin_expect(!obj || !PyTuple_Check(obj), 0)) return false;
+        Py_ssize_t size = PyTuple_GET_SIZE(obj);
+        if (__builtin_expect(size == 0, 0)) return true;
+        PyObject* item = PyTuple_GET_ITEM(obj, Last ? size - 1 : 0);
+        if constexpr (Union2) return check_union2(item, elem_type, elem_type2);
+        return check_single_type(item, elem_type);
+    }
+}
+
 static inline bool check_tuple_single_all(PyObject* obj, PyTypeObject* elem_type) noexcept {
     return check_sequence_single_all<false>(obj, elem_type);
 }
@@ -209,7 +228,15 @@ enum class ParamCheckKind : uint8_t {
     FIXED_TUPLE3 = 8,
     DICT_SINGLE_ALL = 9,
     SET_SINGLE_ALL = 10,
-    NODE = 11
+    NODE = 11,
+    LIST_SINGLE_FIRST = 12,
+    LIST_SINGLE_LAST = 13,
+    VAR_TUPLE_SINGLE_FIRST = 14,
+    VAR_TUPLE_SINGLE_LAST = 15,
+    LIST_UNION2_FIRST = 16,
+    LIST_UNION2_LAST = 17,
+    VAR_TUPLE_UNION2_FIRST = 18,
+    VAR_TUPLE_UNION2_LAST = 19
 };
 
 static inline bool validate_param(
@@ -231,10 +258,26 @@ static inline bool validate_param(
             return check_union3(obj, t0, t1, t2);
         case ParamCheckKind::LIST_SINGLE_ALL:
             return check_list_single_all(obj, t0);
+        case ParamCheckKind::LIST_SINGLE_FIRST:
+            return check_sequence_single_sample<true, false>(obj, t0);
+        case ParamCheckKind::LIST_SINGLE_LAST:
+            return check_sequence_single_sample<true, true>(obj, t0);
         case ParamCheckKind::LIST_UNION2_ALL:
             return check_list_union2_all(obj, t0, t1);
+        case ParamCheckKind::LIST_UNION2_FIRST:
+            return check_sequence_single_sample<true, false, true>(obj, t0, t1);
+        case ParamCheckKind::LIST_UNION2_LAST:
+            return check_sequence_single_sample<true, true, true>(obj, t0, t1);
         case ParamCheckKind::VAR_TUPLE_SINGLE_ALL:
             return check_tuple_single_all(obj, t0);
+        case ParamCheckKind::VAR_TUPLE_SINGLE_FIRST:
+            return check_sequence_single_sample<false, false>(obj, t0);
+        case ParamCheckKind::VAR_TUPLE_SINGLE_LAST:
+            return check_sequence_single_sample<false, true>(obj, t0);
+        case ParamCheckKind::VAR_TUPLE_UNION2_FIRST:
+            return check_sequence_single_sample<false, false, true>(obj, t0, t1);
+        case ParamCheckKind::VAR_TUPLE_UNION2_LAST:
+            return check_sequence_single_sample<false, true, true>(obj, t0, t1);
         case ParamCheckKind::FIXED_TUPLE2:
             return check_fixed_tuple2(obj, t0, t1);
         case ParamCheckKind::FIXED_TUPLE3:
@@ -1197,6 +1240,24 @@ static void classify_param_node(
 
     if (node->kind == NodeKind::LIST) {
         auto* ln = static_cast<ListValidatorNode*>(node.get());
+        if (ln->elem_check.union_t0 && !ln->elem_check.union_t2 &&
+            (strategy == SampleStrategy::FIRST || strategy == SampleStrategy::LAST)) {
+            out_kind = strategy == SampleStrategy::FIRST ?
+                ParamCheckKind::LIST_UNION2_FIRST : ParamCheckKind::LIST_UNION2_LAST;
+            out_t0 = ln->elem_check.union_t0;
+            out_t1 = ln->elem_check.union_t1;
+            return;
+        }
+        if (ln->elem_single_type && strategy == SampleStrategy::FIRST) {
+            out_kind = ParamCheckKind::LIST_SINGLE_FIRST;
+            out_t0 = ln->elem_single_type;
+            return;
+        }
+        if (ln->elem_single_type && strategy == SampleStrategy::LAST) {
+            out_kind = ParamCheckKind::LIST_SINGLE_LAST;
+            out_t0 = ln->elem_single_type;
+            return;
+        }
         if (strategy == SampleStrategy::ALL) {
             if (ln->elem_single_type) {
                 out_kind = ParamCheckKind::LIST_SINGLE_ALL;
@@ -1216,6 +1277,24 @@ static void classify_param_node(
 
     if (node->kind == NodeKind::VAR_TUPLE) {
         auto* tn = static_cast<VariableTupleValidatorNode*>(node.get());
+        if (tn->elem_check.union_t0 && !tn->elem_check.union_t2 &&
+            (strategy == SampleStrategy::FIRST || strategy == SampleStrategy::LAST)) {
+            out_kind = strategy == SampleStrategy::FIRST ?
+                ParamCheckKind::VAR_TUPLE_UNION2_FIRST : ParamCheckKind::VAR_TUPLE_UNION2_LAST;
+            out_t0 = tn->elem_check.union_t0;
+            out_t1 = tn->elem_check.union_t1;
+            return;
+        }
+        if (tn->elem_single_type && strategy == SampleStrategy::FIRST) {
+            out_kind = ParamCheckKind::VAR_TUPLE_SINGLE_FIRST;
+            out_t0 = tn->elem_single_type;
+            return;
+        }
+        if (tn->elem_single_type && strategy == SampleStrategy::LAST) {
+            out_kind = ParamCheckKind::VAR_TUPLE_SINGLE_LAST;
+            out_t0 = tn->elem_single_type;
+            return;
+        }
         if (strategy == SampleStrategy::ALL && tn->elem_single_type) {
             out_kind = ParamCheckKind::VAR_TUPLE_SINGLE_ALL;
             out_t0 = tn->elem_single_type;
@@ -1606,7 +1685,15 @@ enum class ArgPattern : uint8_t {
     POS1_VAR_TUPLE_SINGLE_ALL = 5,  // 1 arg var tuple of single type (all)
     POS1_FIXED_TUPLE2 = 6,          // 1 arg fixed tuple of 2 single types
     POS1_FAST = 7,                  // 1 arg general validate_param
-    FAST_PARAMS = 8                 // 0..8 args with fast param kinds
+    FAST_PARAMS = 8,                // 0..8 args with fast param kinds
+    POS1_LIST_SINGLE_FIRST = 9,
+    POS1_LIST_SINGLE_LAST = 10,
+    POS1_VAR_TUPLE_SINGLE_FIRST = 11,
+    POS1_VAR_TUPLE_SINGLE_LAST = 12,
+    POS1_LIST_UNION2_FIRST = 13,
+    POS1_LIST_UNION2_LAST = 14,
+    POS1_VAR_TUPLE_UNION2_FIRST = 15,
+    POS1_VAR_TUPLE_UNION2_LAST = 16
 };
 
 enum class RetPattern : uint8_t {
@@ -1643,6 +1730,22 @@ static PyObject* fast_vectorcall(PyObject* self, PyObject* const* args, size_t n
         } else if constexpr (ARG_PAT == ArgPattern::POS1_LIST_SINGLE_ALL) {
             PyObject* a0 = args[0];
             if (__builtin_expect(!check_list_single_all(a0, fc->pos_types[0]), 0)) {
+                PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
+            }
+        } else if constexpr (ARG_PAT == ArgPattern::POS1_LIST_SINGLE_FIRST || ARG_PAT == ArgPattern::POS1_LIST_SINGLE_LAST || ARG_PAT == ArgPattern::POS1_VAR_TUPLE_SINGLE_FIRST || ARG_PAT == ArgPattern::POS1_VAR_TUPLE_SINGLE_LAST) {
+            PyObject* a0 = args[0];
+            constexpr bool is_list = ARG_PAT == ArgPattern::POS1_LIST_SINGLE_FIRST || ARG_PAT == ArgPattern::POS1_LIST_SINGLE_LAST;
+            constexpr bool is_last = ARG_PAT == ArgPattern::POS1_LIST_SINGLE_LAST || ARG_PAT == ArgPattern::POS1_VAR_TUPLE_SINGLE_LAST;
+            if (__builtin_expect(!check_sequence_single_sample<is_list, is_last>(a0, fc->pos_types[0]), 0)) {
+                PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
+                if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
+            }
+        } else if constexpr (ARG_PAT == ArgPattern::POS1_LIST_UNION2_FIRST || ARG_PAT == ArgPattern::POS1_LIST_UNION2_LAST || ARG_PAT == ArgPattern::POS1_VAR_TUPLE_UNION2_FIRST || ARG_PAT == ArgPattern::POS1_VAR_TUPLE_UNION2_LAST) {
+            PyObject* a0 = args[0];
+            constexpr bool is_list = ARG_PAT == ArgPattern::POS1_LIST_UNION2_FIRST || ARG_PAT == ArgPattern::POS1_LIST_UNION2_LAST;
+            constexpr bool is_last = ARG_PAT == ArgPattern::POS1_LIST_UNION2_LAST || ARG_PAT == ArgPattern::POS1_VAR_TUPLE_UNION2_LAST;
+            if (__builtin_expect(!check_sequence_single_sample<is_list, is_last, true>(a0, fc->pos_types[0], fc->pos_types_extra[0]), 0)) {
                 PyObject* enforcer = fc->self_enforcer ? fc->self_enforcer : self;
                 if (!handle_type_error(fc->check_fn, enforcer, a0, fc->pos_params[0].exp, fc->pos_params[0].name_str)) return nullptr;
             }
@@ -2118,6 +2221,30 @@ static bool setup_fast_call_internal(
                     break;
                 case ParamCheckKind::LIST_SINGLE_ALL:
                     obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_LIST_SINGLE_ALL>(ret_pat);
+                    break;
+                case ParamCheckKind::LIST_SINGLE_FIRST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_LIST_SINGLE_FIRST>(ret_pat);
+                    break;
+                case ParamCheckKind::LIST_SINGLE_LAST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_LIST_SINGLE_LAST>(ret_pat);
+                    break;
+                case ParamCheckKind::LIST_UNION2_FIRST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_LIST_UNION2_FIRST>(ret_pat);
+                    break;
+                case ParamCheckKind::LIST_UNION2_LAST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_LIST_UNION2_LAST>(ret_pat);
+                    break;
+                case ParamCheckKind::VAR_TUPLE_SINGLE_FIRST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_VAR_TUPLE_SINGLE_FIRST>(ret_pat);
+                    break;
+                case ParamCheckKind::VAR_TUPLE_SINGLE_LAST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_VAR_TUPLE_SINGLE_LAST>(ret_pat);
+                    break;
+                case ParamCheckKind::VAR_TUPLE_UNION2_FIRST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_VAR_TUPLE_UNION2_FIRST>(ret_pat);
+                    break;
+                case ParamCheckKind::VAR_TUPLE_UNION2_LAST:
+                    obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_VAR_TUPLE_UNION2_LAST>(ret_pat);
                     break;
                 case ParamCheckKind::DICT_SINGLE_ALL:
                     obj->vectorcall = select_vectorcall<1, ArgPattern::POS1_DICT_SINGLE_ALL>(ret_pat);
