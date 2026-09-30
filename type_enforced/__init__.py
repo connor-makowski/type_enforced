@@ -9,6 +9,10 @@
 
 Fast where it counts, thorough where it matters. Runtime validation for Python type annotations. Zero dependencies and uncompromising performance.
 
+<p align="center">
+  <img src="static/te_logo_circle.svg" alt="type_enforced logo" width="400">
+</p>
+
 ---
 
 ## Table of Contents
