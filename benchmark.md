@@ -16,56 +16,56 @@ Checkers in this section perform full validation across all elements in collecti
 
 | Type                                       | type_enforced    | type_enforced (Python) | Pydantic         | msgspec          | cattrs           | Typeguard        |
 |:-----------------------------------------| :--------------- | :--------------------- | :--------------- | :--------------- | :--------------- | :--------------- |
-| int                                        | 10.6 ns          | 10.7 ns                | 494.1 ns         | 262.1 ns         | 116.1 ns         | 1887.3 ns        |
-| int -> float                               | 22.8 ns          | 23.0 ns                | 514.6 ns         | 531.7 ns         | 234.7 ns         | 3380.9 ns        |
-| Union[int,float]                           | 15.5 ns          | 26.4 ns                | 546.7 ns         | 396.6 ns         | 433.2 ns         | 3887.1 ns        |
-| str                                        | 10.4 ns          | 10.8 ns                | 489.5 ns         | 262.5 ns         | 121.8 ns         | 1860.1 ns        |
-| NewType (int)                              | 10.5 ns          | 10.6 ns                | 491.9 ns         | 533.5 ns         | 145.4 ns         | 2728.3 ns        |
-| LiteralString                              | 10.6 ns          | 10.5 ns                | Error            | Error            | Error            | 2674.4 ns        |
-| type[BenchmarkClass]                       | 8.8 ns           | 15.1 ns                | 489.7 ns         | 586.5 ns         | Error            | 2274.4 ns        |
-| Callable[[int,str],bool]                   | 12.7 ns          | 13.0 ns                | 492.1 ns         | 772.8 ns         | Error            | 8335.3 ns        |
-| TypedDict (5 fields)                       | 61.0 ns          | 216.9 ns               | 738.3 ns         | 1102.8 ns        | 584.8 ns         | 9921.4 ns        |
-| class method Self                          | 10.7 ns          | 10.6 ns                | 484.2 ns         | 272.0 ns         | 115.6 ns         | 1905.1 ns        |
-| TypeVar (bound int)                        | 10.7 ns          | 10.5 ns                | 504.8 ns         | 806.5 ns         | Error            | 2816.7 ns        |
-| tuple[float,float]                         | 15.4 ns          | 132.7 ns               | 591.7 ns         | 782.1 ns         | 1232.2 ns        | 3848.6 ns        |
-| tuple[int,...] (1000 items)                | 504.4 ns         | 12278.7 ns             | 10436.8 ns       | 5473.3 ns        | 51556.1 ns       | 1087184.6 ns     |
-| dict[str,int] (5 keys)                     | 37.2 ns          | 341.9 ns               | 772.4 ns         | 675.1 ns         | 550.8 ns         | 13107.7 ns       |
-| dict[str,int] (1000 keys)                  | 3080.4 ns        | 29734.9 ns             | 40102.4 ns       | 26351.4 ns       | 67911.4 ns       | 2149504.3 ns     |
-| Dict[str,int] (5 keys)                     | 34.8 ns          | 331.6 ns               | 751.0 ns         | 878.6 ns         | 748.3 ns         | 13075.9 ns       |
-| Dict[str,int] (1000 keys)                  | 3132.4 ns        | 30511.4 ns             | 40881.7 ns       | 26579.5 ns       | 67601.3 ns       | 2155556.8 ns     |
-| class method dict[str,int] (5 keys)        | 44.9 ns          | 337.9 ns               | 724.8 ns         | 1093.2 ns        | 971.6 ns         | 13223.5 ns       |
-| class method dict[str,int] (1000 keys)     | 3101.5 ns        | 29976.8 ns             | 39961.3 ns       | 26819.0 ns       | 68772.8 ns       | 2114548.7 ns     |
-| list[int] (5 items)                        | 17.5 ns          | 168.9 ns               | 615.4 ns         | 502.7 ns         | 467.4 ns         | 7332.1 ns        |
-| list[int] (1000 items)                     | 466.3 ns         | 12297.7 ns             | 11061.4 ns       | 5030.2 ns        | 50472.4 ns       | 1063609.2 ns     |
-| List[int] (5 items)                        | 17.7 ns          | 172.4 ns               | 626.2 ns         | 693.9 ns         | 636.9 ns         | 7306.2 ns        |
-| List[int] (1000 items)                     | 452.7 ns         | 12335.1 ns             | 11115.8 ns       | 5126.6 ns        | 47478.6 ns       | 1056157.7 ns     |
-| list[Union[int,float]] (5 items)           | 20.1 ns          | 256.1 ns               | 755.9 ns         | 850.0 ns         | 2237.4 ns        | 16265.7 ns       |
-| list[Union[int,float]] (1000 items)        | 654.9 ns         | 13293.4 ns             | 52876.0 ns       | 5714.5 ns        | 368657.6 ns      | 3016607.8 ns     |
-| list[int] \| list[str] (5 items)           | 25.7 ns          | 200.9 ns               | 631.7 ns         | Error            | 941.9 ns         | 8316.4 ns        |
-| list[int] \| list[str] (1000 items)        | 450.6 ns         | 12365.6 ns             | 11303.5 ns       | Error            | 50294.7 ns       | 1061331.7 ns     |
-| set[int] (5 items)                         | 22.7 ns          | 216.3 ns               | 730.9 ns         | 693.0 ns         | 847.3 ns         | 7677.6 ns        |
-| set[int] (1000 items)                      | 1053.4 ns        | 14898.0 ns             | 22476.8 ns       | 18061.3 ns       | 68157.3 ns       | 1045426.7 ns     |
-| Set[int] (5 items)                         | 21.6 ns          | 209.4 ns               | 740.4 ns         | 879.9 ns         | 1060.9 ns        | 7670.4 ns        |
-| Set[int] (1000 items)                      | 1040.9 ns        | 14807.4 ns             | 22568.7 ns       | 18139.2 ns       | 69179.4 ns       | 1049523.2 ns     |
-| list[dict[str,int]] (5 x 5 items)          | 151.7 ns         | 1429.0 ns              | 1682.9 ns        | 1701.4 ns        | 2803.8 ns        | 61272.0 ns       |
-| list[dict[str,int]] (100 x 10 items)       | 3771.4 ns        | 43520.4 ns             | 41017.0 ns       | 25248.5 ns       | 80664.0 ns       | 2271280.2 ns     |
-| list[dict[str,int]] (10 x 100 items)       | 3291.3 ns        | 30555.2 ns             | 40357.1 ns       | 26345.5 ns       | 67963.5 ns       | 2141028.7 ns     |
-| list[list[int]] (10 x 100 items)           | 384.6 ns         | 12301.7 ns             | 11419.2 ns       | 5940.5 ns        | 48070.3 ns       | 1061002.1 ns     |
-| dict[str,list[int]] (10 x 100 items)       | 424.7 ns         | 12535.4 ns             | 11933.3 ns       | 6456.7 ns        | 49635.4 ns       | 1075285.8 ns     |
-| list[tuple[int,str,float]] (1000 items)    | 5008.1 ns        | 72077.6 ns             | 96549.9 ns       | 35956.3 ns       | 1158179.8 ns     | 4368138.8 ns     |
-| int (3 params)                             | 9.3 ns           | 80.9 ns                | 503.6 ns         | 1100.0 ns        | 599.7 ns         | 5901.0 ns        |
-| int (10 params)                            | 28.5 ns          | 161.3 ns               | 680.2 ns         | 3140.5 ns        | 1457.9 ns        | 19119.3 ns       |
-| int (25 params)                            | 75.2 ns          | 328.2 ns               | 981.9 ns         | 7440.0 ns        | 3331.8 ns        | 47010.0 ns       |
-| int (50 params)                            | 142.3 ns         | 1028.9 ns              | 1518.2 ns        | 14472.9 ns       | 6371.8 ns        | 94348.8 ns       |
-| int (100 params)                           | 252.9 ns         | 2092.3 ns              | 2449.8 ns        | 28879.7 ns       | 12590.9 ns       | 190411.4 ns      |
-| int (200 params)                           | 458.9 ns         | 4068.8 ns              | 4364.2 ns        | 58700.9 ns       | 25270.7 ns       | 383349.3 ns      |
-| int (500 params)                           | 978.6 ns         | 10168.3 ns             | 9824.0 ns        | 141190.7 ns      | 62241.1 ns       | 943363.1 ns      |
-| int (3 params, *args)                      | 28.3 ns          | 218.9 ns               | 619.2 ns         | 1116.7 ns        | 597.5 ns         | 5960.8 ns        |
-| int (3 params, **kwargs)                   | 20.5 ns          | 158.5 ns               | 517.1 ns         | 1131.7 ns        | 592.0 ns         | 5958.9 ns        |
-| int (3 params, *args, **kwargs)            | 21.6 ns          | 169.5 ns               | 515.3 ns         | 1117.8 ns        | 599.9 ns         | 6022.3 ns        |
-| int (10 params, *args)                     | 55.5 ns          | 367.4 ns               | 835.4 ns         | 3148.2 ns        | 1458.9 ns        | 19293.6 ns       |
-| int (10 params, **kwargs)                  | 33.0 ns          | 242.7 ns               | 680.4 ns         | 3091.0 ns        | 1456.1 ns        | 19380.8 ns       |
-| int (10 params, *args, **kwargs)           | 31.7 ns          | 260.4 ns               | 676.7 ns         | 3023.0 ns        | 1435.7 ns        | 19142.8 ns       |
+| int                                        | 10.9 ns          | 10.6 ns                | 439.3 ns         | 268.5 ns         | 114.2 ns         | 1865.3 ns        |
+| int -> float                               | 23.5 ns          | 23.4 ns                | 458.3 ns         | 577.2 ns         | 233.9 ns         | 3421.4 ns        |
+| Union[int,float]                           | 17.5 ns          | 26.3 ns                | 487.7 ns         | 410.8 ns         | 426.9 ns         | 3850.8 ns        |
+| str                                        | 10.5 ns          | 10.9 ns                | 442.7 ns         | 262.9 ns         | 120.3 ns         | 1840.0 ns        |
+| NewType (int)                              | 10.3 ns          | 10.3 ns                | 443.1 ns         | 532.4 ns         | 145.7 ns         | 2673.3 ns        |
+| LiteralString                              | 10.6 ns          | 10.6 ns                | Error            | Error            | Error            | 2629.5 ns        |
+| type[BenchmarkClass]                       | 8.9 ns           | 8.9 ns                 | 443.4 ns         | 550.0 ns         | Error            | 2195.6 ns        |
+| Callable[[int,str],bool]                   | 12.5 ns          | 12.8 ns                | 438.4 ns         | 759.2 ns         | Error            | 8399.8 ns        |
+| TypedDict (5 fields)                       | 59.8 ns          | 201.9 ns               | 685.8 ns         | 1085.5 ns        | 556.0 ns         | 9714.8 ns        |
+| class method Self                          | 10.3 ns          | 10.7 ns                | 475.5 ns         | 266.6 ns         | 112.9 ns         | 1895.4 ns        |
+| TypeVar (bound int)                        | 10.7 ns          | 10.0 ns                | 444.4 ns         | 796.6 ns         | Error            | 2765.6 ns        |
+| tuple[float,float]                         | 16.5 ns          | 123.9 ns               | 532.7 ns         | 748.1 ns         | 1169.6 ns        | 3731.2 ns        |
+| tuple[int,...] (1000 items)                | 447.5 ns         | 11878.0 ns             | 9879.0 ns        | 5146.9 ns        | 50144.3 ns       | 1051889.6 ns     |
+| dict[str,int] (5 keys)                     | 37.4 ns          | 334.4 ns               | 660.9 ns         | 657.1 ns         | 537.1 ns         | 12627.1 ns       |
+| dict[str,int] (1000 keys)                  | 3101.1 ns        | 29628.7 ns             | 39577.6 ns       | 26394.5 ns       | 67751.4 ns       | 2086917.7 ns     |
+| Dict[str,int] (5 keys)                     | 35.9 ns          | 332.6 ns               | 671.0 ns         | 835.4 ns         | 671.7 ns         | 12845.5 ns       |
+| Dict[str,int] (1000 keys)                  | 3110.0 ns        | 29737.7 ns             | 39899.0 ns       | 26843.2 ns       | 68906.6 ns       | 2100719.1 ns     |
+| class method dict[str,int] (5 keys)        | 43.7 ns          | 342.2 ns               | 705.1 ns         | 1073.9 ns        | 864.2 ns         | 13079.0 ns       |
+| class method dict[str,int] (1000 keys)     | 3210.2 ns        | 29622.6 ns             | 39602.4 ns       | 26254.3 ns       | 69821.0 ns       | 2098029.0 ns     |
+| list[int] (5 items)                        | 17.3 ns          | 167.3 ns               | 569.2 ns         | 515.2 ns         | 451.8 ns         | 7270.2 ns        |
+| list[int] (1000 items)                     | 451.3 ns         | 12295.9 ns             | 11032.4 ns       | 4989.4 ns        | 46554.1 ns       | 1041254.7 ns     |
+| List[int] (5 items)                        | 17.6 ns          | 168.2 ns               | 559.2 ns         | 664.2 ns         | 588.0 ns         | 7192.9 ns        |
+| List[int] (1000 items)                     | 442.2 ns         | 12242.9 ns             | 11031.6 ns       | 5095.5 ns        | 47824.6 ns       | 1043015.0 ns     |
+| list[Union[int,float]] (5 items)           | 19.7 ns          | 255.4 ns               | 695.0 ns         | 827.5 ns         | 2142.1 ns        | 16085.7 ns       |
+| list[Union[int,float]] (1000 items)        | 642.7 ns         | 13100.2 ns             | 51376.9 ns       | 5589.2 ns        | 361503.7 ns      | 2995453.6 ns     |
+| list[int] \| list[str] (5 items)           | 23.3 ns          | 201.3 ns               | 574.7 ns         | Error            | 890.2 ns         | 8235.9 ns        |
+| list[int] \| list[str] (1000 items)        | 467.5 ns         | 12441.6 ns             | 11359.9 ns       | Error            | 47596.7 ns       | 1047931.3 ns     |
+| set[int] (5 items)                         | 22.7 ns          | 206.2 ns               | 696.9 ns         | 731.2 ns         | 836.7 ns         | 7495.3 ns        |
+| set[int] (1000 items)                      | 1069.4 ns        | 15016.2 ns             | 22404.4 ns       | 17737.0 ns       | 68197.6 ns       | 1046951.4 ns     |
+| Set[int] (5 items)                         | 20.9 ns          | 208.6 ns               | 690.7 ns         | 850.8 ns         | 989.6 ns         | 7504.9 ns        |
+| Set[int] (1000 items)                      | 1064.4 ns        | 14731.9 ns             | 22628.9 ns       | 17877.2 ns       | 68177.8 ns       | 1052765.9 ns     |
+| list[dict[str,int]] (5 x 5 items)          | 153.7 ns         | 1423.1 ns              | 1602.6 ns        | 1652.4 ns        | 2730.8 ns        | 61529.2 ns       |
+| list[dict[str,int]] (100 x 10 items)       | 3759.9 ns        | 41096.5 ns             | 40268.6 ns       | 24165.8 ns       | 82822.4 ns       | 2252961.3 ns     |
+| list[dict[str,int]] (10 x 100 items)       | 3299.5 ns        | 30513.7 ns             | 39343.9 ns       | 25586.6 ns       | 65899.2 ns       | 2095040.7 ns     |
+| list[list[int]] (10 x 100 items)           | 372.8 ns         | 12279.0 ns             | 11475.3 ns       | 5986.1 ns        | 48427.3 ns       | 1049352.3 ns     |
+| dict[str,list[int]] (10 x 100 items)       | 395.8 ns         | 12316.7 ns             | 11917.3 ns       | 6453.7 ns        | 49183.1 ns       | 1067790.2 ns     |
+| list[tuple[int,str,float]] (1000 items)    | 5244.2 ns        | 71986.8 ns             | 96132.3 ns       | 37654.6 ns       | 1128329.5 ns     | 4342953.9 ns     |
+| int (3 params)                             | 12.0 ns          | 82.0 ns                | 500.6 ns         | 1048.8 ns        | 602.2 ns         | 5793.7 ns        |
+| int (10 params)                            | 29.2 ns          | 155.1 ns               | 665.9 ns         | 2990.4 ns        | 1444.6 ns        | 18378.9 ns       |
+| int (25 params)                            | 79.8 ns          | 329.6 ns               | 961.6 ns         | 7004.3 ns        | 3303.4 ns        | 45939.4 ns       |
+| int (50 params)                            | 147.3 ns         | 1011.6 ns              | 1486.5 ns        | 13749.2 ns       | 6292.8 ns        | 91451.7 ns       |
+| int (100 params)                           | 270.7 ns         | 2062.1 ns              | 2373.0 ns        | 27631.0 ns       | 12378.7 ns       | 183684.6 ns      |
+| int (200 params)                           | 499.1 ns         | 3982.2 ns              | 4325.4 ns        | 55538.1 ns       | 24604.0 ns       | 367325.3 ns      |
+| int (500 params)                           | 1087.8 ns        | 9587.2 ns              | 9379.5 ns        | 137769.0 ns      | 61698.3 ns       | 907241.9 ns      |
+| int (3 params, *args)                      | 20.7 ns          | 213.4 ns               | 601.5 ns         | 1079.6 ns        | 587.6 ns         | 5797.1 ns        |
+| int (3 params, **kwargs)                   | 23.0 ns          | 113.8 ns               | 506.4 ns         | 1080.6 ns        | 588.3 ns         | 5858.2 ns        |
+| int (3 params, *args, **kwargs)            | 25.2 ns          | 123.8 ns               | 507.3 ns         | 1088.3 ns        | 593.0 ns         | 5851.3 ns        |
+| int (10 params, *args)                     | 56.7 ns          | 359.3 ns               | 838.2 ns         | 2999.5 ns        | 1446.2 ns        | 18798.8 ns       |
+| int (10 params, **kwargs)                  | 29.1 ns          | 210.4 ns               | 676.7 ns         | 2995.9 ns        | 1437.3 ns        | 18276.8 ns       |
+| int (10 params, *args, **kwargs)           | 43.3 ns          | 219.8 ns               | 669.7 ns         | 3064.5 ns        | 1439.3 ns        | 18865.3 ns       |
 
 ## 2. Sampled & O(1) Validation
 Checkers in this section perform constant-time (O(1)) or fixed-percentage sampling of collections.
@@ -73,53 +73,53 @@ Checkers in this section perform constant-time (O(1)) or fixed-percentage sampli
 
 | Type                                       | type_enforced (1 sample) | type_enforced (Python, 1 sample) | type_enforced (bookend_plus) | type_enforced (5%) | Beartype (1 sample) | Typeguard (1 sample) |
 |:-----------------------------------------| :----------------------- | :------------------------------- | :--------------------------- | :----------------- | :------------------ | :------------------- |
-| int                                        | 10.7 ns                  | 10.7 ns                          | 10.6 ns                      | 10.8 ns            | 194.3 ns            | 1858.4 ns            |
-| int -> float                               | 23.4 ns                  | 23.3 ns                          | 25.7 ns                      | 23.8 ns            | 203.3 ns            | 3424.0 ns            |
-| Union[int,float]                           | 15.6 ns                  | 29.0 ns                          | 15.7 ns                      | 15.6 ns            | 219.1 ns            | 3926.7 ns            |
-| str                                        | 10.3 ns                  | 10.4 ns                          | 10.3 ns                      | 10.6 ns            | 197.5 ns            | 1862.5 ns            |
-| NewType (int)                              | 10.6 ns                  | 10.7 ns                          | 10.5 ns                      | 10.6 ns            | 197.9 ns            | 2758.4 ns            |
-| LiteralString                              | 10.6 ns                  | 11.1 ns                          | 10.6 ns                      | 11.0 ns            | 194.4 ns            | 2652.6 ns            |
-| type[BenchmarkClass]                       | 9.0 ns                   | 8.8 ns                           | 8.7 ns                       | 8.8 ns             | 227.3 ns            | 2220.6 ns            |
-| Callable[[int,str],bool]                   | 12.7 ns                  | 12.6 ns                          | 12.8 ns                      | 12.6 ns            | 334.0 ns            | 8346.5 ns            |
-| TypedDict (5 fields)                       | 61.4 ns                  | 216.9 ns                         | 58.8 ns                      | 60.9 ns            | 431.0 ns            | 9897.2 ns            |
-| class method Self                          | 10.7 ns                  | 10.6 ns                          | 10.6 ns                      | 10.7 ns            | Error               | 1894.5 ns            |
-| TypeVar (bound int)                        | 10.6 ns                  | 10.7 ns                          | 10.7 ns                      | 11.2 ns            | 190.5 ns            | 2813.1 ns            |
-| tuple[float,float]                         | 15.7 ns                  | 131.7 ns                         | 15.6 ns                      | 15.5 ns            | 252.0 ns            | 3817.2 ns            |
-| tuple[int,...] (1000 items)                | 14.9 ns                  | 95.7 ns                          | 37.3 ns                      | 92.1 ns            | 332.5 ns            | 3524.9 ns            |
-| dict[str,int] (5 keys)                     | 29.9 ns                  | 185.3 ns                         | 39.3 ns                      | 35.2 ns            | 334.5 ns            | 4482.8 ns            |
-| dict[str,int] (1000 keys)                  | 26.2 ns                  | 183.5 ns                         | 36.9 ns                      | 331.3 ns           | 347.4 ns            | 4504.6 ns            |
-| Dict[str,int] (5 keys)                     | 25.6 ns                  | 183.3 ns                         | 35.5 ns                      | 35.5 ns            | 339.4 ns            | 4507.4 ns            |
-| Dict[str,int] (1000 keys)                  | 25.2 ns                  | 188.1 ns                         | 37.5 ns                      | 355.1 ns           | 346.7 ns            | 4540.2 ns            |
-| class method dict[str,int] (5 keys)        | 40.4 ns                  | 201.0 ns                         | 49.8 ns                      | 42.7 ns            | 342.2 ns            | 4701.5 ns            |
-| class method dict[str,int] (1000 keys)     | 42.1 ns                  | 194.1 ns                         | 49.7 ns                      | 323.3 ns           | 346.1 ns            | 4725.6 ns            |
-| list[int] (5 items)                        | 15.1 ns                  | 80.1 ns                          | 38.3 ns                      | 31.4 ns            | 311.5 ns            | 3174.3 ns            |
-| list[int] (1000 items)                     | 15.1 ns                  | 80.9 ns                          | 40.9 ns                      | 95.0 ns            | 339.2 ns            | 3174.5 ns            |
-| List[int] (5 items)                        | 15.4 ns                  | 92.0 ns                          | 38.9 ns                      | 32.9 ns            | 312.9 ns            | 3194.2 ns            |
-| List[int] (1000 items)                     | 15.0 ns                  | 83.3 ns                          | 40.9 ns                      | 94.5 ns            | 340.8 ns            | 3185.1 ns            |
-| list[Union[int,float]] (5 items)           | 15.3 ns                  | 90.7 ns                          | 47.8 ns                      | 37.8 ns            | 342.4 ns            | 4173.8 ns            |
-| list[Union[int,float]] (1000 items)        | 16.6 ns                  | 91.8 ns                          | 50.2 ns                      | 209.4 ns           | 372.0 ns            | 4124.7 ns            |
-| list[int] \| list[str] (5 items)           | 22.1 ns                  | 132.8 ns                         | 41.5 ns                      | 30.8 ns            | 308.5 ns            | 4103.8 ns            |
-| list[int] \| list[str] (1000 items)        | 19.3 ns                  | 134.6 ns                         | 43.4 ns                      | 99.7 ns            | 339.4 ns            | 4167.1 ns            |
-| set[int] (5 items)                         | 18.4 ns                  | 214.1 ns                         | 23.7 ns                      | 22.3 ns            | 295.0 ns            | 3572.6 ns            |
-| set[int] (1000 items)                      | 17.9 ns                  | 210.9 ns                         | 23.6 ns                      | 123.7 ns           | 299.9 ns            | 3449.0 ns            |
-| Set[int] (5 items)                         | 18.1 ns                  | 211.4 ns                         | 24.4 ns                      | 24.2 ns            | 294.0 ns            | 3439.2 ns            |
-| Set[int] (1000 items)                      | 18.2 ns                  | 212.6 ns                         | 25.2 ns                      | 128.7 ns           | 300.6 ns            | 3469.7 ns            |
-| list[dict[str,int]] (5 x 5 items)          | 31.8 ns                  | 269.4 ns                         | 162.4 ns                     | 78.9 ns            | 455.0 ns            | 5877.2 ns            |
-| list[dict[str,int]] (100 x 10 items)       | 32.4 ns                  | 214.4 ns                         | 116.9 ns                     | 143.2 ns           | 472.1 ns            | 5816.1 ns            |
-| list[dict[str,int]] (10 x 100 items)       | 32.1 ns                  | 208.8 ns                         | 99.5 ns                      | 76.4 ns            | 456.3 ns            | 5842.9 ns            |
-| list[list[int]] (10 x 100 items)           | 24.0 ns                  | 116.4 ns                         | 72.1 ns                      | 51.9 ns            | 376.4 ns            | 4483.4 ns            |
-| dict[str,list[int]] (10 x 100 items)       | 36.5 ns                  | 208.8 ns                         | 80.6 ns                      | 51.5 ns            | 453.9 ns            | 5766.5 ns            |
-| list[tuple[int,str,float]] (1000 items)    | 40.1 ns                  | 166.9 ns                         | 79.8 ns                      | 450.1 ns           | 434.4 ns            | 6744.0 ns            |
-| int (3 params)                             | 9.8 ns                   | 83.5 ns                          | 9.4 ns                       | 10.2 ns            | 302.9 ns            | 5979.0 ns            |
-| int (10 params)                            | 36.8 ns                  | 164.4 ns                         | 42.4 ns                      | 41.0 ns            | 590.6 ns            | 19474.3 ns           |
-| int (25 params)                            | 74.2 ns                  | 329.5 ns                         | 74.8 ns                      | 79.0 ns            | 1205.8 ns           | 47560.9 ns           |
-| int (50 params)                            | 144.2 ns                 | 1026.4 ns                        | 142.7 ns                     | 140.5 ns           | 2193.7 ns           | 94897.7 ns           |
-| int (100 params)                           | 257.6 ns                 | 2131.5 ns                        | 252.8 ns                     | 248.0 ns           | 4290.1 ns           | 188056.3 ns          |
-| int (200 params)                           | 462.1 ns                 | 4079.1 ns                        | 454.7 ns                     | 465.6 ns           | 8457.5 ns           | 377081.8 ns          |
-| int (500 params)                           | 1008.9 ns                | 10335.8 ns                       | 1011.5 ns                    | 986.3 ns           | 21216.1 ns          | 941261.8 ns          |
-| int (3 params, *args)                      | 26.7 ns                  | 211.8 ns                         | 24.5 ns                      | 23.9 ns            | 299.6 ns            | 5878.1 ns            |
-| int (3 params, **kwargs)                   | 21.2 ns                  | 162.2 ns                         | 20.7 ns                      | 20.3 ns            | 301.2 ns            | 5969.8 ns            |
-| int (3 params, *args, **kwargs)            | 21.6 ns                  | 162.5 ns                         | 20.3 ns                      | 21.4 ns            | 303.9 ns            | 5974.0 ns            |
-| int (10 params, *args)                     | 47.2 ns                  | 365.9 ns                         | 54.5 ns                      | 52.6 ns            | 589.5 ns            | 19220.7 ns           |
-| int (10 params, **kwargs)                  | 23.5 ns                  | 243.7 ns                         | 25.2 ns                      | 31.7 ns            | 570.1 ns            | 18884.3 ns           |
-| int (10 params, *args, **kwargs)           | 34.9 ns                  | 260.2 ns                         | 33.0 ns                      | 34.5 ns            | 575.5 ns            | 19109.3 ns           |
+| int                                        | 7.0 ns                   | 7.0 ns                           | 7.1 ns                       | 7.1 ns             | 187.2 ns            | 1884.9 ns            |
+| int -> float                               | 22.9 ns                  | 23.3 ns                          | 23.5 ns                      | 22.9 ns            | 203.3 ns            | 3423.0 ns            |
+| Union[int,float]                           | 14.6 ns                  | 26.3 ns                          | 15.2 ns                      | 15.6 ns            | 210.0 ns            | 3842.1 ns            |
+| str                                        | 10.7 ns                  | 10.7 ns                          | 10.6 ns                      | 10.6 ns            | 192.2 ns            | 1844.4 ns            |
+| NewType (int)                              | 10.6 ns                  | 10.6 ns                          | 10.6 ns                      | 10.7 ns            | 190.4 ns            | 2694.7 ns            |
+| LiteralString                              | 10.6 ns                  | 10.6 ns                          | 10.5 ns                      | 10.5 ns            | 191.4 ns            | 2624.8 ns            |
+| type[BenchmarkClass]                       | 8.8 ns                   | 10.2 ns                          | 8.6 ns                       | 8.7 ns             | 235.3 ns            | 2230.9 ns            |
+| Callable[[int,str],bool]                   | 8.9 ns                   | 8.8 ns                           | 8.9 ns                       | 9.1 ns             | 312.8 ns            | 8262.3 ns            |
+| TypedDict (5 fields)                       | 59.5 ns                  | 210.8 ns                         | 58.8 ns                      | 59.3 ns            | 411.2 ns            | 9891.4 ns            |
+| class method Self                          | 11.1 ns                  | 10.9 ns                          | 11.6 ns                      | 11.8 ns            | Error               | 1905.6 ns            |
+| TypeVar (bound int)                        | 10.3 ns                  | 10.8 ns                          | 10.5 ns                      | 10.6 ns            | 189.9 ns            | 2776.9 ns            |
+| tuple[float,float]                         | 15.4 ns                  | 126.1 ns                         | 15.5 ns                      | 17.0 ns            | 250.7 ns            | 3710.5 ns            |
+| tuple[int,...] (1000 items)                | 15.4 ns                  | 98.9 ns                          | 30.4 ns                      | 92.5 ns            | 329.8 ns            | 3450.0 ns            |
+| dict[str,int] (5 keys)                     | 23.5 ns                  | 192.5 ns                         | 36.1 ns                      | 27.3 ns            | 339.7 ns            | 4376.1 ns            |
+| dict[str,int] (1000 keys)                  | 28.1 ns                  | 194.5 ns                         | 36.8 ns                      | 309.0 ns           | 347.9 ns            | 4367.5 ns            |
+| Dict[str,int] (5 keys)                     | 25.7 ns                  | 195.4 ns                         | 36.1 ns                      | 26.9 ns            | 338.7 ns            | 4398.9 ns            |
+| Dict[str,int] (1000 keys)                  | 26.3 ns                  | 188.7 ns                         | 38.8 ns                      | 306.2 ns           | 347.0 ns            | 4390.7 ns            |
+| class method dict[str,int] (5 keys)        | 36.5 ns                  | 204.7 ns                         | 57.9 ns                      | 39.3 ns            | 343.2 ns            | 4673.2 ns            |
+| class method dict[str,int] (1000 keys)     | 36.9 ns                  | 202.8 ns                         | 56.9 ns                      | 314.5 ns           | 356.1 ns            | 4707.5 ns            |
+| list[int] (5 items)                        | 27.8 ns                  | 81.6 ns                          | 30.8 ns                      | 29.9 ns            | 306.5 ns            | 3164.5 ns            |
+| list[int] (1000 items)                     | 27.1 ns                  | 81.7 ns                          | 29.0 ns                      | 94.9 ns            | 374.6 ns            | 3112.6 ns            |
+| List[int] (5 items)                        | 26.8 ns                  | 81.4 ns                          | 27.9 ns                      | 28.1 ns            | 308.0 ns            | 3151.0 ns            |
+| List[int] (1000 items)                     | 26.6 ns                  | 91.2 ns                          | 31.4 ns                      | 97.8 ns            | 342.2 ns            | 3143.2 ns            |
+| list[Union[int,float]] (5 items)           | 15.2 ns                  | 78.7 ns                          | 36.9 ns                      | 38.3 ns            | 334.4 ns            | 4082.2 ns            |
+| list[Union[int,float]] (1000 items)        | 17.5 ns                  | 79.7 ns                          | 39.3 ns                      | 197.7 ns           | 355.7 ns            | 4119.8 ns            |
+| list[int] \| list[str] (5 items)           | 22.6 ns                  | 138.7 ns                         | 28.6 ns                      | 29.7 ns            | 307.2 ns            | 4119.7 ns            |
+| list[int] \| list[str] (1000 items)        | 19.8 ns                  | 133.2 ns                         | 30.1 ns                      | 96.1 ns            | 338.9 ns            | 4104.6 ns            |
+| set[int] (5 items)                         | 18.6 ns                  | 212.2 ns                         | 23.3 ns                      | 21.8 ns            | 285.1 ns            | 3379.1 ns            |
+| set[int] (1000 items)                      | 21.0 ns                  | 213.9 ns                         | 24.6 ns                      | 125.7 ns           | 298.0 ns            | 3441.8 ns            |
+| Set[int] (5 items)                         | 23.4 ns                  | 214.7 ns                         | 25.0 ns                      | 23.6 ns            | 285.5 ns            | 3359.8 ns            |
+| Set[int] (1000 items)                      | 18.9 ns                  | 213.1 ns                         | 25.4 ns                      | 123.8 ns           | 294.2 ns            | 3352.9 ns            |
+| list[dict[str,int]] (5 x 5 items)          | 32.3 ns                  | 212.3 ns                         | 94.5 ns                      | 45.4 ns            | 451.1 ns            | 5739.9 ns            |
+| list[dict[str,int]] (100 x 10 items)       | 35.6 ns                  | 220.3 ns                         | 111.0 ns                     | 134.9 ns           | 458.1 ns            | 5787.0 ns            |
+| list[dict[str,int]] (10 x 100 items)       | 39.1 ns                  | 218.1 ns                         | 92.1 ns                      | 69.7 ns            | 453.3 ns            | 5790.4 ns            |
+| list[list[int]] (10 x 100 items)           | 27.6 ns                  | 106.3 ns                         | 65.5 ns                      | 53.1 ns            | 359.1 ns            | 4406.2 ns            |
+| dict[str,list[int]] (10 x 100 items)       | 31.7 ns                  | 220.3 ns                         | 85.8 ns                      | 45.3 ns            | 460.8 ns            | 5698.8 ns            |
+| list[tuple[int,str,float]] (1000 items)    | 31.6 ns                  | 166.9 ns                         | 83.5 ns                      | 454.1 ns           | 426.4 ns            | 6669.5 ns            |
+| int (3 params)                             | 8.6 ns                   | 83.0 ns                          | 13.4 ns                      | 11.2 ns            | 295.5 ns            | 5822.2 ns            |
+| int (10 params)                            | 48.1 ns                  | 168.4 ns                         | 41.1 ns                      | 40.6 ns            | 588.3 ns            | 19026.8 ns           |
+| int (25 params)                            | 78.3 ns                  | 328.5 ns                         | 77.7 ns                      | 81.2 ns            | 1210.3 ns           | 46819.6 ns           |
+| int (50 params)                            | 158.5 ns                 | 1024.0 ns                        | 149.0 ns                     | 148.4 ns           | 2234.7 ns           | 92525.2 ns           |
+| int (100 params)                           | 279.3 ns                 | 2094.5 ns                        | 282.0 ns                     | 277.8 ns           | 4275.3 ns           | 184873.3 ns          |
+| int (200 params)                           | 512.1 ns                 | 4024.0 ns                        | 529.5 ns                     | 514.2 ns           | 8358.7 ns           | 371705.2 ns          |
+| int (500 params)                           | 1102.0 ns                | 10428.0 ns                       | 1107.8 ns                    | 1106.0 ns          | 21377.2 ns          | 931729.5 ns          |
+| int (3 params, *args)                      | 28.1 ns                  | 216.9 ns                         | 22.7 ns                      | 25.3 ns            | 299.5 ns            | 6073.9 ns            |
+| int (3 params, **kwargs)                   | 22.6 ns                  | 115.2 ns                         | 23.7 ns                      | 21.4 ns            | 302.9 ns            | 6015.3 ns            |
+| int (3 params, *args, **kwargs)            | 23.8 ns                  | 125.1 ns                         | 21.8 ns                      | 20.6 ns            | 303.3 ns            | 5916.4 ns            |
+| int (10 params, *args)                     | 50.2 ns                  | 372.9 ns                         | 50.9 ns                      | 51.2 ns            | 596.4 ns            | 19029.5 ns           |
+| int (10 params, **kwargs)                  | 25.5 ns                  | 212.3 ns                         | 33.3 ns                      | 25.8 ns            | 585.9 ns            | 18999.8 ns           |
+| int (10 params, *args, **kwargs)           | 34.9 ns                  | 220.6 ns                         | 38.7 ns                      | 37.8 ns            | 578.3 ns            | 18543.2 ns           |

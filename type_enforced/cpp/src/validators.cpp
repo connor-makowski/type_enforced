@@ -1645,6 +1645,24 @@ static PyObject* fast_call_general_vectorcall(PyObject* self, PyObject* const* a
         PyObject* const* kw_values = args + fn_nargs;
         for (size_t j = 0; j < n_kwargs; ++j) {
             PyObject* key_obj = PyTuple_GET_ITEM(kwnames, j);
+            if (num_pos == 1 && key_obj == p_arr[0].name_str) {
+                if (!validate_param(kw_values[j], fc->pos_kinds[0],
+                        fc->pos_types[0], fc->pos_types_extra[0],
+                        fc->pos_types_extra2[0], fc->pos_nodes[0])) [[unlikely]] {
+                    if (!handle_type_error(fc->check_fn, self_enforcer,
+                            kw_values[j], p_arr[0].exp, key_obj)) return nullptr;
+                }
+                continue;
+            }
+            if (fc->kwonly_params.size() == 1 &&
+                key_obj == fc->kwonly_params[0].name_str) {
+                const auto& p = fc->kwonly_params[0];
+                if (!p.type_check.check(kw_values[j])) [[unlikely]] {
+                    if (!handle_type_error(fc->check_fn, self_enforcer,
+                            kw_values[j], p.exp, key_obj)) return nullptr;
+                }
+                continue;
+            }
             Py_ssize_t key_size;
             const char* key_cstr = PyUnicode_AsUTF8AndSize(key_obj, &key_size);
             if (key_cstr) {
