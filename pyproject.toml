@@ -73,7 +73,7 @@ no-build-isolation-package = []
 [tool.pytest.ini_options]
 testpaths = ["test"]
 python_files = ["*.py"]
-pythonpath = ["."]
+
 
 [tool.cibuildwheel]
 build = "cp311-* cp312-* cp313-* cp314-*"
