@@ -28,7 +28,7 @@ include = [
 
 [project]
 name = "type_enforced"
-version = "2.12.3"
+version = "2.13.0b1"
 description = "A dependency free type enforcer for python type annotations"
 authors = [
     {name="Connor Makowski", email="conmak@mit.edu"}
@@ -74,3 +74,17 @@ no-build-isolation-package = []
 testpaths = ["test"]
 python_files = ["*.py"]
 pythonpath = ["."]
+
+[tool.cibuildwheel]
+build = "cp311-* cp312-* cp313-* cp314-*"
+skip = "*-win32 *_i686 pp*"
+test-command = "pytest {project}/test"
+test-requires = ["pytest>=9.0.3"]
+
+[tool.cibuildwheel.environment]
+TYPE_ENFORCED_REQUIRE_CPP = "1"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+
