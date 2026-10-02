@@ -81,57 +81,60 @@
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
-        <option value="2.12.3">2.12.3</option>
-        <option value="2.11.0">2.11.0</option>
-        <option value="2.10.1">2.10.1</option>
-        <option value="2.9.0">2.9.0</option>
-        <option value="2.8.1">2.8.1</option>
-        <option value="2.7.0">2.7.0</option>
-        <option value="2.6.0">2.6.0</option>
-        <option value="2.5.0">2.5.0</option>
-        <option value="2.4.0">2.4.0</option>
-        <option value="2.3.0">2.3.0</option>
-        <option value="2.2.3">2.2.3</option>
-        <option value="2.1.0">2.1.0</option>
-        <option value="2.0.0">2.0.0</option>
-        <option value="1.10.2">1.10.2</option>
-        <option value="1.9.0">1.9.0</option>
-        <option value="1.8.1">1.8.1</option>
-        <option value="1.7.0">1.7.0</option>
-        <option value="1.6.0">1.6.0</option>
-        <option value="1.5.0">1.5.0</option>
-        <option value="1.4.0">1.4.0</option>
-        <option value="1.3.0">1.3.0</option>
-        <option value="1.2.0">1.2.0</option>
-        <option value="1.1.1">1.1.1</option>
-        <option value="0.0.16">0.0.16</option>
 </select>
 <script>
     var split_at = "/docs/";
     if (window.location.href.includes('github.io')) {
         split_at = "github.io/type_enforced/";
     }
+    var base_url = window.location.href.split(split_at)[0] + split_at;
+
     // Set the currently selected option to be equivalent to that of the url version.
     var version = 'latest';
     var version_path = window.location.href.split(split_at)[1];
-    if (version_path.includes('/')) {
-        if (version_path.split('/')[0].match(/^\d+\.\d+\.\d+$/)) {
-            version = version_path.split('/')[0];
+    if (version_path && version_path.includes('/')) {
+        var potential_version = version_path.split('/')[0];
+        if (potential_version.match(/^\d+\.\d+\.\d+$/)) {
+            version = potential_version;
         }
     }
-    document.getElementById('version-selector').value = version;
 
-    document.getElementById('version-selector').onchange = function() {
-        var version = this.value;
-        if (version == 'latest') {
-            var new_url = '';
-        } else {
-            var new_url = version + '/';
-        }
-        var url = window.location.href.split(split_at)[0] + split_at + new_url + 'index.html';
-        console.log(url);
-        window.location.href = url;
+    var selector = document.getElementById('version-selector');
+
+    function populateVersions(versions) {
+        selector.innerHTML = '<option value="latest">latest</option>';
+        versions.forEach(function(v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            selector.appendChild(opt);
+        });
+        selector.value = version;
     }
+
+    // Load versions.js via script tag (works seamlessly across file://, localhost, and GitHub Pages with zero CORS restrictions)
+    var script = document.createElement('script');
+    script.src = base_url + 'versions.js';
+    script.onload = function() {
+        if (window.DOC_VERSIONS) {
+            populateVersions(window.DOC_VERSIONS);
+        }
+    };
+    script.onerror = function() {
+        // Fallback to fetch versions.json if versions.js is not loaded
+        fetch(base_url + 'versions.json')
+            .then(function(r) { return r.json(); })
+            .then(populateVersions)
+            .catch(function(e) { console.warn('Could not load doc versions:', e); });
+    };
+    document.head.appendChild(script);
+
+    selector.onchange = function() {
+        var selectedVersion = this.value;
+        var new_url = (selectedVersion === 'latest') ? '' : selectedVersion + '/';
+        var url = window.location.href.split(split_at)[0] + split_at + new_url + 'index.html';
+        window.location.href = url;
+    };
 </script>
 </footer>
 
@@ -152,7 +155,7 @@
 
                         <label class="view-source-button" for="mod-utils-view-source"><span>View Source</span></label>
 
-                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">types</span><span class="o">,</span><span class="w"> </span><span class="nn">re</span><span class="o">,</span><span class="w"> </span><span class="nn">copy</span><span class="o">,</span><span class="w"> </span><span class="nn">sys</span>
+                        <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos">  1</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">types</span><span class="o">,</span><span class="w"> </span><span class="nn">re</span><span class="o">,</span><span class="w"> </span><span class="nn">copy</span><span class="o">,</span><span class="w"> </span><span class="nn">sys</span><span class="o">,</span><span class="w"> </span><span class="nn">os</span>
 </span><span id="L-2"><a href="#L-2"><span class="linenos">  2</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">update_wrapper</span>
 </span><span id="L-3"><a href="#L-3"><span class="linenos">  3</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
 </span><span id="L-4"><a href="#L-4"><span class="linenos">  4</span></a>
@@ -509,6 +512,43 @@
 </span><span id="L-355"><a href="#L-355"><span class="linenos">355</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using C++ &amp; Python implementation of type_enforced.&quot;</span><span class="p">)</span>
 </span><span id="L-356"><a href="#L-356"><span class="linenos">356</span></a>    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
 </span><span id="L-357"><a href="#L-357"><span class="linenos">357</span></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using Pure Python implementation of type_enforced.&quot;</span><span class="p">)</span>
+</span><span id="L-358"><a href="#L-358"><span class="linenos">358</span></a>
+</span><span id="L-359"><a href="#L-359"><span class="linenos">359</span></a>
+</span><span id="L-360"><a href="#L-360"><span class="linenos">360</span></a><span class="k">def</span><span class="w"> </span><span class="nf">_validate_env</span><span class="p">(</span><span class="n">cpp_override</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="L-361"><a href="#L-361"><span class="linenos">361</span></a>    <span class="n">require_cpp</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;TYPE_ENFORCED_REQUIRE_CPP&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span>
+</span><span id="L-362"><a href="#L-362"><span class="linenos">362</span></a>        <span class="s2">&quot;1&quot;</span><span class="p">,</span>
+</span><span id="L-363"><a href="#L-363"><span class="linenos">363</span></a>        <span class="s2">&quot;true&quot;</span><span class="p">,</span>
+</span><span id="L-364"><a href="#L-364"><span class="linenos">364</span></a>        <span class="s2">&quot;True&quot;</span><span class="p">,</span>
+</span><span id="L-365"><a href="#L-365"><span class="linenos">365</span></a>    <span class="p">)</span>
+</span><span id="L-366"><a href="#L-366"><span class="linenos">366</span></a>    <span class="n">require_python</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;TYPE_ENFORCED_REQUIRE_PYTHON&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span>
+</span><span id="L-367"><a href="#L-367"><span class="linenos">367</span></a>        <span class="s2">&quot;1&quot;</span><span class="p">,</span>
+</span><span id="L-368"><a href="#L-368"><span class="linenos">368</span></a>        <span class="s2">&quot;true&quot;</span><span class="p">,</span>
+</span><span id="L-369"><a href="#L-369"><span class="linenos">369</span></a>        <span class="s2">&quot;True&quot;</span><span class="p">,</span>
+</span><span id="L-370"><a href="#L-370"><span class="linenos">370</span></a>    <span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;TYPE_ENFORCED_NO_BUILD&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span>
+</span><span id="L-371"><a href="#L-371"><span class="linenos">371</span></a>        <span class="s2">&quot;1&quot;</span><span class="p">,</span>
+</span><span id="L-372"><a href="#L-372"><span class="linenos">372</span></a>        <span class="s2">&quot;true&quot;</span><span class="p">,</span>
+</span><span id="L-373"><a href="#L-373"><span class="linenos">373</span></a>        <span class="s2">&quot;True&quot;</span><span class="p">,</span>
+</span><span id="L-374"><a href="#L-374"><span class="linenos">374</span></a>    <span class="p">)</span>
+</span><span id="L-375"><a href="#L-375"><span class="linenos">375</span></a>
+</span><span id="L-376"><a href="#L-376"><span class="linenos">376</span></a>    <span class="k">if</span> <span class="n">require_cpp</span> <span class="ow">and</span> <span class="n">require_python</span><span class="p">:</span>
+</span><span id="L-377"><a href="#L-377"><span class="linenos">377</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span id="L-378"><a href="#L-378"><span class="linenos">378</span></a>            <span class="s2">&quot;Contradictory environment configuration: Both &quot;</span>
+</span><span id="L-379"><a href="#L-379"><span class="linenos">379</span></a>            <span class="s2">&quot;TYPE_ENFORCED_REQUIRE_CPP and TYPE_ENFORCED_REQUIRE_PYTHON &quot;</span>
+</span><span id="L-380"><a href="#L-380"><span class="linenos">380</span></a>            <span class="s2">&quot;(or TYPE_ENFORCED_NO_BUILD) are set.&quot;</span>
+</span><span id="L-381"><a href="#L-381"><span class="linenos">381</span></a>        <span class="p">)</span>
+</span><span id="L-382"><a href="#L-382"><span class="linenos">382</span></a>
+</span><span id="L-383"><a href="#L-383"><span class="linenos">383</span></a>    <span class="n">cpp_active</span> <span class="o">=</span> <span class="n">has_cpp</span><span class="p">()</span> <span class="k">if</span> <span class="n">cpp_override</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cpp_override</span>
+</span><span id="L-384"><a href="#L-384"><span class="linenos">384</span></a>    <span class="k">if</span> <span class="n">require_cpp</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cpp_active</span><span class="p">:</span>
+</span><span id="L-385"><a href="#L-385"><span class="linenos">385</span></a>        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+</span><span id="L-386"><a href="#L-386"><span class="linenos">386</span></a>            <span class="s2">&quot;TYPE_ENFORCED_REQUIRE_CPP is set, but C++ acceleration is not &quot;</span>
+</span><span id="L-387"><a href="#L-387"><span class="linenos">387</span></a>            <span class="s2">&quot;available (running in pure Python fallback mode).&quot;</span>
+</span><span id="L-388"><a href="#L-388"><span class="linenos">388</span></a>        <span class="p">)</span>
+</span><span id="L-389"><a href="#L-389"><span class="linenos">389</span></a>    <span class="k">elif</span> <span class="n">require_python</span> <span class="ow">and</span> <span class="n">cpp_active</span><span class="p">:</span>
+</span><span id="L-390"><a href="#L-390"><span class="linenos">390</span></a>        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+</span><span id="L-391"><a href="#L-391"><span class="linenos">391</span></a>            <span class="s2">&quot;TYPE_ENFORCED_REQUIRE_PYTHON is set, but C++ acceleration is active &quot;</span>
+</span><span id="L-392"><a href="#L-392"><span class="linenos">392</span></a>            <span class="s2">&quot;(pre-built binary wheel was installed). To use pure Python, &quot;</span>
+</span><span id="L-393"><a href="#L-393"><span class="linenos">393</span></a>            <span class="s2">&quot;reinstall with `pip install type_enforced --no-binary type_enforced`.&quot;</span><span class="p">,</span>
+</span><span id="L-394"><a href="#L-394"><span class="linenos">394</span></a>        <span class="p">)</span>
 </span></pre></div>
 
 

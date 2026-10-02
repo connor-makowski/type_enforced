@@ -60,57 +60,60 @@
 <footer>
 <select id="version-selector">
     <option value="latest">latest</option>
-        <option value="2.12.3">2.12.3</option>
-        <option value="2.11.0">2.11.0</option>
-        <option value="2.10.1">2.10.1</option>
-        <option value="2.9.0">2.9.0</option>
-        <option value="2.8.1">2.8.1</option>
-        <option value="2.7.0">2.7.0</option>
-        <option value="2.6.0">2.6.0</option>
-        <option value="2.5.0">2.5.0</option>
-        <option value="2.4.0">2.4.0</option>
-        <option value="2.3.0">2.3.0</option>
-        <option value="2.2.3">2.2.3</option>
-        <option value="2.1.0">2.1.0</option>
-        <option value="2.0.0">2.0.0</option>
-        <option value="1.10.2">1.10.2</option>
-        <option value="1.9.0">1.9.0</option>
-        <option value="1.8.1">1.8.1</option>
-        <option value="1.7.0">1.7.0</option>
-        <option value="1.6.0">1.6.0</option>
-        <option value="1.5.0">1.5.0</option>
-        <option value="1.4.0">1.4.0</option>
-        <option value="1.3.0">1.3.0</option>
-        <option value="1.2.0">1.2.0</option>
-        <option value="1.1.1">1.1.1</option>
-        <option value="0.0.16">0.0.16</option>
 </select>
 <script>
     var split_at = "/docs/";
     if (window.location.href.includes('github.io')) {
         split_at = "github.io/type_enforced/";
     }
+    var base_url = window.location.href.split(split_at)[0] + split_at;
+
     // Set the currently selected option to be equivalent to that of the url version.
     var version = 'latest';
     var version_path = window.location.href.split(split_at)[1];
-    if (version_path.includes('/')) {
-        if (version_path.split('/')[0].match(/^\d+\.\d+\.\d+$/)) {
-            version = version_path.split('/')[0];
+    if (version_path && version_path.includes('/')) {
+        var potential_version = version_path.split('/')[0];
+        if (potential_version.match(/^\d+\.\d+\.\d+$/)) {
+            version = potential_version;
         }
     }
-    document.getElementById('version-selector').value = version;
 
-    document.getElementById('version-selector').onchange = function() {
-        var version = this.value;
-        if (version == 'latest') {
-            var new_url = '';
-        } else {
-            var new_url = version + '/';
-        }
-        var url = window.location.href.split(split_at)[0] + split_at + new_url + 'index.html';
-        console.log(url);
-        window.location.href = url;
+    var selector = document.getElementById('version-selector');
+
+    function populateVersions(versions) {
+        selector.innerHTML = '<option value="latest">latest</option>';
+        versions.forEach(function(v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            selector.appendChild(opt);
+        });
+        selector.value = version;
     }
+
+    // Load versions.js via script tag (works seamlessly across file://, localhost, and GitHub Pages with zero CORS restrictions)
+    var script = document.createElement('script');
+    script.src = base_url + 'versions.js';
+    script.onload = function() {
+        if (window.DOC_VERSIONS) {
+            populateVersions(window.DOC_VERSIONS);
+        }
+    };
+    script.onerror = function() {
+        // Fallback to fetch versions.json if versions.js is not loaded
+        fetch(base_url + 'versions.json')
+            .then(function(r) { return r.json(); })
+            .then(populateVersions)
+            .catch(function(e) { console.warn('Could not load doc versions:', e); });
+    };
+    document.head.appendChild(script);
+
+    selector.onchange = function() {
+        var selectedVersion = this.value;
+        var new_url = (selectedVersion === 'latest') ? '' : selectedVersion + '/';
+        var url = window.location.href.split(split_at)[0] + split_at + new_url + 'index.html';
+        window.location.href = url;
+    };
 </script>
 </footer>
 
@@ -3843,7 +3846,7 @@ TypeError: TypeEnforced Exception (my_fn): Type mismatch for typed variable `a`.
                 <section id="FAST_SAMPLE_OPTIONS">
                     <div class="attr variable">
             <span class="name">FAST_SAMPLE_OPTIONS</span>        =
-<span class="default_value">frozenset({0, &#39;first&#39;, &#39;last&#39;, &#39;log&#39;, &#39;bookend&#39;, &#39;bookend_plus&#39;})</span>
+<span class="default_value">frozenset({0, &#39;bookend_plus&#39;, &#39;first&#39;, &#39;bookend&#39;, &#39;last&#39;, &#39;log&#39;})</span>
 
         
     </div>

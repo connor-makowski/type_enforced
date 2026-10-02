@@ -1,4 +1,4 @@
-import types, re, copy, sys
+import types, re, copy, sys, os
 from functools import update_wrapper
 from typing import Union
 
@@ -355,3 +355,40 @@ def cpp_check():
         print("Using C++ & Python implementation of type_enforced.")
     except ImportError:
         print("Using Pure Python implementation of type_enforced.")
+
+
+def _validate_env(cpp_override=None):
+    require_cpp = os.environ.get("TYPE_ENFORCED_REQUIRE_CPP") in (
+        "1",
+        "true",
+        "True",
+    )
+    require_python = os.environ.get("TYPE_ENFORCED_REQUIRE_PYTHON") in (
+        "1",
+        "true",
+        "True",
+    ) or os.environ.get("TYPE_ENFORCED_NO_BUILD") in (
+        "1",
+        "true",
+        "True",
+    )
+
+    if require_cpp and require_python:
+        raise ValueError(
+            "Contradictory environment configuration: Both "
+            "TYPE_ENFORCED_REQUIRE_CPP and TYPE_ENFORCED_REQUIRE_PYTHON "
+            "(or TYPE_ENFORCED_NO_BUILD) are set."
+        )
+
+    cpp_active = has_cpp() if cpp_override is None else cpp_override
+    if require_cpp and not cpp_active:
+        raise Exception(
+            "TYPE_ENFORCED_REQUIRE_CPP is set, but C++ acceleration is not "
+            "available (running in pure Python fallback mode)."
+        )
+    elif require_python and cpp_active:
+        raise Exception(
+            "TYPE_ENFORCED_REQUIRE_PYTHON is set, but C++ acceleration is active "
+            "(pre-built binary wheel was installed). To use pure Python, "
+            "reinstall with `pip install type_enforced --no-binary type_enforced`.",
+        )

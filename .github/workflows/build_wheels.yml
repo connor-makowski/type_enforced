@@ -1,0 +1,216 @@
+name: Build Wheels & Sdist
+
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check_version:
+    name: Check version status
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.version_check.outputs.should_release }}
+      version: ${{ steps.version_check.outputs.version }}
+      is_prerelease: ${{ steps.version_check.outputs.is_prerelease }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check version status
+        id: version_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          echo "Current pyproject.toml version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Check for pre-release markers (e.g. 2.13.0b1, 2.13.0rc1, 2.13.0a1)
+          if python3 -c 'import sys, re; sys.exit(0 if re.search(r"[a-zA-Z]", sys.argv[1]) else 1)' "$VERSION"; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Only draft releases when on release branch or workflow_dispatch
+          if [ "${{ github.ref_name }}" != "release" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Not on release branch (ref: ${{ github.ref_name }}). Skipping release draft."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if release already exists and whether it is a draft
+          RELEASE_JSON=$(gh release view "$VERSION" --json isDraft 2>/dev/null || echo "")
+
+          if [ -z "$RELEASE_JSON" ]; then
+            echo "New version '$VERSION' detected on release! Will create a draft release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          else
+            IS_DRAFT=$(echo "$RELEASE_JSON" | python3 -c 'import sys, json; print(json.load(sys.stdin).get("isDraft", False))')
+            if [ "$IS_DRAFT" = "True" ]; then
+              echo "Unpublished draft release for version '$VERSION' detected! Updating draft release with latest build."
+              echo "should_release=true" >> $GITHUB_OUTPUT
+            else
+              echo "Version '$VERSION' is already published. Skipping release draft."
+              echo "should_release=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }} (${{ matrix.cibw_archs }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cibw_archs: "x86_64"
+          - os: ubuntu-latest
+            cibw_archs: "aarch64"
+          - os: macos-latest
+            cibw_archs: "arm64"
+          - os: windows-latest
+            cibw_archs: "AMD64"
+            msvc_arch: "x64"
+          - os: windows-latest
+            cibw_archs: "ARM64"
+            msvc_arch: "amd64_arm64"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        if: runner.os == 'Linux' && matrix.cibw_archs == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch || 'x64' }}
+
+      - name: Cache cibuildwheel tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/cibw-cache
+          key: cibw-cache-${{ runner.os }}-${{ matrix.cibw_archs }}-${{ hashFiles('pyproject.toml', 'setup.py', 'setup.cfg') }}
+          restore-keys: |
+            cibw-cache-${{ runner.os }}-${{ matrix.cibw_archs }}-
+            cibw-cache-${{ runner.os }}-
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v4.2.1
+        env:
+          CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CIBW_CACHE_PATH: ${{ runner.temp }}/cibw-cache
+          CIBW_ENVIRONMENT: TYPE_ENFORCED_REQUIRE_CPP="1"
+          CIBW_TEST_ENVIRONMENT: TYPE_ENFORCED_REQUIRE_CPP="1"
+
+      - name: Upload wheels artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ matrix.cibw_archs }}
+          path: ./wheelhouse/*.whl
+          retention-days: 7
+
+  build_sdist:
+    name: Build source distribution (sdist)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build
+        run: python -m pip install --upgrade pip build
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+          retention-days: 7
+
+  combine_artifacts:
+    name: Combine all wheels & sdist into dist artifact
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: List dist contents
+        run: ls -la dist/
+
+      - name: Upload combined dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          retention-days: 14
+
+  draft_release:
+    name: Create Draft GitHub Release
+    needs: [check_version, build_wheels, build_sdist]
+    if: needs.check_version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: Filter release assets for current version
+        run: |
+          VERSION="${{ needs.check_version.outputs.version }}"
+          mkdir -p release_assets
+          for file in dist/*"${VERSION}"*; do
+            if [ -f "$file" ]; then
+              cp "$file" release_assets/
+            fi
+          done
+          echo "Selected release assets for version $VERSION:"
+          ls -la release_assets/
+
+      - name: Create or Update Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check_version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Release ${{ needs.check_version.outputs.version }}
+          draft: true
+          prerelease: ${{ needs.check_version.outputs.is_prerelease == 'true' }}
+          generate_release_notes: true
+          files: release_assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

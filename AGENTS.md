@@ -35,8 +35,10 @@ utils/
   benchmark.py       # Performance benchmarks vs pydantic, beartype, typeguard
   minibench.py       # Quick performance-at-a-glance generator
   cpp_vs_python_bench.py # Side-by-side C++ vs Pure Python benchmark
+  download_wheels.py # Download built wheels from GitHub Actions workflow runs
   prettify.py        # autoflake (unused imports) + black (line-length=80)
   docs.py            # Generate pdoc HTML docs — DO NOT RUN (release only)
+.github/workflows/   # GitHub Actions CI/CD workflows (e.g. build_wheels.yml)
 CMakeLists.txt       # CMake build configuration with pure Python fallback
 noxfile.py           # nox sessions: runs pytest across Python 3.11–3.14 (C++ and no-C++)
 pyproject.toml       # project metadata, black + pytest config, dependencies
