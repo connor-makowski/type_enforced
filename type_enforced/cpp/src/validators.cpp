@@ -4,6 +4,12 @@
 #include <string>
 #include <string_view>
 #include <cstdlib>
+#include <cstdint>
+#include <bit>
+
+#if defined(_MSC_VER)
+#  define __builtin_expect(x, y) (x)
+#endif
 
 namespace type_enforced {
 
@@ -17,7 +23,7 @@ static inline size_t fast_quasi_rand(size_t bound) noexcept {
 static inline size_t calc_log_count(size_t len) noexcept {
     if (len == 0) return 0;
     if (len == 1) return 1;
-    return static_cast<size_t>(64 - __builtin_clzll(static_cast<unsigned long long>(len - 1)));
+    return static_cast<size_t>(64 - std::countl_zero(static_cast<uint64_t>(len - 1)));
 }
 
 static inline size_t compute_sample_count(size_t size, SampleStrategy strategy, double sample_pct_val) noexcept {
