@@ -12,7 +12,12 @@ build.verbose = false
 build-dir = "build/{wheel_tag}"
 
 [[tool.scikit-build.overrides]]
+if.env.TYPE_ENFORCED_NO_BUILD = true
+wheel.cmake = false
+
+[[tool.scikit-build.overrides]]
 if.failed = true
+if.not.env.TYPE_ENFORCED_REQUIRE_CPP = true
 wheel.cmake = false
 
 [tool.scikit-build.sdist]
@@ -81,8 +86,6 @@ skip = "*-win32 *_i686 pp*"
 test-command = "pytest {project}/test"
 test-requires = ["pytest>=9.0.3"]
 
-[tool.cibuildwheel.environment]
-TYPE_ENFORCED_REQUIRE_CPP = "1"
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"

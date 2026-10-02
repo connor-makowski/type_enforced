@@ -127,39 +127,41 @@ uv add type_enforced
 ### Requirements & Build Options
 - **Python 3.11+**
 - **Zero Runtime Dependencies**: Self-contained package with zero external runtime dependencies.
-- **C++ Acceleration**: If available, `type_enforced` leverages high-performance C++ validators via `nanobind`.
-- **Pure Python Fallback**: If compiling from source on a system without a C++ compiler, `type_enforced` automatically falls back to a pure-Python engine.
-- **Force Pure Python Fallback**: To explicitly skip C++ compilation and force pure Python mode:
+- **Pre-Built Binary Wheels**: Pre-compiled wheels with C++ acceleration are published on PyPI for standard platforms (Linux, macOS, Windows).
+- **Source Build & Automatic Fallback**: If installing from source (`pip install .` or `pip install --no-binary type_enforced type_enforced`), `type_enforced` attempts to compile C++ extension modules via `nanobind`. If a C++ compiler is not present or compilation fails, it automatically falls back to pure-Python mode without failing the installation.
+- **Force Pure-Python Mode (Skip C++ Build)**: To explicitly skip C++ compilation and install in pure-Python mode:
+    <details>
+    <summary>Expand to show details on how to force pure-Python mode</summary>
 
-  **`uv` (in `pyproject.toml`)**:
-  ```toml
-  [tool.uv]
-  no-binary-package = ["type-enforced"]
-  config-settings-package = { type-enforced = { "cmake.define.SKIP_CPP_BUILD" = "ON" } }
-  ```
+    **Environment Variable (CLI or CI)**:
+    ```bash
+    TYPE_ENFORCED_NO_BUILD=1 pip install type_enforced --no-binary type_enforced
+    ```
 
-  **`pip` (in `pyproject.toml` when building from source)**:
-  ```toml
-  [tool.scikit-build.cmake.define]
-  SKIP_CPP_BUILD = "ON"
-  ```
+    **`pip` CLI (PEP 517 Config Setting)**:
+    ```bash
+    pip install type_enforced --no-binary type_enforced -Cwheel.cmake=false
+    ```
 
-  **`pip` (in `requirements.txt`)**:
-  ```text
-  type_enforced --config-settings=cmake.define.SKIP_CPP_BUILD=ON --no-binary type_enforced
-  ```
+    **`uv` (in `pyproject.toml`)**:
+    ```toml
+    [tool.uv]
+    no-binary-package = ["type-enforced"]
+    config-settings-package = { type-enforced = { "wheel.cmake" = "false" } }
+    ```
 
-  **`pip` (CLI)**:
-  ```bash
-  pip install type_enforced --no-binary type_enforced -Ccmake.define.SKIP_CPP_BUILD=ON
-  ```
-  *(Or set `SKBUILD_CMAKE_ARGS="-DSKIP_CPP_BUILD=ON"` and `PIP_NO_BINARY="type_enforced"` in your environment)*
-- **Verify C++ Acceleration Status**: Check whether C++ acceleration is active in the current environment:
-  ```python
-  import type_enforced
+    **`pip` (in `requirements.txt`)**:
+    ```text
+    type_enforced --no-binary type_enforced --config-settings=wheel.cmake=false
+    ```
 
-  print(type_enforced.has_cpp())  # True if C++ acceleration is active, False for pure Python
-  ```
+    - **Verify C++ Acceleration Status**: Check whether C++ acceleration is active in the current environment:
+    ```python
+    import type_enforced
+
+    print(type_enforced.has_cpp())  # True if C++ acceleration is active, False for pure Python
+    ```
+    </details>
 
 <details>
 <summary>Legacy Python Compatibility</summary>

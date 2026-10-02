@@ -51,6 +51,8 @@ jobs:
         env:
           CIBW_ARCHS: ${{ matrix.cibw_archs }}
           CIBW_CACHE_PATH: ${{ runner.temp }}/cibw-cache
+          CIBW_ENVIRONMENT: TYPE_ENFORCED_REQUIRE_CPP="1"
+          CIBW_TEST_ENVIRONMENT: TYPE_ENFORCED_REQUIRE_CPP="1"
 
       - name: Upload wheels artifact
         uses: actions/upload-artifact@v4

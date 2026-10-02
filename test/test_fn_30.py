@@ -5,18 +5,52 @@ import type_enforced
 
 
 def test_cpp_check():
-    if os.environ.get("TYPE_ENFORCED_SKIP_CPP") == "1":
+    if (
+        # Hard check if passed from the system environment
+        os.environ.get("TYPE_ENFORCED_REQUIRE_PYTHON") == "1"
+    ):
         assert (
             not type_enforced.has_cpp()
         ), "Expected pure Python fallback, but has_cpp() is True!"
+    # Hard check if C++ extension is required
     elif os.environ.get("TYPE_ENFORCED_REQUIRE_CPP") == "1":
-        if platform.python_implementation() != "CPython":
-            pytest.skip("C++ extension is only built for CPython")
         assert (
             type_enforced.has_cpp()
         ), "Expected C++ extension to be active, but has_cpp() is False!"
     else:
         assert isinstance(type_enforced.has_cpp(), bool)
+
+
+def test_validate_env_contradiction(monkeypatch):
+    from type_enforced.utils import _validate_env
+
+    monkeypatch.setenv("TYPE_ENFORCED_REQUIRE_CPP", "1")
+    monkeypatch.setenv("TYPE_ENFORCED_REQUIRE_PYTHON", "1")
+    with pytest.raises(ValueError, match="Contradictory environment"):
+        _validate_env()
+
+    monkeypatch.setenv("TYPE_ENFORCED_REQUIRE_CPP", "1")
+    monkeypatch.delenv("TYPE_ENFORCED_REQUIRE_PYTHON", raising=False)
+    monkeypatch.setenv("TYPE_ENFORCED_NO_BUILD", "1")
+    with pytest.raises(ValueError, match="Contradictory environment"):
+        _validate_env()
+
+
+def test_validate_env_warnings(monkeypatch):
+    from type_enforced.utils import _validate_env
+
+    # 1. Require CPP but CPP is not active -> Warning
+    monkeypatch.setenv("TYPE_ENFORCED_REQUIRE_CPP", "1")
+    monkeypatch.delenv("TYPE_ENFORCED_REQUIRE_PYTHON", raising=False)
+    monkeypatch.delenv("TYPE_ENFORCED_NO_BUILD", raising=False)
+    with pytest.raises(Exception, match="TYPE_ENFORCED_REQUIRE_CPP is set"):
+        _validate_env(cpp_override=False)
+
+    # 2. Require Python but CPP is active -> Warning
+    monkeypatch.delenv("TYPE_ENFORCED_REQUIRE_CPP", raising=False)
+    monkeypatch.setenv("TYPE_ENFORCED_REQUIRE_PYTHON", "1")
+    with pytest.raises(Exception, match="TYPE_ENFORCED_REQUIRE_PYTHON is set"):
+        _validate_env(cpp_override=True)
 
 
 def test_cpp_accelerated_collections():
