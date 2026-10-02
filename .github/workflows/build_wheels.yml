@@ -51,13 +51,21 @@ jobs:
             exit 0
           fi
 
-          # Check if tag or release already exists
-          if gh release view "$VERSION" >/dev/null 2>&1 || git rev-parse --verify "refs/tags/$VERSION" >/dev/null 2>&1; then
-            echo "Release or tag for version '$VERSION' already exists. Skipping release draft."
-            echo "should_release=false" >> $GITHUB_OUTPUT
-          else
-            echo "New version '$VERSION' detected on release! Will draft a release."
+          # Check if release already exists and whether it is a draft
+          RELEASE_JSON=$(gh release view "$VERSION" --json isDraft 2>/dev/null || echo "")
+
+          if [ -z "$RELEASE_JSON" ]; then
+            echo "New version '$VERSION' detected on release! Will create a draft release."
             echo "should_release=true" >> $GITHUB_OUTPUT
+          else
+            IS_DRAFT=$(echo "$RELEASE_JSON" | python3 -c 'import sys, json; print(json.load(sys.stdin).get("isDraft", False))')
+            if [ "$IS_DRAFT" = "True" ]; then
+              echo "Unpublished draft release for version '$VERSION' detected! Updating draft release with latest build."
+              echo "should_release=true" >> $GITHUB_OUTPUT
+            else
+              echo "Version '$VERSION' is already published. Skipping release draft."
+              echo "should_release=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
   build_wheels:
@@ -182,17 +190,27 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: List release assets
-        run: ls -la dist/
+      - name: Filter release assets for current version
+        run: |
+          VERSION="${{ needs.check_version.outputs.version }}"
+          mkdir -p release_assets
+          for file in dist/*"${VERSION}"*; do
+            if [ -f "$file" ]; then
+              cp "$file" release_assets/
+            fi
+          done
+          echo "Selected release assets for version $VERSION:"
+          ls -la release_assets/
 
-      - name: Create Draft Release
+      - name: Create or Update Draft Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.check_version.outputs.version }}
+          target_commitish: ${{ github.sha }}
           name: Release ${{ needs.check_version.outputs.version }}
           draft: true
           prerelease: ${{ needs.check_version.outputs.is_prerelease == 'true' }}
           generate_release_notes: true
-          files: dist/*
+          files: release_assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
