@@ -7,7 +7,8 @@ import type_enforced
 def test_cpp_check():
     if (
         # Hard check if passed from the system environment
-        os.environ.get("TYPE_ENFORCED_REQUIRE_PYTHON") == "1"
+        os.environ.get("TYPE_ENFORCED_REQUIRE_PYTHON")
+        == "1"
     ):
         assert (
             not type_enforced.has_cpp()
