@@ -3,10 +3,63 @@ name: Build Wheels & Sdist
 on:
   push:
     branches:
-      - build
+      - release
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
+  check_version:
+    name: Check version status
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.version_check.outputs.should_release }}
+      version: ${{ steps.version_check.outputs.version }}
+      is_prerelease: ${{ steps.version_check.outputs.is_prerelease }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check version status
+        id: version_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          echo "Current pyproject.toml version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Check for pre-release markers (e.g. 2.13.0b1, 2.13.0rc1, 2.13.0a1)
+          if python3 -c 'import sys, re; sys.exit(0 if re.search(r"[a-zA-Z]", sys.argv[1]) else 1)' "$VERSION"; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Only draft releases when on release branch or workflow_dispatch
+          if [ "${{ github.ref_name }}" != "release" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Not on release branch (ref: ${{ github.ref_name }}). Skipping release draft."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if tag or release already exists
+          if gh release view "$VERSION" >/dev/null 2>&1 || git rev-parse --verify "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "Release or tag for version '$VERSION' already exists. Skipping release draft."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version '$VERSION' detected on release! Will draft a release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
   build_wheels:
     name: Build wheels on ${{ matrix.os }} (${{ matrix.cibw_archs }})
     runs-on: ${{ matrix.os }}
@@ -113,3 +166,33 @@ jobs:
           name: dist
           path: dist/*
           retention-days: 14
+
+  draft_release:
+    name: Create Draft GitHub Release
+    needs: [check_version, build_wheels, build_sdist]
+    if: needs.check_version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -la dist/
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check_version.outputs.version }}
+          name: Release ${{ needs.check_version.outputs.version }}
+          draft: true
+          prerelease: ${{ needs.check_version.outputs.is_prerelease == 'true' }}
+          generate_release_notes: true
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
