@@ -1,1 +1,0 @@
-uv run python -m twine upload dist/* --skip-existing
