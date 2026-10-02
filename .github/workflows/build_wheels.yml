@@ -22,6 +22,10 @@ jobs:
             cibw_archs: "arm64"
           - os: windows-latest
             cibw_archs: "AMD64"
+            msvc_arch: "x64"
+          - os: windows-latest
+            cibw_archs: "ARM64"
+            msvc_arch: "amd64_arm64"
 
     steps:
       - name: Checkout repository
@@ -36,6 +40,8 @@ jobs:
       - name: Set up MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch || 'x64' }}
 
       - name: Cache cibuildwheel tools
         uses: actions/cache@v4
@@ -47,7 +53,7 @@ jobs:
             cibw-cache-${{ runner.os }}-
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2
+        uses: pypa/cibuildwheel@v4.2.1
         env:
           CIBW_ARCHS: ${{ matrix.cibw_archs }}
           CIBW_CACHE_PATH: ${{ runner.temp }}/cibw-cache
