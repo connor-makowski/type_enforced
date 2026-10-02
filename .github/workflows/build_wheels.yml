@@ -16,10 +16,12 @@ jobs:
         include:
           - os: ubuntu-latest
             cibw_archs: "x86_64 aarch64"
+          - os: macos-13
+            cibw_archs: "x86_64"
           - os: macos-latest
-            cibw_archs: "x86_64 arm64"
+            cibw_archs: "arm64"
           - os: windows-latest
-            cibw_archs: "AMD64 ARM64"
+            cibw_archs: "AMD64"
 
     steps:
       - name: Checkout repository
@@ -30,6 +32,10 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
+
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.23.0
