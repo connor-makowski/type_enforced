@@ -8,7 +8,10 @@
 #include <bit>
 
 #if defined(_MSC_VER)
-#  define __builtin_expect(x, y) (x)
+template <typename T>
+static inline T __builtin_expect(T val, long) noexcept {
+    return val;
+}
 #endif
 
 namespace type_enforced {
