@@ -557,3 +557,19 @@ def test_readme_clean_traceback():
 
     with pytest.raises(TypeError, match="Type mismatch"):
         strict_fn("invalid")
+
+    # Caught type errors leave one hook that passes other exceptions through
+    import sys
+
+    previous_excepthook = sys.excepthook
+    sys.excepthook = original_excepthook = lambda *args: calls.append(args[0])
+    calls = []
+    try:
+        for _ in range(2):
+            with pytest.raises(TypeError):
+                strict_fn("invalid")
+        sys.excepthook(ValueError, ValueError(), None)
+        assert calls == [ValueError]
+        assert sys.excepthook is original_excepthook
+    finally:
+        sys.excepthook = previous_excepthook

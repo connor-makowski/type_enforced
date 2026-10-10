@@ -763,15 +763,22 @@ class FunctionMethodEnforcer(
                     except ValueError:
                         relevant_tb_count += 1
                     frame = frame.f_back
+                exc = TypeError(msg)
+                exc.__type_enforced_tb_limit__ = relevant_tb_count
                 original_excepthook = sys.excepthook
+                if getattr(original_excepthook, "__type_enforced__", False):
+                    raise exc
 
                 def excepthook(type, value, tb):
-                    traceback.print_exception(
-                        type, value, tb, limit=relevant_tb_count
-                    )
                     sys.excepthook = original_excepthook
+                    limit = getattr(value, "__type_enforced_tb_limit__", None)
+                    if limit is None:
+                        return original_excepthook(type, value, tb)
+                    traceback.print_exception(type, value, tb, limit=limit)
 
+                excepthook.__type_enforced__ = True
                 sys.excepthook = excepthook
+                raise exc
             raise TypeError(msg)
         else:
             print(
