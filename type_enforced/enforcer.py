@@ -25,7 +25,6 @@ from type_enforced.specialized import (
     build_inlined_code,
 )
 import sys
-import traceback
 from itertools import islice
 from pathlib import Path
 
@@ -731,6 +730,38 @@ class FunctionMethodEnforcer(
             f"Unsupported type hint: {annotation}", raise_exception=True
         )
 
+    @staticmethod
+    def __clean_traceback_excepthook__(type, value, tb):
+        """
+        Custom excepthook that strips internal type_enforced frames from
+        unhandled TypeEnforced exceptions, then delegates to the original hook.
+        """
+        hook = FunctionMethodEnforcer.__clean_traceback_excepthook__
+        if getattr(hook, "_running", False):
+            return sys.__excepthook__(type, value, tb)
+        hook._running = True
+        try:
+            original = getattr(hook, "original", sys.__excepthook__)
+            sys.excepthook = original
+            if (
+                isinstance(value, TypeError)
+                and tb is not None
+                and str(value).startswith("TypeEnforced Exception")
+            ):
+                cur = tb
+                while cur and cur.tb_next:
+                    if (
+                        Path(cur.tb_next.tb_frame.f_code.co_filename)
+                        .resolve()
+                        .is_relative_to(__package_path__)
+                    ):
+                        cur.tb_next = None
+                        break
+                    cur = cur.tb_next
+            return original(type, value, tb)
+        finally:
+            hook._running = False
+
     def __exception__(self, message, raise_exception=False):
         """
         Usage:
@@ -751,35 +782,14 @@ class FunctionMethodEnforcer(
             - Default: False
         """
         if self.__strict__ or raise_exception:
-            msg = f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
             if self.__clean_traceback__:
-                package_path = __package_path__
-                frame = sys._getframe()
-                relevant_tb_count = 0
-                while frame is not None:
-                    frame_file = Path(frame.f_code.co_filename).resolve()
-                    try:
-                        frame_file.relative_to(package_path)
-                    except ValueError:
-                        relevant_tb_count += 1
-                    frame = frame.f_back
-                exc = TypeError(msg)
-                exc.__type_enforced_tb_limit__ = relevant_tb_count
-                original_excepthook = sys.excepthook
-                if getattr(original_excepthook, "__type_enforced__", False):
-                    raise exc
-
-                def excepthook(type, value, tb):
-                    sys.excepthook = original_excepthook
-                    limit = getattr(value, "__type_enforced_tb_limit__", None)
-                    if limit is None:
-                        return original_excepthook(type, value, tb)
-                    traceback.print_exception(type, value, tb, limit=limit)
-
-                excepthook.__type_enforced__ = True
-                sys.excepthook = excepthook
-                raise exc
-            raise TypeError(msg)
+                hook = FunctionMethodEnforcer.__clean_traceback_excepthook__
+                if sys.excepthook is not hook:
+                    hook.original = sys.excepthook
+                    sys.excepthook = hook
+            raise TypeError(
+                f"TypeEnforced Exception ({self.__fn__.__qualname__}): {message}"
+            )
         else:
             print(
                 f"TypeEnforced Warning ({self.__fn__.__qualname__}): {message}"
@@ -1580,6 +1590,8 @@ class FunctionMethodEnforcer(
     def __repr__(self):
         return f"<type_enforced {self.__fn__.__module__}.{self.__fn__.__qualname__} object at {hex(id(self))}>"
 
+
+FunctionMethodEnforcer.__clean_traceback_excepthook__.__type_enforced__ = True
 
 if _cpp is None:
     FunctionMethodEnforcer.__call__ = FunctionMethodEnforcer.__fallback_call__
