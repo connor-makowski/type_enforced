@@ -557,3 +557,143 @@ def test_readme_clean_traceback():
 
     with pytest.raises(TypeError, match="Type mismatch"):
         strict_fn("invalid")
+
+    # Caught type errors leave one hook that passes other exceptions through
+    import sys
+
+    previous_excepthook = sys.excepthook
+    sys.excepthook = original_excepthook = lambda *args: calls.append(args[0])
+    calls = []
+    try:
+        for _ in range(2):
+            with pytest.raises(TypeError):
+                strict_fn("invalid")
+            assert (
+                sys.excepthook
+                is type_enforced.FunctionMethodEnforcer.__clean_traceback_excepthook__
+            )
+        sys.excepthook(ValueError, ValueError(), None)
+        assert calls == [ValueError]
+        assert sys.excepthook is original_excepthook
+    finally:
+        sys.excepthook = previous_excepthook
+
+
+def test_clean_traceback_preserves_third_party_hooks():
+    import sys
+
+    previous_excepthook = sys.excepthook
+    third_party_calls = []
+
+    def third_party_hook(exc_type, exc_val, exc_tb):
+        third_party_calls.append((exc_type, exc_val, exc_tb))
+
+    sys.excepthook = third_party_hook
+
+    @type_enforced.Enforcer(clean_traceback=True)
+    def strict_fn(x: int) -> int:
+        return x
+
+    try:
+        # 1. Unhandled TypeEnforced exception trims internal frames and invokes third-party hook
+        try:
+            strict_fn("invalid")
+        except TypeError as e:
+            sys.excepthook(TypeError, e, e.__traceback__)
+
+        assert len(third_party_calls) == 1
+        exc_type, exc_val, exc_tb = third_party_calls[0]
+        assert exc_type is TypeError
+        assert "TypeEnforced Exception" in str(exc_val)
+
+        tb_files = []
+        cur = exc_tb
+        while cur:
+            tb_files.append(cur.tb_frame.f_code.co_filename)
+            cur = cur.tb_next
+
+        assert not any("enforcer.py" in f for f in tb_files)
+        assert sys.excepthook is third_party_hook
+
+        # 2. Unhandled unrelated exception preserves full traceback and invokes third-party hook
+        val_err = ValueError("unrelated")
+        sys.excepthook(ValueError, val_err, None)
+        assert len(third_party_calls) == 2
+        assert third_party_calls[1][0] is ValueError
+        assert sys.excepthook is third_party_hook
+    finally:
+        sys.excepthook = previous_excepthook
+
+
+def test_clean_traceback_third_party_wrapper_chain():
+    import sys
+
+    previous_excepthook = sys.excepthook
+
+    @type_enforced.Enforcer(clean_traceback=True)
+    def strict_fn(x: int) -> int:
+        return x
+
+    try:
+        # Simulate caught error that leaves our hook in place
+        try:
+            strict_fn("invalid")
+        except TypeError:
+            pass
+
+        # Another package wraps current sys.excepthook (which is our hook)
+        wrapped_calls = []
+        prev_hook = sys.excepthook
+
+        def outer_wrapper(exc_type, exc_val, exc_tb):
+            wrapped_calls.append("outer")
+            prev_hook(exc_type, exc_val, exc_tb)
+
+        sys.excepthook = outer_wrapper
+
+        # Trigger another TypeEnforced error and excepthook call
+        try:
+            strict_fn("invalid")
+        except TypeError as e:
+            sys.excepthook(TypeError, e, e.__traceback__)
+
+        assert "outer" in wrapped_calls
+        # Ensure the outer wrapper was not unseated
+        assert sys.excepthook is outer_wrapper
+    finally:
+        sys.excepthook = previous_excepthook
+
+
+def test_clean_traceback_virtual_frame_preservation():
+    import sys
+
+    previous_excepthook = sys.excepthook
+    caught_tb = []
+
+    sys.excepthook = lambda t, v, tb: caught_tb.append(tb)
+
+    @type_enforced.Enforcer(clean_traceback=True)
+    def strict_fn(x: int) -> int:
+        return x
+
+    try:
+        # Call strict_fn via exec so the caller frame has co_filename = '<string>'
+        exec_code = "try:\n    strict_fn('invalid')\nexcept TypeError as e:\n    sys.excepthook(TypeError, e, e.__traceback__)\n"
+        exec(
+            exec_code,
+            {"strict_fn": strict_fn, "sys": sys, "TypeError": TypeError},
+        )
+
+        assert len(caught_tb) == 1
+        tb_files = []
+        cur = caught_tb[0]
+        while cur:
+            tb_files.append(cur.tb_frame.f_code.co_filename)
+            cur = cur.tb_next
+
+        # '<string>' virtual frame must be preserved
+        assert "<string>" in tb_files
+        # Internal enforcer.py frames must still be stripped
+        assert not any("enforcer.py" in f for f in tb_files)
+    finally:
+        sys.excepthook = previous_excepthook
