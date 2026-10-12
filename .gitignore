@@ -9,3 +9,4 @@
 build/
 .pytest_cache/
 todo.txt
+dist
