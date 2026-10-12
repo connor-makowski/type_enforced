@@ -547,6 +547,42 @@ try:
 
         return f
 
+    def isinstance_factory(typ):
+        """Return a handwritten inline isinstance checker for selected cases."""
+        if typ is int:
+
+            def f(x):
+                if not isinstance(x, int):
+                    raise TypeError("expected int")
+
+            return f
+        if typ is str:
+
+            def f(x):
+                if not isinstance(x, str):
+                    raise TypeError("expected str")
+
+            return f
+        if typ == Union[int, float]:
+
+            def f(x):
+                if not isinstance(x, (int, float)):
+                    raise TypeError("expected int or float")
+
+            return f
+        if get_origin(typ) is list and get_args(typ) == (int,):
+
+            def f(x):
+                if not isinstance(x, list):
+                    raise TypeError("expected list")
+                for item in x:
+                    if not isinstance(item, int):
+                        raise TypeError("expected list[int]")
+
+            return f
+
+        return None
+
     def pydantic_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return validate_call(MULTI_PARAM_FUNCS[typ])
@@ -949,6 +985,7 @@ try:
     # --- Checkers groups
     full_checkers = {
         "type_enforced": type_enforced_factory,
+        "Inline (100%)": isinstance_factory,
         "type_enforced (Python)": type_enforced_py_factory,
         "Pydantic": pydantic_factory,
         "msgspec": msgspec_factory,
@@ -1016,6 +1053,9 @@ try:
             for name, factory in checkers_dict.items():
                 try:
                     fn = factory(typ)
+                    if fn is None:
+                        case_data[name] = "n/a"
+                        continue
                     avg_ns = timeit(fn, pool, is_multi=is_multi)
                     diff_ns = max(0.0, avg_ns - base_ns)
                     case_data[name] = f"{diff_ns:.1f} ns"

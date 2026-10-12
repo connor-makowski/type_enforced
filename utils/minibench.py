@@ -151,6 +151,43 @@ def base_factory(typ):
     return f
 
 
+def isinstance_factory(typ):
+    """Return a handwritten inline isinstance checker for selected cases."""
+    if typ is int:
+
+        def f(x):
+            if not isinstance(x, int):
+                raise TypeError("expected int")
+
+        return f
+    if typ is str:
+
+        def f(x):
+            if not isinstance(x, str):
+                raise TypeError("expected str")
+
+        return f
+    if typ == Union[int, float]:
+
+        def f(x):
+            if not isinstance(x, (int, float)):
+                raise TypeError("expected int or float")
+
+        return f
+    if get_origin(typ) is list and get_args(typ) == (int,):
+
+        def f(x):
+            if not isinstance(x, list):
+                raise TypeError("expected list")
+            for item in x:
+                if not isinstance(item, int):
+                    raise TypeError("expected list[int]")
+
+        return f
+
+    return None
+
+
 def pydantic_factory(typ):
     if validate_call is None:
         raise ImportError("pydantic is not installed")
@@ -318,6 +355,7 @@ CHECKERS = {
     "Beartype (sample=1)": (beartype_factory, True),
     "Typeguard (sample=1)": (typeguard_sampled_factory, True),
     "type_enforced (100%)": (type_enforced_full_factory, False),
+    "Inline (100%)": (isinstance_factory, False),
     "Pydantic (100%)": (pydantic_factory, False),
     "msgspec (100%)": (msgspec_factory, False),
     "cattrs (100%)": (cattrs_factory, False),
@@ -403,6 +441,9 @@ def run_minibench():
         for checker_name, (factory, is_sampled) in CHECKERS.items():
             try:
                 fn = factory(typ)
+                if fn is None:
+                    row_times[checker_name] = "n/a"
+                    continue
                 ns = timeit_pool(fn, valid_pool, is_multi=is_multi)
                 diff_ns = max(0.0, ns - base_ns)
                 row_times[checker_name] = diff_ns
@@ -421,7 +462,9 @@ def format_table(results):
         cols = [type_label, size_label]
         for name in headers[2:]:
             t = times.get(name)
-            if t is None:
+            if t == "n/a":
+                cell = "n/a"
+            elif t is None:
                 cell = "Error"
             else:
                 cell = f"{t:.1f} ns"
