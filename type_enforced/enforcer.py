@@ -742,7 +742,10 @@ class FunctionMethodEnforcer(
         hook._running = True
         try:
             original = getattr(hook, "original", sys.__excepthook__)
-            sys.excepthook = original
+            if original is hook:
+                original = sys.__excepthook__
+            if sys.excepthook is hook:
+                sys.excepthook = original
             if (
                 isinstance(value, TypeError)
                 and tb is not None
@@ -750,13 +753,18 @@ class FunctionMethodEnforcer(
             ):
                 cur = tb
                 while cur and cur.tb_next:
-                    if (
-                        Path(cur.tb_next.tb_frame.f_code.co_filename)
-                        .resolve()
-                        .is_relative_to(__package_path__)
-                    ):
-                        cur.tb_next = None
-                        break
+                    next_file = cur.tb_next.tb_frame.f_code.co_filename
+                    if not next_file.startswith("<"):
+                        try:
+                            if (
+                                Path(next_file)
+                                .resolve()
+                                .is_relative_to(__package_path__)
+                            ):
+                                cur.tb_next = None
+                                break
+                        except (ValueError, OSError):
+                            pass
                     cur = cur.tb_next
             return original(type, value, tb)
         finally:

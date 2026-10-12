@@ -658,5 +658,42 @@ def test_clean_traceback_third_party_wrapper_chain():
             sys.excepthook(TypeError, e, e.__traceback__)
 
         assert "outer" in wrapped_calls
+        # Ensure the outer wrapper was not unseated
+        assert sys.excepthook is outer_wrapper
+    finally:
+        sys.excepthook = previous_excepthook
+
+
+def test_clean_traceback_virtual_frame_preservation():
+    import sys
+
+    previous_excepthook = sys.excepthook
+    caught_tb = []
+
+    sys.excepthook = lambda t, v, tb: caught_tb.append(tb)
+
+    @type_enforced.Enforcer(clean_traceback=True)
+    def strict_fn(x: int) -> int:
+        return x
+
+    try:
+        # Call strict_fn via exec so the caller frame has co_filename = '<string>'
+        exec_code = "try:\n    strict_fn('invalid')\nexcept TypeError as e:\n    sys.excepthook(TypeError, e, e.__traceback__)\n"
+        exec(
+            exec_code,
+            {"strict_fn": strict_fn, "sys": sys, "TypeError": TypeError},
+        )
+
+        assert len(caught_tb) == 1
+        tb_files = []
+        cur = caught_tb[0]
+        while cur:
+            tb_files.append(cur.tb_frame.f_code.co_filename)
+            cur = cur.tb_next
+
+        # '<string>' virtual frame must be preserved
+        assert "<string>" in tb_files
+        # Internal enforcer.py frames must still be stripped
+        assert not any("enforcer.py" in f for f in tb_files)
     finally:
         sys.excepthook = previous_excepthook
