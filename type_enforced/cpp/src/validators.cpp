@@ -404,6 +404,10 @@ struct FastTypeCheck {
         return single_type != nullptr || union_t0 != nullptr || validator != nullptr;
     }
 
+    inline bool can_execute_python() const noexcept {
+        return raw_validator != nullptr && single_type == nullptr && union_t0 == nullptr;
+    }
+
     inline bool check(PyObject* obj) const noexcept {
         if (single_type) {
             return check_single_type(obj, single_type);
@@ -521,12 +525,130 @@ struct SequenceValidatorNode : public TypeValidatorNode {
         }
     }
 
+    inline bool validate_list_safe(PyObject* obj) const noexcept {
+        TypeValidatorNode* v = elem_check.raw_validator;
+        switch (strategy) {
+            case SampleStrategy::FIRST: {
+                if (PyList_GET_SIZE(obj) == 0) return true;
+                PyObject* item = PyList_GET_ITEM(obj, 0);
+                Py_INCREF(item);
+                bool ok = v->validate(item);
+                Py_DECREF(item);
+                return ok;
+            }
+            case SampleStrategy::LAST: {
+                Py_ssize_t size = PyList_GET_SIZE(obj);
+                if (size == 0) return true;
+                PyObject* item = PyList_GET_ITEM(obj, size - 1);
+                Py_INCREF(item);
+                bool ok = v->validate(item);
+                Py_DECREF(item);
+                return ok;
+            }
+            case SampleStrategy::BOOKEND: {
+                if (PyList_GET_SIZE(obj) == 0) return true;
+                PyObject* item0 = PyList_GET_ITEM(obj, 0);
+                Py_INCREF(item0);
+                bool ok = v->validate(item0);
+                Py_DECREF(item0);
+                if (!ok) return false;
+                Py_ssize_t size = PyList_GET_SIZE(obj);
+                if (size > 1) {
+                    PyObject* item_last = PyList_GET_ITEM(obj, size - 1);
+                    Py_INCREF(item_last);
+                    ok = v->validate(item_last);
+                    Py_DECREF(item_last);
+                    if (!ok) return false;
+                }
+                return true;
+            }
+            case SampleStrategy::BOOKEND_PLUS: {
+                if (PyList_GET_SIZE(obj) == 0) return true;
+                PyObject* item0 = PyList_GET_ITEM(obj, 0);
+                Py_INCREF(item0);
+                bool ok = v->validate(item0);
+                Py_DECREF(item0);
+                if (!ok) return false;
+                Py_ssize_t size = PyList_GET_SIZE(obj);
+                if (size > 1) {
+                    PyObject* item_last = PyList_GET_ITEM(obj, size - 1);
+                    Py_INCREF(item_last);
+                    ok = v->validate(item_last);
+                    Py_DECREF(item_last);
+                    if (!ok) return false;
+                }
+                size = PyList_GET_SIZE(obj);
+                if (size > 2) {
+                    size_t mid = 1 + fast_quasi_rand(static_cast<size_t>(size - 2));
+                    PyObject* item_mid = PyList_GET_ITEM(obj, mid);
+                    Py_INCREF(item_mid);
+                    ok = v->validate(item_mid);
+                    Py_DECREF(item_mid);
+                    if (!ok) return false;
+                }
+                return true;
+            }
+            case SampleStrategy::RANDOM_ONE: {
+                Py_ssize_t size = PyList_GET_SIZE(obj);
+                if (size == 0) return true;
+                size_t idx = fast_quasi_rand(static_cast<size_t>(size));
+                PyObject* item = PyList_GET_ITEM(obj, idx);
+                Py_INCREF(item);
+                bool ok = v->validate(item);
+                Py_DECREF(item);
+                return ok;
+            }
+            case SampleStrategy::LOG:
+            case SampleStrategy::PERCENT:
+            case SampleStrategy::COUNT: {
+                Py_ssize_t size = PyList_GET_SIZE(obj);
+                if (size == 0) return true;
+                size_t count = compute_sample_count(static_cast<size_t>(size), strategy, sample_pct_val);
+                if (count >= static_cast<size_t>(size)) {
+                    for (Py_ssize_t i = 0; i < PyList_GET_SIZE(obj); ++i) {
+                        PyObject* item = PyList_GET_ITEM(obj, i);
+                        Py_INCREF(item);
+                        bool ok = v->validate(item);
+                        Py_DECREF(item);
+                        if (__builtin_expect(!ok, 0)) return false;
+                    }
+                    return true;
+                }
+                Py_ssize_t step = size / count;
+                if (step < 1) step = 1;
+                Py_ssize_t start = static_cast<Py_ssize_t>(fast_quasi_rand(static_cast<size_t>(step)));
+                for (Py_ssize_t i = start; i < PyList_GET_SIZE(obj); i += step) {
+                    PyObject* item = PyList_GET_ITEM(obj, i);
+                    Py_INCREF(item);
+                    bool ok = v->validate(item);
+                    Py_DECREF(item);
+                    if (__builtin_expect(!ok, 0)) return false;
+                }
+                return true;
+            }
+            case SampleStrategy::ALL:
+            default: {
+                for (Py_ssize_t i = 0; i < PyList_GET_SIZE(obj); ++i) {
+                    PyObject* item = PyList_GET_ITEM(obj, i);
+                    Py_INCREF(item);
+                    bool ok = v->validate(item);
+                    Py_DECREF(item);
+                    if (__builtin_expect(!ok, 0)) return false;
+                }
+                return true;
+            }
+        }
+    }
+
     bool validate(PyObject* obj) const noexcept override {
         if (!obj) return false;
         if constexpr (IsList) {
             if (!PyList_Check(obj)) return false;
             Py_ssize_t size = PyList_GET_SIZE(obj);
             if (size == 0) return true;
+            if (__builtin_expect(elem_check.can_execute_python(), 0)) {
+                return validate_list_safe(obj);
+            }
             PyObject** items = PySequence_Fast_ITEMS(obj);
             return validate_items(items, size);
         } else {
@@ -578,10 +700,94 @@ struct DictValidatorNode : public TypeValidatorNode {
         return check_pair(key, val);
     }
 
+    inline bool can_execute_python() const noexcept {
+        return key_check.can_execute_python() || val_check.can_execute_python();
+    }
+
+    inline bool check_entry_safe(PyObject* key, PyObject* val) const noexcept {
+        Py_INCREF(key);
+        Py_INCREF(val);
+        bool ok = check_entry(key, val);
+        Py_DECREF(key);
+        Py_DECREF(val);
+        return ok;
+    }
+
+    inline bool validate_dict_safe(PyObject* obj) const noexcept {
+        switch (strategy) {
+            case SampleStrategy::FIRST:
+            case SampleStrategy::LAST:
+            case SampleStrategy::RANDOM_ONE: {
+                Py_ssize_t pos = 0;
+                PyObject *key, *value;
+                if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                return check_entry_safe(key, value);
+            }
+            case SampleStrategy::BOOKEND: {
+                Py_ssize_t pos = 0;
+                PyObject *key, *value;
+                if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                if (!check_entry_safe(key, value)) return false;
+                if (PyDict_GET_SIZE(obj) > 1) {
+                    if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                    if (!check_entry_safe(key, value)) return false;
+                }
+                return true;
+            }
+            case SampleStrategy::BOOKEND_PLUS: {
+                Py_ssize_t pos = 0;
+                PyObject *key, *value;
+                if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                if (!check_entry_safe(key, value)) return false;
+                if (PyDict_GET_SIZE(obj) > 1) {
+                    if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                    if (!check_entry_safe(key, value)) return false;
+                }
+                if (PyDict_GET_SIZE(obj) > 2) {
+                    if (!PyDict_Next(obj, &pos, &key, &value)) return true;
+                    if (!check_entry_safe(key, value)) return false;
+                }
+                return true;
+            }
+            case SampleStrategy::LOG:
+            case SampleStrategy::PERCENT:
+            case SampleStrategy::COUNT: {
+                size_t size = static_cast<size_t>(PyDict_GET_SIZE(obj));
+                size_t count = compute_sample_count(size, strategy, sample_pct_val);
+                if (count >= size) {
+                    return validate_all_safe(obj);
+                }
+                Py_ssize_t pos = 0;
+                PyObject *key, *value;
+                for (size_t checked = 0; checked < count && PyDict_GET_SIZE(obj) > 0; ++checked) {
+                    if (!PyDict_Next(obj, &pos, &key, &value)) break;
+                    if (!check_entry_safe(key, value)) return false;
+                }
+                return true;
+            }
+            case SampleStrategy::ALL:
+            default:
+                return validate_all_safe(obj);
+        }
+    }
+
+    inline bool validate_all_safe(PyObject* obj) const noexcept {
+        Py_ssize_t pos = 0;
+        PyObject *k, *v;
+        while (PyDict_GET_SIZE(obj) > 0 && PyDict_Next(obj, &pos, &k, &v)) {
+            if (__builtin_expect(!check_entry_safe(k, v), 0)) return false;
+        }
+        return true;
+    }
+
     bool validate(PyObject* obj) const noexcept override {
         if (!obj || !PyDict_Check(obj)) return false;
         Py_ssize_t size = PyDict_GET_SIZE(obj);
         if (size == 0) return true;
+
+        if (__builtin_expect(can_execute_python(), 0)) {
+            return validate_dict_safe(obj);
+        }
 
         switch (strategy) {
             case SampleStrategy::FIRST:
