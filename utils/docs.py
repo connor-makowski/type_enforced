@@ -7,7 +7,7 @@ from pathlib import Path
 root = Path(__file__).parent.parent
 type_enforced = root / "type_enforced" / "__init__.py"
 
-VERSION = "2.13.0"
+VERSION = "2.13.1"
 OLD_DOC_VERSIONS = [
     "2.12.3",
     "2.11.0",

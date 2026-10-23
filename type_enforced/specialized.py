@@ -2,6 +2,7 @@ import ast
 import inspect
 import textwrap
 import types
+import warnings
 from itertools import islice
 from typing import Type
 
@@ -383,7 +384,14 @@ def _validate_variant_fallback(obj, obj_type, variant, sample_pct):
 
 
 def _make_scalar_check_ast(
-    var_expr, types_tuple, fail_call, ns, prefix, is_loop=False
+    var_expr,
+    types_tuple,
+    fail_call,
+    ns,
+    prefix,
+    is_loop=False,
+    isinstance_name="isinstance",
+    type_name="type",
 ):
     var_class = ast.Attribute(value=var_expr, attr="__class__", ctx=ast.Load())
     if len(types_tuple) <= 3:
@@ -416,7 +424,7 @@ def _make_scalar_check_ast(
                 ast.UnaryOp(
                     op=ast.Not(),
                     operand=ast.Call(
-                        func=ast.Name(id="isinstance", ctx=ast.Load()),
+                        func=ast.Name(id=isinstance_name, ctx=ast.Load()),
                         args=[var_expr, isinst_target],
                         keywords=[],
                     ),
@@ -428,7 +436,7 @@ def _make_scalar_check_ast(
         ns[f"{prefix}_types_set"] = frozenset(types_tuple)
         ns[f"{prefix}_types_tuple"] = types_tuple
         type_call = ast.Call(
-            func=ast.Name(id="type", ctx=ast.Load()),
+            func=ast.Name(id=type_name, ctx=ast.Load()),
             args=[var_expr],
             keywords=[],
         )
@@ -446,7 +454,9 @@ def _make_scalar_check_ast(
                         test=ast.UnaryOp(
                             op=ast.Not(),
                             operand=ast.Call(
-                                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                                func=ast.Name(
+                                    id=isinstance_name, ctx=ast.Load()
+                                ),
                                 args=[
                                     var_expr,
                                     ast.Name(
@@ -484,14 +494,21 @@ def _extract_uninit_class_info(exp):
 
 
 def _make_uninit_class_check_ast(
-    var_expr, target_classes, has_bare_type, fail_call, ns, prefix
+    var_expr,
+    target_classes,
+    has_bare_type,
+    fail_call,
+    ns,
+    prefix,
+    isinstance_name="isinstance",
+    type_name="type",
 ):
     if has_bare_type or object in target_classes:
         test = ast.UnaryOp(
             op=ast.Not(),
             operand=ast.Call(
-                func=ast.Name(id="isinstance", ctx=ast.Load()),
-                args=[var_expr, ast.Name(id="type", ctx=ast.Load())],
+                func=ast.Name(id=isinstance_name, ctx=ast.Load()),
+                args=[var_expr, ast.Name(id=type_name, ctx=ast.Load())],
                 keywords=[],
             ),
         )
@@ -556,11 +573,11 @@ def _generate_uninitialized_class_check(
     )
 
 
-def _generate_callable_check(var_expr, fail_call):
+def _generate_callable_check(var_expr, fail_call, callable_name="callable"):
     test = ast.UnaryOp(
         op=ast.Not(),
         operand=ast.Call(
-            func=ast.Name(id="callable", ctx=ast.Load()),
+            func=ast.Name(id=callable_name, ctx=ast.Load()),
             args=[var_expr],
             keywords=[],
         ),
@@ -2336,13 +2353,17 @@ def build_inlined_code(enforcer, fn):
     checkable = enforcer.__checkable_types__
     ret_exp = enforcer.__return_type__
 
-    fn_globals = fn.__globals__
-    ns = {}
-    ns["type"] = type
-    ns["isinstance"] = isinstance
-    ns["callable"] = callable
     prefix = f"__enf_{func_def.name}_{id(enforcer)}"
-    ns[f"{prefix}_check_fn"] = enforcer.__check_type__
+    isinstance_name = f"{prefix}_isinstance"
+    type_name = f"{prefix}_type"
+    callable_name = f"{prefix}_callable"
+
+    ns = {
+        isinstance_name: isinstance,
+        type_name: type,
+        callable_name: callable,
+        f"{prefix}_check_fn": enforcer.__check_type__,
+    }
 
     check_stmts = []
 
@@ -2382,7 +2403,13 @@ def build_inlined_code(enforcer, fn):
                 return None
             check_stmts.extend(
                 _make_scalar_check_ast(
-                    var_name, types_tuple, fail_call, ns, f"{prefix}_{p}"
+                    var_name,
+                    types_tuple,
+                    fail_call,
+                    ns,
+                    f"{prefix}_{p}",
+                    isinstance_name=isinstance_name,
+                    type_name=type_name,
                 )
             )
         elif is_uninitialized_class_type(exp):
@@ -2395,10 +2422,16 @@ def build_inlined_code(enforcer, fn):
                     fail_call,
                     ns,
                     f"{prefix}_{p}",
+                    isinstance_name=isinstance_name,
+                    type_name=type_name,
                 )
             )
         elif is_callable_type(exp):
-            check_stmts.append(_generate_callable_check(var_name, fail_call)[0])
+            check_stmts.append(
+                _generate_callable_check(
+                    var_name, fail_call, callable_name=callable_name
+                )[0]
+            )
         elif is_self_type(exp):
             if p == first_p:
                 continue
@@ -2428,7 +2461,9 @@ def build_inlined_code(enforcer, fn):
                         test=ast.UnaryOp(
                             op=ast.Not(),
                             operand=ast.Call(
-                                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                                func=ast.Name(
+                                    id=isinstance_name, ctx=ast.Load()
+                                ),
                                 args=[var_name, cls_expr],
                                 keywords=[],
                             ),
@@ -2443,6 +2478,7 @@ def build_inlined_code(enforcer, fn):
         else:
             return None
 
+    make_ret_check = None
     if ret_exp is not None:
         ns[f"{prefix}_ret_exp"] = ret_exp
 
@@ -2491,9 +2527,6 @@ def build_inlined_code(enforcer, fn):
                     )
                 ]
 
-            func_def.body = _transform_body_returns(
-                func_def.body, make_ret_check
-            )
         elif is_self_type(ret_exp) and first_p:
 
             def make_ret_check(res_expr):
@@ -2529,7 +2562,7 @@ def build_inlined_code(enforcer, fn):
                                     op=ast.Not(),
                                     operand=ast.Call(
                                         func=ast.Name(
-                                            id="isinstance", ctx=ast.Load()
+                                            id=isinstance_name, ctx=ast.Load()
                                         ),
                                         args=[res_expr, cls_expr],
                                         keywords=[],
@@ -2543,9 +2576,6 @@ def build_inlined_code(enforcer, fn):
                     )
                 ]
 
-            func_def.body = _transform_body_returns(
-                func_def.body, make_ret_check
-            )
         elif is_simple_type(ret_exp):
             ret_types_tuple = tuple(ret_exp.keys())
             if _cpp is not None and len(ret_types_tuple) > 1:
@@ -2562,11 +2592,10 @@ def build_inlined_code(enforcer, fn):
                     make_fail_ret(res_expr),
                     ns,
                     f"{prefix}_ret",
+                    isinstance_name=isinstance_name,
+                    type_name=type_name,
                 )
 
-            func_def.body = _transform_body_returns(
-                func_def.body, make_ret_check
-            )
         elif is_uninitialized_class_type(ret_exp):
             target_classes, has_bare_type = _extract_uninit_class_info(ret_exp)
 
@@ -2585,11 +2614,10 @@ def build_inlined_code(enforcer, fn):
                     make_fail_ret(res_expr),
                     ns,
                     f"{prefix}_ret",
+                    isinstance_name=isinstance_name,
+                    type_name=type_name,
                 )
 
-            func_def.body = _transform_body_returns(
-                func_def.body, make_ret_check
-            )
         elif is_callable_type(ret_exp):
 
             def make_ret_check(res_expr):
@@ -2602,7 +2630,7 @@ def build_inlined_code(enforcer, fn):
                         test=ast.UnaryOp(
                             op=ast.Not(),
                             operand=ast.Call(
-                                func=ast.Name(id="callable", ctx=ast.Load()),
+                                func=ast.Name(id=callable_name, ctx=ast.Load()),
                                 args=[res_expr],
                                 keywords=[],
                             ),
@@ -2612,20 +2640,53 @@ def build_inlined_code(enforcer, fn):
                     )
                 ]
 
-            func_def.body = _transform_body_returns(
-                func_def.body, make_ret_check
-            )
         else:
             return None
 
+    sentinel_map = {}
+    name_to_sentinel = {}
+
+    class _InlinedConstTransformer(ast.NodeTransformer):
+        def visit_Name(self, node):
+            if isinstance(node.ctx, ast.Load) and node.id in ns:
+                if node.id not in name_to_sentinel:
+                    sentinel = (
+                        f"__enf_c_{id(enforcer)}_{len(name_to_sentinel)}__"
+                    )
+                    name_to_sentinel[node.id] = sentinel
+                    sentinel_map[sentinel] = ns[node.id]
+                else:
+                    sentinel = name_to_sentinel[node.id]
+                return ast.copy_location(ast.Constant(value=sentinel), node)
+            return node
+
+    transformer = _InlinedConstTransformer()
+    check_stmts = [transformer.visit(s) for s in check_stmts]
+
+    if make_ret_check is not None:
+        func_def.body = _transform_body_returns(
+            func_def.body,
+            lambda res_expr: [
+                transformer.visit(s) for s in make_ret_check(res_expr)
+            ],
+        )
+
     func_def.body = check_stmts + func_def.body
     tree = ast.fix_missing_locations(tree)
-    code_mod = compile(tree, fn.__code__.co_filename, "exec")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SyntaxWarning)
+        code_mod = compile(tree, fn.__code__.co_filename, "exec")
     compiled_code = [
         c
         for c in code_mod.co_consts
         if isinstance(c, types.CodeType) and c.co_name == func_def.name
     ][0]
 
-    fn_globals.update(ns)
+    if sentinel_map:
+        new_consts = tuple(
+            sentinel_map.get(c, c) if isinstance(c, str) else c
+            for c in compiled_code.co_consts
+        )
+        compiled_code = compiled_code.replace(co_consts=new_consts)
+
     return compiled_code
