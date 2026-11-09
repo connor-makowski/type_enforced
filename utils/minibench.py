@@ -1,5 +1,6 @@
 import argparse
 import re
+import statistics
 import sys
 import time
 from typing import Dict, List, Tuple, Union, get_args, get_origin
@@ -326,17 +327,31 @@ CHECKERS = {
 
 
 # --- Timing & Validation with Distinct Input Pool Iteration ---
-def timeit_pool(func, pool, is_multi=False, target_batch_time=0.003, repeats=5):
+def timeit_diff(
+    func,
+    base_func,
+    pool,
+    is_multi=False,
+    target_batch_time=0.003,
+    repeats=11,
+):
+    """
+    Measure differential execution time (func - base_func) in nanoseconds
+    using interleaved AB / BA batch pairs to eliminate CPU frequency
+    and thermal drift. Returns (median_diff_ns, median_base_ns, median_func_ns).
+    """
     pool_len = len(pool)
-    # Warmup across the pool
+    # Warmup across the pool for both functions
     if is_multi:
         for obj in pool:
+            base_func(*obj)
             func(*obj)
     else:
         for obj in pool:
+            base_func(obj)
             func(obj)
 
-    # Estimate time for 1 pass of the pool
+    # Estimate time for 1 pass of the pool using func to calibrate cycles
     t0 = time.perf_counter()
     if is_multi:
         for obj in pool:
@@ -351,23 +366,46 @@ def timeit_pool(func, pool, is_multi=False, target_batch_time=0.003, repeats=5):
     cycles = max(1, min(int(target_batch_time / pool_pass_time), 5000))
     total_calls_per_batch = cycles * pool_len
 
-    durations = []
-    for _ in range(repeats):
+    def run_batch(f):
         t0 = time.perf_counter()
         if is_multi:
             for _ in range(cycles):
                 for obj in pool:
-                    func(*obj)
+                    f(*obj)
         else:
             for _ in range(cycles):
                 for obj in pool:
-                    func(obj)
+                    f(obj)
         t1 = time.perf_counter()
-        durations.append((t1 - t0) / total_calls_per_batch)
+        return (t1 - t0) / total_calls_per_batch
 
-    durations.sort()
-    best = durations[:3]
-    return (sum(best) / len(best)) * 1e9
+    diffs = []
+    base_durations = []
+    func_durations = []
+
+    # Interleaved AB / BA execution to cancel linear thermal and frequency drift
+    for i in range(repeats):
+        if i % 2 == 0:
+            tb = run_batch(base_func)
+            tf = run_batch(func)
+        else:
+            tf = run_batch(func)
+            tb = run_batch(base_func)
+
+        diffs.append((tf - tb) * 1e9)
+        base_durations.append(tb * 1e9)
+        func_durations.append(tf * 1e9)
+
+    med_diff = statistics.median(diffs)
+    # Clean up floating point -0.0
+    if abs(med_diff) < 0.05:
+        med_diff = 0.0
+
+    return (
+        med_diff,
+        statistics.median(base_durations),
+        statistics.median(func_durations),
+    )
 
 
 def test_validation(func, valid_val, invalid_val, is_multi=False):
@@ -392,20 +430,44 @@ def test_validation(func, valid_val, invalid_val, is_multi=False):
     return valid_ok and invalid_caught
 
 
+def run_null_experiment():
+    """
+    Run null experiment comparing an undecorated function against itself
+    to establish the noise floor of the differential measurement harness.
+    """
+    dummy_pool = [i for i in range(POOL_SIZE)]
+
+    def dummy_base(x):
+        pass
+
+    def dummy_target(x):
+        pass
+
+    diff_ns, base_ns, _ = timeit_diff(
+        dummy_target, dummy_base, dummy_pool, repeats=15
+    )
+    return diff_ns, base_ns
+
+
 def run_minibench():
     results = []
     for type_label, size_label, typ, valid_pool, invalid_val in CASES:
         is_multi = typ in MULTI_PARAM_FUNCS
         row_times = {}
         base_fn = base_factory(typ)
-        base_ns = timeit_pool(base_fn, valid_pool, is_multi=is_multi)
 
         for checker_name, (factory, is_sampled) in CHECKERS.items():
             try:
                 fn = factory(typ)
-                ns = timeit_pool(fn, valid_pool, is_multi=is_multi)
-                diff_ns = max(0.0, ns - base_ns)
-                row_times[checker_name] = diff_ns
+                # Verify validation outside timing
+                val_sample = valid_pool[0]
+                is_valid = test_validation(
+                    fn, val_sample, invalid_val, is_multi=is_multi
+                )
+                diff_ns, base_ns, fn_ns = timeit_diff(
+                    fn, base_fn, valid_pool, is_multi=is_multi
+                )
+                row_times[checker_name] = (diff_ns, is_valid, is_sampled)
             except Exception as e:
                 row_times[checker_name] = None
 
@@ -420,11 +482,15 @@ def format_table(results):
     for type_label, size_label, times in results:
         cols = [type_label, size_label]
         for name in headers[2:]:
-            t = times.get(name)
-            if t is None:
+            res = times.get(name)
+            if res is None:
                 cell = "Error"
+            elif isinstance(res, tuple):
+                t, is_valid, is_sampled = res
+                flag = " ⚠" if (not is_valid and not is_sampled) else ""
+                cell = f"{t:.1f} ns{flag}"
             else:
-                cell = f"{t:.1f} ns"
+                cell = f"{res:.1f} ns"
             cols.append(cell)
         rows.append(cols)
 
@@ -479,8 +545,10 @@ def update_markdown_file(file_path, new_table):
         "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in microseconds (µs), averaged over 100 runs when using the C++ backend. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
         "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns), averaged over 100 runs. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
         "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns), averaged over 100 runs when using the C++ backend. ⚠ = checker did not consistently catch invalid types for this case (generated by utils/minibench.py). For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
+        "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns), averaged over 100 runs when using the C++ backend. For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
+        "Timings represent median added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns) measured over interleaved batches. For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md).",
     ]
-    new_explanation = "Timings represent the added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns), averaged over 100 runs when using the C++ backend. For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md)."
+    new_explanation = "Timings represent median added differential validation time (enforced call time minus non-enforced baseline call time) in nanoseconds (ns) measured over interleaved batches. ⚠ = checker did not consistently catch invalid types for this case. For full benchmarks see [utils/benchmark.py](utils/benchmark.py) and [benchmark.md](benchmark.md)."
     for old in old_explanations:
         if old in content:
             content = content.replace(old, new_explanation)
@@ -508,7 +576,11 @@ def main():
 
     print("Running Performance at a Glance benchmarks...")
     print(
-        "Note: Reported times represent the added differential validation time in nanoseconds (ns) with baseline execution time subtracted over distinct input pools."
+        "Note: Reported times represent median added differential validation time in nanoseconds (ns) with baseline execution time subtracted over interleaved batches."
+    )
+    null_diff, null_base = run_null_experiment()
+    print(
+        f"Harness Noise Floor (Null Control): {null_diff:+.2f} ns (undecorated baseline: {null_base:.1f} ns)\n"
     )
     results = run_minibench()
     table = format_table(results)

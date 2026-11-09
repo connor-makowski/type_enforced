@@ -1,6 +1,6 @@
 try:
     import sys, time
-    from statistics import mean
+    from statistics import mean, median
     from typing import (
         Callable,
         Dict,
@@ -472,17 +472,31 @@ try:
     }
 
     # --- Timing helper with distinct input pool iteration ---
-    def timeit(func, pool, is_multi=False, target_batch_time=0.003, repeats=5):
+    def timeit_diff(
+        func,
+        base_func,
+        pool,
+        is_multi=False,
+        target_batch_time=0.003,
+        repeats=11,
+    ):
+        """
+        Measure differential execution time (func - base_func) in nanoseconds
+        using interleaved AB / BA batch pairs to eliminate CPU frequency
+        and thermal drift. Returns (median_diff_ns, median_base_ns, median_func_ns).
+        """
         pool_len = len(pool)
         # Warmup across the pool
         if is_multi:
             for obj in pool:
+                base_func(*obj)
                 func(*obj)
         else:
             for obj in pool:
+                base_func(obj)
                 func(obj)
 
-        # Estimate time for 1 pass of the pool
+        # Estimate time for 1 pass of the pool using func to calibrate cycles
         t0 = time.perf_counter()
         if is_multi:
             for obj in pool:
@@ -497,23 +511,45 @@ try:
         cycles = max(1, min(int(target_batch_time / pool_pass_time), 5000))
         total_calls_per_batch = cycles * pool_len
 
-        durations = []
-        for _ in range(repeats):
+        def run_batch(f):
             t0 = time.perf_counter()
             if is_multi:
                 for _ in range(cycles):
                     for obj in pool:
-                        func(*obj)
+                        f(*obj)
             else:
                 for _ in range(cycles):
                     for obj in pool:
-                        func(obj)
+                        f(obj)
             t1 = time.perf_counter()
-            durations.append((t1 - t0) / total_calls_per_batch)
+            return (t1 - t0) / total_calls_per_batch
 
-        durations.sort()
-        best = durations[:3]
-        return (sum(best) / len(best)) * 1e9  # nanoseconds (ns)
+        diffs = []
+        base_durations = []
+        func_durations = []
+
+        # Interleaved AB / BA execution to cancel linear thermal and frequency drift
+        for i in range(repeats):
+            if i % 2 == 0:
+                tb = run_batch(base_func)
+                tf = run_batch(func)
+            else:
+                tf = run_batch(func)
+                tb = run_batch(base_func)
+
+            diffs.append((tf - tb) * 1e9)
+            base_durations.append(tb * 1e9)
+            func_durations.append(tf * 1e9)
+
+        med_diff = median(diffs)
+        if abs(med_diff) < 0.05:
+            med_diff = 0.0
+
+        return (
+            med_diff,
+            median(base_durations),
+            median(func_durations),
+        )
 
     # --- Factory functions
     def base_factory(typ):
@@ -1001,10 +1037,36 @@ try:
         "- Measurements cycle through pre-allocated pools of distinct input instances to eliminate warm-cache bias and simulate realistic independent calls."
     )
     print(
-        "- The reported time represents the differential added time (overhead) introduced by type validation in nanoseconds (ns), calculated by subtracting the baseline execution time of the identical non-enforced function call over the same input pool (`enforced_time - non_enforced_time`)."
+        "- The reported time represents the median differential added time (overhead) introduced by type validation in nanoseconds (ns), calculated using interleaved baseline-checker batches (`enforced_time - non_enforced_time`)."
+    )
+    print(
+        "- Negative values and small variations around zero are preserved as natural measurement noise."
+    )
+    print(
+        "- Checks outside timing verify that each framework accepts valid input and rejects invalid input. ⚠ indicates that a framework failed to catch the invalid test case for that type."
     )
 
-    def run_benchmark_group(checkers_dict):
+    # --- Null Control Calibration
+    def run_null_calibration():
+        dummy_pool = [i for i in range(POOL_SIZE)]
+
+        def dummy_base(x):
+            pass
+
+        def dummy_target(x):
+            pass
+
+        diff_ns, base_ns, _ = timeit_diff(
+            dummy_target, dummy_base, dummy_pool, repeats=15
+        )
+        return diff_ns, base_ns
+
+    null_diff, null_base = run_null_calibration()
+    print(
+        f"- Harness Noise Floor (Null Control): {null_diff:+.2f} ns (undecorated baseline: {null_base:.1f} ns)"
+    )
+
+    def run_benchmark_group(checkers_dict, is_sampled_group=False):
         results = {}
         for case, pool in pools.items():
             typ = types[case]
@@ -1012,13 +1074,19 @@ try:
             is_multi = typ in MULTI_PARAM_FUNCS
             case_data = {}
             base_fn = base_factory(typ)
-            base_ns = timeit(base_fn, pool, is_multi=is_multi)
             for name, factory in checkers_dict.items():
                 try:
                     fn = factory(typ)
-                    avg_ns = timeit(fn, pool, is_multi=is_multi)
-                    diff_ns = max(0.0, avg_ns - base_ns)
-                    case_data[name] = f"{diff_ns:.1f} ns"
+                    is_valid = test_validation(
+                        fn, pool[0], invalid_val, is_multi=is_multi
+                    )
+                    diff_ns, base_ns, fn_ns = timeit_diff(
+                        fn, base_fn, pool, is_multi=is_multi
+                    )
+                    flag = (
+                        " ⚠" if (not is_valid and not is_sampled_group) else ""
+                    )
+                    case_data[name] = f"{diff_ns:.1f} ns{flag}"
                 except Exception as e:
                     case_data[name] = "Error"
             results[case] = case_data
@@ -1051,8 +1119,8 @@ try:
                 + " |"
             )
 
-    data_full = run_benchmark_group(full_checkers)
-    data_sampled = run_benchmark_group(sampled_checkers)
+    data_full = run_benchmark_group(full_checkers, is_sampled_group=False)
+    data_sampled = run_benchmark_group(sampled_checkers, is_sampled_group=True)
 
     # --- Section 1: Full Validation
     print("\n## 1. Full Validation (100% / Deep Validation)")
