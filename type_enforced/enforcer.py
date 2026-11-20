@@ -1104,6 +1104,23 @@ class FunctionMethodEnforcer(
         if isinstance(item, type):
             obj_type = Type[item]
             is_present = obj_type in expected or type in expected
+            if not is_present:
+                if __SelfType__ in expected:
+                    target_cls = getattr(self, "__self_type__", None)
+                    if target_cls is not None and isinstance(item, target_cls):
+                        is_present = True
+                else:
+                    expected_id = id(expected)
+                    keys_tuple = self.__keys_tuples__.get(expected_id)
+                    if keys_tuple is None:
+                        keys_tuple = tuple(
+                            k
+                            for k in expected.keys()
+                            if k != "__extra__" and isinstance(k, type)
+                        )
+                        self.__keys_tuples__[expected_id] = keys_tuple
+                    if bool(keys_tuple) and isinstance(item, keys_tuple):
+                        is_present = True
         else:
             obj_type = type(item)
             if __SelfType__ in expected:
@@ -1357,6 +1374,23 @@ class FunctionMethodEnforcer(
             # An uninitialized class is passed, we need to check if the type is in the expected types using Type[obj]
             obj_type = Type[obj]
             is_present = obj_type in expected or type in expected
+            if not is_present:
+                if __SelfType__ in expected:
+                    target_cls = getattr(self, "__self_type__", None)
+                    if target_cls is not None and isinstance(obj, target_cls):
+                        is_present = True
+                else:
+                    expected_id = id(expected)
+                    keys_tuple = self.__keys_tuples__.get(expected_id)
+                    if keys_tuple is None:
+                        keys_tuple = tuple(
+                            k
+                            for k in expected.keys()
+                            if k != "__extra__" and isinstance(k, type)
+                        )
+                        self.__keys_tuples__[expected_id] = keys_tuple
+                    if bool(keys_tuple) and isinstance(obj, keys_tuple):
+                        is_present = True
         else:
             obj_type = type(obj)
             if __SelfType__ in expected:
