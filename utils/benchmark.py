@@ -36,6 +36,14 @@ try:
         score: float
         tag: str
 
+    from enum import Enum
+    from collections.abc import Collection
+    from dataclasses import dataclass
+
+    class BenchmarkEnum(Enum):
+        ONE = 1
+        TWO = 2
+
     class BenchmarkClass:
         pass
 
@@ -110,6 +118,16 @@ try:
             BenchmarkClass for _ in range(POOL_SIZE)
         ]
         invalid_cases["type[BenchmarkClass]"] = BenchmarkSubclass()
+
+        pools["Collection (Enum)"] = [
+            BenchmarkEnum for _ in range(POOL_SIZE)
+        ]
+        invalid_cases["Collection (Enum)"] = 123
+
+        pools["dataclass Collection (Enum)"] = [
+            BenchmarkEnum for _ in range(POOL_SIZE)
+        ]
+        invalid_cases["dataclass Collection (Enum)"] = 123
 
         pools["Callable[[int,str],bool]"] = [
             lambda n, s: True for _ in range(POOL_SIZE)
@@ -339,6 +357,8 @@ try:
         "NewType (int)": UserId,
         "LiteralString": LiteralString,
         "type[BenchmarkClass]": Type[BenchmarkClass],
+        "Collection (Enum)": Collection,
+        "dataclass Collection (Enum)": "dataclass_collection",
         "Callable[[int,str],bool]": Callable[[int, str], bool],
         "TypedDict (5 fields)": UserProfile,
         "class method Self": "method_self",
@@ -577,6 +597,13 @@ try:
 
             _inst = _PlainSelfCls()
             return _inst.method
+        if typ == "dataclass_collection":
+
+            @dataclass
+            class _PlainDataclass:
+                x: Collection
+
+            return _PlainDataclass
 
         def f(x: typ) -> None:
             pass
@@ -586,6 +613,8 @@ try:
     def pydantic_factory(typ):
         if typ in MULTI_PARAM_FUNCS:
             return validate_call(MULTI_PARAM_FUNCS[typ])
+        if typ == "dataclass_collection":
+            raise TypeError("Pydantic does not support Collection")
         if typ == "int_to_float":
 
             @validate_call
@@ -646,6 +675,14 @@ try:
 
             _inst = _BeartypeSelfCls()
             return _inst.method
+        if typ == "dataclass_collection":
+
+            @beartype
+            @dataclass
+            class _BeartypeDataclass:
+                x: Collection
+
+            return _BeartypeDataclass
 
         @beartype
         def f(x: typ) -> None:
@@ -715,6 +752,20 @@ try:
 
             _inst = _TypeguardSelfCls()
             return _inst.method
+        if typ == "dataclass_collection":
+
+            @dataclass
+            class _TypeguardDataclass:
+                x: Collection
+
+                def __post_init__(self):
+                    typeguard.check_type(
+                        self.x,
+                        Collection,
+                        collection_check_strategy=typeguard.CollectionCheckStrategy.FIRST_ITEM,
+                    )
+
+            return _TypeguardDataclass
 
         def f(x):
             return typeguard.check_type(
@@ -787,6 +838,20 @@ try:
 
             _inst = _TypeguardFullSelfCls()
             return _inst.method
+        if typ == "dataclass_collection":
+
+            @dataclass
+            class _TypeguardFullDataclass:
+                x: Collection
+
+                def __post_init__(self):
+                    typeguard.check_type(
+                        self.x,
+                        Collection,
+                        collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS,
+                    )
+
+            return _TypeguardFullDataclass
 
         def f(x):
             return typeguard.check_type(
@@ -954,6 +1019,15 @@ try:
 
                 _inst = _TESelfCls()
                 return _inst.method
+
+            if typ == "dataclass_collection":
+
+                @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
+                @dataclass
+                class _TEDataclass:
+                    x: Collection
+
+                return _TEDataclass
 
             @type_enforced.Enforcer(iterable_sample_pct=sample_pct)
             def f(x: typ) -> None:
