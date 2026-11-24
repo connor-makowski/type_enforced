@@ -124,12 +124,39 @@ def is_self_type(exp):
     )
 
 
+_CALLABLE_BUILTIN_TYPES = frozenset(
+    {
+        staticmethod,
+        classmethod,
+        types.FunctionType,
+        types.BuiltinFunctionType,
+        types.MethodType,
+        types.BuiltinMethodType,
+        types.GeneratorType,
+    }
+)
+
+
 def is_callable_type(exp):
-    return (
-        isinstance(exp, dict)
-        and "__extra__" in exp
-        and bool(exp["__extra__"].get("__callable__"))
-    )
+    if (
+        not isinstance(exp, dict)
+        or "__extra__" not in exp
+        or not isinstance(exp["__extra__"], dict)
+        or len(exp["__extra__"]) != 1
+        or exp["__extra__"].get("__callable__") is not True
+    ):
+        return False
+    for k, v in exp.items():
+        if k == "__extra__":
+            continue
+        if v is not None:
+            return False
+        if (
+            k not in _CALLABLE_BUILTIN_TYPES
+            and getattr(k, "__name__", "") != "FunctionMethodEnforcer"
+        ):
+            return False
+    return True
 
 
 def is_uninitialized_class_type(exp):
@@ -148,9 +175,13 @@ def is_uninitialized_class_type(exp):
 def is_typeddict_type(exp):
     return (
         isinstance(exp, dict)
+        and len(exp) == 2
         and "__extra__" in exp
+        and isinstance(exp["__extra__"], dict)
+        and len(exp["__extra__"]) == 1
         and "__typeddict__" in exp["__extra__"]
-        and exp.get(dict) is None
+        and dict in exp
+        and exp[dict] is None
     )
 
 
@@ -592,8 +623,8 @@ def _generate_typeddict_check(
     req_keys = td_info["required"]
     fields = td_info["fields"]
 
-    stmts = []
-    stmts.append(_outer_type_guard(var_expr, "dict", fail_call))
+    outer_guard = _outer_type_guard(var_expr, "dict", fail_call)
+    inner_stmts = []
 
     req_fields = [(fk, fexp) for fk, fexp in fields.items() if fk in req_keys]
     opt_fields = [
@@ -630,7 +661,7 @@ def _generate_typeddict_check(
             )
             req_checks.extend(field_checks)
 
-        stmts.append(
+        inner_stmts.append(
             ast.Try(
                 body=req_assigns,
                 handlers=[
@@ -640,11 +671,10 @@ def _generate_typeddict_check(
                         body=[fail_call],
                     )
                 ],
-                orelse=[],
+                orelse=req_checks,
                 finalbody=[],
             )
         )
-        stmts.extend(req_checks)
 
     if opt_fields:
         sentinel_name = f"{prefix}_sentinel"
@@ -688,9 +718,10 @@ def _generate_typeddict_check(
                 body=field_checks,
                 orelse=[],
             )
-            stmts.extend([assign_opt, cond_check])
+            inner_stmts.extend([assign_opt, cond_check])
 
-    return stmts
+    outer_guard.orelse = inner_stmts
+    return [outer_guard]
 
 
 def _outer_type_guard(var_expr, type_name, fail_stmt):
@@ -856,7 +887,7 @@ def _emit_set_superset_fallback(
                 keywords=[],
             ),
         ),
-        body=[fail_stmt],
+        body=[for_loop] if isinstance(fail_stmt, ast.Return) else [fail_stmt],
         orelse=[],
     )
     return [
@@ -1172,10 +1203,19 @@ def generate_type_check_ast(
     if is_self_type(exp):
         first_name = fn_globals.get("__enf_first_param_name")
         if first_name:
-            self_inst_cls = ast.Attribute(
-                value=ast.Name(id=first_name, ctx=ast.Load()),
-                attr="__class__",
-                ctx=ast.Load(),
+            first_expr = ast.Name(id=first_name, ctx=ast.Load())
+            self_inst_cls = ast.IfExp(
+                test=ast.Call(
+                    func=ast.Name(id="isinstance", ctx=ast.Load()),
+                    args=[first_expr, ast.Name(id="type", ctx=ast.Load())],
+                    keywords=[],
+                ),
+                body=first_expr,
+                orelse=ast.Attribute(
+                    value=first_expr,
+                    attr="__class__",
+                    ctx=ast.Load(),
+                ),
             )
             test = ast.UnaryOp(
                 op=ast.Not(),
@@ -1739,12 +1779,34 @@ def generate_type_check_ast(
             outer_test = ast.BoolOp(
                 op=ast.Or(),
                 values=[
-                    ast.Compare(
-                        left=ast.Attribute(
-                            value=var_expr, attr="__class__", ctx=ast.Load()
-                        ),
-                        ops=[ast.IsNot()],
-                        comparators=[ast.Name(id="tuple", ctx=ast.Load())],
+                    ast.BoolOp(
+                        op=ast.And(),
+                        values=[
+                            ast.Compare(
+                                left=ast.Attribute(
+                                    value=var_expr,
+                                    attr="__class__",
+                                    ctx=ast.Load(),
+                                ),
+                                ops=[ast.IsNot()],
+                                comparators=[
+                                    ast.Name(id="tuple", ctx=ast.Load())
+                                ],
+                            ),
+                            ast.UnaryOp(
+                                op=ast.Not(),
+                                operand=ast.Call(
+                                    func=ast.Name(
+                                        id="isinstance", ctx=ast.Load()
+                                    ),
+                                    args=[
+                                        var_expr,
+                                        ast.Name(id="tuple", ctx=ast.Load()),
+                                    ],
+                                    keywords=[],
+                                ),
+                            ),
+                        ],
                     ),
                     ast.Compare(
                         left=ast.Call(
@@ -2037,10 +2099,19 @@ def build_specialized_call(
                 value=fn_call,
             )
         )
-        self_inst_cls = ast.Attribute(
-            value=ast.Name(id=first_param_name, ctx=ast.Load()),
-            attr="__class__",
-            ctx=ast.Load(),
+        first_expr = ast.Name(id=first_param_name, ctx=ast.Load())
+        self_inst_cls = ast.IfExp(
+            test=ast.Call(
+                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                args=[first_expr, ast.Name(id="type", ctx=ast.Load())],
+                keywords=[],
+            ),
+            body=first_expr,
+            orelse=ast.Attribute(
+                value=first_expr,
+                attr="__class__",
+                ctx=ast.Load(),
+            ),
         )
         body.append(
             ast.If(
@@ -2583,7 +2654,7 @@ def build_inlined_code(enforcer, fn):
 
             def make_ret_check(res_expr):
                 if isinstance(res_expr, ast.Constant):
-                    if type(res_expr.value) in ret_types_tuple:
+                    if isinstance(res_expr.value, ret_types_tuple):
                         return []
                     return [make_fail_ret(res_expr)]
                 return _make_scalar_check_ast(

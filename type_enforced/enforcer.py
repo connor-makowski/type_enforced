@@ -21,6 +21,7 @@ from type_enforced.specialized import (
     create_specialized_class,
     build_specialized_call,
     can_specialize_type,
+    is_callable_type,
     is_simple_type,
     build_inlined_code,
 )
@@ -667,17 +668,7 @@ class FunctionMethodEnforcer(
 
         # Handle Sized types
         if annotation == Sized:
-            return {
-                list: None,
-                tuple: None,
-                dict: None,
-                set: None,
-                str: None,
-                bytes: None,
-                bytearray: None,
-                memoryview: None,
-                range: None,
-            }
+            return {collections.abc.Sized: None}
 
         # Handle Callable types (unsubscripted or subscripted: Callable[[int, str], bool], Callable[..., int], etc.)
         if annotation is Callable or origin in (
@@ -853,6 +844,7 @@ class FunctionMethodEnforcer(
         ret_types = None
         ret_exp = None
 
+        can_py_specialize = True
         if self.__return_type__ is not None:
             ret_exp = self.__return_type__
             if (
@@ -867,11 +859,7 @@ class FunctionMethodEnforcer(
                 and (posonly_names or pos_names)
             ):
                 ret_mode = 3
-            elif (
-                isinstance(self.__return_type__, dict)
-                and "__extra__" in self.__return_type__
-                and bool(self.__return_type__["__extra__"].get("__callable__"))
-            ):
+            elif is_callable_type(self.__return_type__):
                 ret_mode = 5
             elif is_simple_type(self.__return_type__):
                 ret_mode = 2
@@ -881,26 +869,26 @@ class FunctionMethodEnforcer(
             elif can_specialize_type(self.__return_type__):
                 ret_mode = 6
             else:
-                return
+                can_py_specialize = False
 
         param_exps = {}
         for pn in posonly_names + pos_names + kwonly_names:
             exp = self.__checkable_types__.get(pn)
             if not can_specialize_type(exp):
-                return
+                can_py_specialize = False
             if exp is not None:
                 param_exps[pn] = exp
 
         if vararg_name is not None and vararg_name in self.__checkable_types__:
             raw_exp = self.__checkable_types__[vararg_name]
             if not can_specialize_type(raw_exp):
-                return
+                can_py_specialize = False
             param_exps[vararg_name] = {tuple: (raw_exp, True)}
 
         if kwarg_name is not None and kwarg_name in self.__checkable_types__:
             raw_exp = self.__checkable_types__[kwarg_name]
             if not can_specialize_type(raw_exp):
-                return
+                can_py_specialize = False
             param_exps[kwarg_name] = {dict: ({str: None}, raw_exp)}
 
         defaults = self.__fn_defaults_tuple__
@@ -944,6 +932,9 @@ class FunctionMethodEnforcer(
                 kwonly_p_specs,
             ):
                 return
+
+        if not can_py_specialize:
+            return
 
         call_method = build_specialized_call(
             self.__fn__,
@@ -1104,22 +1095,42 @@ class FunctionMethodEnforcer(
         if isinstance(item, type):
             obj_type = Type[item]
             is_present = obj_type in expected or type in expected
+            if not is_present:
+                if __SelfType__ in expected:
+                    target_cls = getattr(self, "__self_type__", None)
+                    if target_cls is not None and isinstance(item, target_cls):
+                        is_present = True
+                if not is_present:
+                    expected_id = id(expected)
+                    keys_tuple = self.__keys_tuples__.get(expected_id)
+                    if keys_tuple is None:
+                        keys_tuple = tuple(
+                            k
+                            for k in expected.keys()
+                            if k != "__extra__"
+                            and k is not __SelfType__
+                            and isinstance(k, type)
+                        )
+                        self.__keys_tuples__[expected_id] = keys_tuple
+                    if bool(keys_tuple) and isinstance(item, keys_tuple):
+                        is_present = True
         else:
             obj_type = type(item)
+            is_present = False
             if __SelfType__ in expected:
                 target_cls = getattr(self, "__self_type__", None)
                 if target_cls is not None and isinstance(item, target_cls):
                     is_present = True
-                else:
-                    is_present = False
-            else:
+            if not is_present:
                 expected_id = id(expected)
                 keys_tuple = self.__keys_tuples__.get(expected_id)
                 if keys_tuple is None:
                     keys_tuple = tuple(
                         k
                         for k in expected.keys()
-                        if k != "__extra__" and isinstance(k, type)
+                        if k != "__extra__"
+                        and k is not __SelfType__
+                        and isinstance(k, type)
                     )
                     self.__keys_tuples__[expected_id] = keys_tuple
                 is_present = obj_type in expected or (
@@ -1141,10 +1152,12 @@ class FunctionMethodEnforcer(
             else:
                 return False
 
-        if extra is not None and "__typeddict__" in extra:
+        if (
+            extra is not None
+            and "__typeddict__" in extra
+            and isinstance(item, dict)
+        ):
             td_info = extra["__typeddict__"]
-            if not isinstance(item, dict):
-                return False
             req_keys = td_info["required"]
             fields = td_info["fields"]
             if req_keys - set(item.keys()):
@@ -1155,18 +1168,32 @@ class FunctionMethodEnforcer(
                 ):
                     return False
 
-        if obj_type in iterable_types:
-            subtype = expected.get(obj_type, None)
+        iterable_type = None
+        if not isinstance(item, type):
+            if obj_type in iterable_types:
+                iterable_type = obj_type
+            elif obj_type not in expected and isinstance(
+                item, (list, dict, tuple, set)
+            ):
+                for base_it in (list, dict, tuple, set):
+                    if isinstance(item, base_it):
+                        iterable_type = base_it
+                        break
+
+        if iterable_type is not None:
+            subtype = expected.get(iterable_type, None)
             if subtype is not None:
                 if isinstance(subtype, list):
                     if not any(
-                        self.__validate_collection_variant__(item, obj_type, v)
+                        self.__validate_collection_variant__(
+                            item, iterable_type, v
+                        )
                         for v in subtype
                     ):
                         return False
                 else:
                     if not self.__validate_collection_variant__(
-                        item, obj_type, subtype
+                        item, iterable_type, subtype
                     ):
                         return False
 
@@ -1357,22 +1384,42 @@ class FunctionMethodEnforcer(
             # An uninitialized class is passed, we need to check if the type is in the expected types using Type[obj]
             obj_type = Type[obj]
             is_present = obj_type in expected or type in expected
+            if not is_present:
+                if __SelfType__ in expected:
+                    target_cls = getattr(self, "__self_type__", None)
+                    if target_cls is not None and isinstance(obj, target_cls):
+                        is_present = True
+                if not is_present:
+                    expected_id = id(expected)
+                    keys_tuple = self.__keys_tuples__.get(expected_id)
+                    if keys_tuple is None:
+                        keys_tuple = tuple(
+                            k
+                            for k in expected.keys()
+                            if k != "__extra__"
+                            and k is not __SelfType__
+                            and isinstance(k, type)
+                        )
+                        self.__keys_tuples__[expected_id] = keys_tuple
+                    if bool(keys_tuple) and isinstance(obj, keys_tuple):
+                        is_present = True
         else:
             obj_type = type(obj)
+            is_present = False
             if __SelfType__ in expected:
                 target_cls = getattr(self, "__self_type__", None)
                 if target_cls is not None and isinstance(obj, target_cls):
                     is_present = True
-                else:
-                    is_present = False
-            else:
+            if not is_present:
                 expected_id = id(expected)
                 keys_tuple = self.__keys_tuples__.get(expected_id)
                 if keys_tuple is None:
                     keys_tuple = tuple(
                         k
                         for k in expected.keys()
-                        if k != "__extra__" and isinstance(k, type)
+                        if k != "__extra__"
+                        and k is not __SelfType__
+                        and isinstance(k, type)
                     )
                     self.__keys_tuples__[expected_id] = keys_tuple
                 is_present = obj_type in expected or (
@@ -1402,9 +1449,12 @@ class FunctionMethodEnforcer(
             literal = extra.get("__literal__", ()) if extra is not None else ()
             if __SelfType__ in expected:
                 target_cls = getattr(self, "__self_type__", None)
-                expected_keys = (
-                    [target_cls] if target_cls is not None else ["Self"]
-                )
+                self_repr = target_cls if target_cls is not None else "Self"
+                expected_keys = [
+                    self_repr if k is __SelfType__ else k
+                    for k in expected
+                    if k != "__extra__"
+                ]
             else:
                 expected_keys = [k for k in expected if k != "__extra__"]
             if literal:
@@ -1418,84 +1468,30 @@ class FunctionMethodEnforcer(
                     f"Type mismatch for typed variable `{key}`. Expected one of the following `{expected_keys}` but got `{obj_type}` with value `{obj}` instead."
                 )
         # If the object_type is in the expected types, we can proceed with validation
-        elif obj_type in iterable_types:
-            subtype = expected.get(obj_type, None)
-            if subtype is None:
-                pass
-            elif isinstance(subtype, list):
-                # Multi-variant collection union: obj must match at least one variant
-                if not any(
-                    self.__validate_collection_variant__(obj, obj_type, v)
-                    for v in subtype
+        else:
+            iterable_type = None
+            if not isinstance(obj, type):
+                if obj_type in iterable_types:
+                    iterable_type = obj_type
+                elif obj_type not in expected and isinstance(
+                    obj, (list, dict, tuple, set)
                 ):
-                    if isinstance(key, tuple):
-
-                        def flatten_key(k):
-                            if isinstance(k, tuple):
-                                return "".join(flatten_key(x) for x in k)
-                            return str(k)
-
-                        key = flatten_key(key)
-                    self.__exception__(
-                        f"Type mismatch for typed variable `{key}`. Value `{obj}` did not match any of the expected `{obj_type.__name__}` variants."
-                    )
-            # Recursive validation
-            elif obj_type == list:
-                if self.__iterable_sample_pct__ != 100:
-                    for idx in self.__get_sample_indices__(len(obj)):
-                        self.__check_type__(
-                            obj[idx], subtype, (key, "[", idx, "]")
+                    for base_it in (list, dict, tuple, set):
+                        if isinstance(obj, base_it):
+                            iterable_type = base_it
+                            break
+            if iterable_type is not None:
+                subtype = expected.get(iterable_type, None)
+                if subtype is None:
+                    pass
+                elif isinstance(subtype, list):
+                    # Multi-variant collection union: obj must match at least one variant
+                    if not any(
+                        self.__validate_collection_variant__(
+                            obj, iterable_type, v
                         )
-                # If the subtype does not contain iterables with typing, we can validate the items directly.
-                elif not self.__quick_check__(subtype, obj):
-                    for idx, item in enumerate(obj):
-                        self.__check_type__(item, subtype, (key, "[", idx, "]"))
-            elif obj_type == dict:
-                key_type, val_type = subtype
-                if self.__iterable_sample_pct__ != 100:
-                    sampled_keys = self.__get_sample_keys__(obj)
-                    if not isinstance(sampled_keys, list):
-                        sampled_keys = list(sampled_keys)
-                    if not self.__quick_check__(key_type, sampled_keys):
-                        for dk in sampled_keys:
-                            self.__check_type__(
-                                dk, key_type, (key, ".key[", repr(dk), "]")
-                            )
-                    if not self.__quick_check__(
-                        val_type, [obj[dk] for dk in sampled_keys]
+                        for v in subtype
                     ):
-                        for dk in sampled_keys:
-                            self.__check_type__(
-                                obj[dk], val_type, (key, "[", repr(dk), "]")
-                            )
-                else:
-                    if not self.__quick_check__(key_type, obj.keys()):
-                        for dk in obj.keys():
-                            self.__check_type__(
-                                dk, key_type, (key, ".key[", repr(dk), "]")
-                            )
-                    if not self.__quick_check__(val_type, obj.values()):
-                        for dk, value in obj.items():
-                            self.__check_type__(
-                                value, val_type, (key, "[", repr(dk), "]")
-                            )
-            elif obj_type == tuple:
-                expected_args, is_ellipsis = subtype
-                if is_ellipsis:
-                    if self.__iterable_sample_pct__ != 100:
-                        for idx in self.__get_sample_indices__(len(obj)):
-                            self.__check_type__(
-                                obj[idx],
-                                expected_args,
-                                (key, "[", idx, "]"),
-                            )
-                    elif not self.__quick_check__(expected_args, obj):
-                        for idx, item in enumerate(obj):
-                            self.__check_type__(
-                                item, expected_args, (key, "[", idx, "]")
-                            )
-                else:
-                    if len(obj) != len(expected_args):
                         if isinstance(key, tuple):
 
                             def flatten_key(k):
@@ -1505,54 +1501,135 @@ class FunctionMethodEnforcer(
 
                             key = flatten_key(key)
                         self.__exception__(
-                            f"Tuple length mismatch for `{key}`. Expected length {len(expected_args)}, got {len(obj)}"
+                            f"Type mismatch for typed variable `{key}`. Value `{obj}` did not match any of the expected `{iterable_type.__name__}` variants."
                         )
-                    for idx in range(len(expected_args)):
-                        self.__check_type__(
-                            obj[idx], expected_args[idx], (key, "[", idx, "]")
-                        )
-            elif obj_type == set:
-                if self.__iterable_sample_pct__ != 100:
-                    if self.__iterable_sample_pct__ in ("first", "last", 0):
-                        if len(obj) > 0:
-                            item = next(iter(obj))
+                # Recursive validation
+                elif iterable_type == list:
+                    if self.__iterable_sample_pct__ != 100:
+                        for idx in self.__get_sample_indices__(len(obj)):
                             self.__check_type__(
-                                item, subtype, (key, "[", repr(item), "]")
+                                obj[idx], subtype, (key, "[", idx, "]")
                             )
-                    elif self.__iterable_sample_pct__ == "bookend":
-                        for item in islice(obj, 2):
+                    # If the subtype does not contain iterables with typing, we can validate the items directly.
+                    elif not self.__quick_check__(subtype, obj):
+                        for idx, item in enumerate(obj):
                             self.__check_type__(
-                                item, subtype, (key, "[", repr(item), "]")
+                                item, subtype, (key, "[", idx, "]")
                             )
-                    elif self.__iterable_sample_pct__ == "bookend_plus":
-                        for item in islice(obj, 3):
-                            self.__check_type__(
-                                item, subtype, (key, "[", repr(item), "]")
-                            )
-                    elif self.__iterable_sample_pct__ == "log":
-                        count = max(1, (len(obj) - 1).bit_length())
-                        for item in islice(obj, count):
-                            self.__check_type__(
-                                item, subtype, (key, "[", repr(item), "]")
-                            )
+                elif iterable_type == dict:
+                    key_type, val_type = subtype
+                    if self.__iterable_sample_pct__ != 100:
+                        sampled_keys = self.__get_sample_keys__(obj)
+                        if not isinstance(sampled_keys, list):
+                            sampled_keys = list(sampled_keys)
+                        if not self.__quick_check__(key_type, sampled_keys):
+                            for dk in sampled_keys:
+                                self.__check_type__(
+                                    dk, key_type, (key, ".key[", repr(dk), "]")
+                                )
+                        if not self.__quick_check__(
+                            val_type, [obj[dk] for dk in sampled_keys]
+                        ):
+                            for dk in sampled_keys:
+                                self.__check_type__(
+                                    obj[dk],
+                                    val_type,
+                                    (key, "[", repr(dk), "]"),
+                                )
                     else:
-                        count = max(
-                            1,
-                            (len(obj) * self.__iterable_sample_pct__ + 99)
-                            // 100,
-                        )
-                        for item in islice(obj, count):
+                        if not self.__quick_check__(key_type, obj.keys()):
+                            for dk in obj.keys():
+                                self.__check_type__(
+                                    dk, key_type, (key, ".key[", repr(dk), "]")
+                                )
+                        if not self.__quick_check__(val_type, obj.values()):
+                            for dk, value in obj.items():
+                                self.__check_type__(
+                                    value, val_type, (key, "[", repr(dk), "]")
+                                )
+                elif iterable_type == tuple:
+                    expected_args, is_ellipsis = subtype
+                    if is_ellipsis:
+                        if self.__iterable_sample_pct__ != 100:
+                            for idx in self.__get_sample_indices__(len(obj)):
+                                self.__check_type__(
+                                    obj[idx],
+                                    expected_args,
+                                    (key, "[", idx, "]"),
+                                )
+                        elif not self.__quick_check__(expected_args, obj):
+                            for idx, item in enumerate(obj):
+                                self.__check_type__(
+                                    item, expected_args, (key, "[", idx, "]")
+                                )
+                    else:
+                        if len(obj) != len(expected_args):
+                            if isinstance(key, tuple):
+
+                                def flatten_key(k):
+                                    if isinstance(k, tuple):
+                                        return "".join(
+                                            flatten_key(x) for x in k
+                                        )
+                                    return str(k)
+
+                                key = flatten_key(key)
+                            self.__exception__(
+                                f"Tuple length mismatch for `{key}`. Expected length {len(expected_args)}, got {len(obj)}"
+                            )
+                        for idx in range(len(expected_args)):
+                            self.__check_type__(
+                                obj[idx],
+                                expected_args[idx],
+                                (key, "[", idx, "]"),
+                            )
+                elif iterable_type == set:
+                    if self.__iterable_sample_pct__ != 100:
+                        if self.__iterable_sample_pct__ in ("first", "last", 0):
+                            if len(obj) > 0:
+                                item = next(iter(obj))
+                                self.__check_type__(
+                                    item, subtype, (key, "[", repr(item), "]")
+                                )
+                        elif self.__iterable_sample_pct__ == "bookend":
+                            for item in islice(obj, 2):
+                                self.__check_type__(
+                                    item, subtype, (key, "[", repr(item), "]")
+                                )
+                        elif self.__iterable_sample_pct__ == "bookend_plus":
+                            for item in islice(obj, 3):
+                                self.__check_type__(
+                                    item, subtype, (key, "[", repr(item), "]")
+                                )
+                        elif self.__iterable_sample_pct__ == "log":
+                            count = max(1, (len(obj) - 1).bit_length())
+                            for item in islice(obj, count):
+                                self.__check_type__(
+                                    item, subtype, (key, "[", repr(item), "]")
+                                )
+                        else:
+                            count = max(
+                                1,
+                                (len(obj) * self.__iterable_sample_pct__ + 99)
+                                // 100,
+                            )
+                            for item in islice(obj, count):
+                                self.__check_type__(
+                                    item, subtype, (key, "[", repr(item), "]")
+                                )
+                    elif not self.__quick_check__(subtype, obj):
+                        for item in obj:
                             self.__check_type__(
                                 item, subtype, (key, "[", repr(item), "]")
                             )
-                elif not self.__quick_check__(subtype, obj):
-                    for item in obj:
-                        self.__check_type__(
-                            item, subtype, (key, "[", repr(item), "]")
-                        )
 
         # Validate TypedDict if present in extra
-        if extra is not None and "__typeddict__" in extra:
+        if (
+            is_present
+            and extra is not None
+            and "__typeddict__" in extra
+            and isinstance(obj, dict)
+        ):
             td_info = extra["__typeddict__"]
             req_keys = td_info["required"]
             fields = td_info["fields"]

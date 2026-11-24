@@ -36,6 +36,12 @@ nanobind_add_module(cpp
     type_enforced/cpp/src/validators.cpp
 )
 
+if(MSVC)
+    target_compile_options(cpp PRIVATE /O2)
+else()
+    target_compile_options(cpp PRIVATE -O3)
+endif()
+
 install(TARGETS cpp DESTINATION type_enforced)
 
 # -----------------------------
