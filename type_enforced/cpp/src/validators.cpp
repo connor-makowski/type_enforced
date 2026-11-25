@@ -1365,19 +1365,15 @@ static std::shared_ptr<TypeValidatorNode> build_single_mapping(PyObject* key, Py
 static inline bool is_callable_marker_type(PyObject* obj) noexcept {
     if (!obj || !PyType_Check(obj)) return false;
     PyTypeObject* t = (PyTypeObject*)obj;
-    if (t == &PyFunction_Type ||
-        t == &PyCFunction_Type ||
-        t == &PyMethod_Type ||
-        t == &PyGen_Type) {
-        return true;
-    }
     const char* name = t->tp_name;
-    if (name && (strcmp(name, "staticmethod") == 0 ||
-                 strcmp(name, "classmethod") == 0 ||
-                 strcmp(name, "FunctionMethodEnforcer") == 0)) {
-        return true;
-    }
-    return false;
+    if (!name) return false;
+    return strcmp(name, "function") == 0 ||
+           strcmp(name, "builtin_function_or_method") == 0 ||
+           strcmp(name, "method") == 0 ||
+           strcmp(name, "generator") == 0 ||
+           strcmp(name, "staticmethod") == 0 ||
+           strcmp(name, "classmethod") == 0 ||
+           strcmp(name, "FunctionMethodEnforcer") == 0;
 }
 
 static std::shared_ptr<TypeValidatorNode> build_typeddict_node(
